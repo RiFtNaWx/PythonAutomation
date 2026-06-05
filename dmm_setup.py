@@ -10,6 +10,8 @@ def measure_current(dmm):
     dmm.write("*RST")
     dmm.write(":SENS:FUNC 'CURR:DC'")
     dmm.write(":SENS:CURR:DC:RANG:AUTO ON")
+    dmm.write(":SENS:FUNC 'CURR:DC'")
+    dmm.write(":SENS:CURR:DC:RANG:AUTO ON")
 
     value = dmm.query(":READ?")
     return float(value)
