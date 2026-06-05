@@ -1,2 +1,2 @@
 @echo off
-call "C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\Github_Auto\git-push.bat"
+call "C:\Users\EugeneYong\OneDrive - JumpWin Tech\Downloads\PythonAutomation\Github_Auto\git-push.bat"
