@@ -10,3 +10,5 @@ Thumbs.db
 datalog_output/
 *.xlsx
 *.csv
+oscilloscope_screenshots
+Datalog
