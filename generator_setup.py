@@ -1,4 +1,32 @@
-# generator_setup.py
+"""Generator setup helpers.
+
+Author: William
+Version: 1.0
+
+Provides waveform and output control for the function generator.
+
+Available functions:
+- setup_square(gen, ch, freq, vpp, offset, duty=50)
+- stop_output(gen)
+- setup_sine(gen, ch, freq, vpp, offset, phase=0)
+- setup_triangle(gen, ch, freq, vpp, offset, phase=0)
+- setup_ramp(gen, ch, freq, vpp, offset, phase=0)
+- setup_pulse(gen, ch, freq, vpp, offset, phase=0, duty=50)
+- setup_noise(gen, ch, vpp, offset)
+- setup_dc(gen, ch, voltage)
+- apply_waveform(gen, ch, waveform, freq, vpp, offset, phase=0, duty=50)
+- set_frequency(gen, ch, freq)
+- set_amplitude(gen, ch, vpp)
+- set_offset(gen, ch, offset)
+- set_phase(gen, ch, phase)
+- set_duty_cycle(gen, ch, duty)
+- enable_output(gen, ch)
+- disable_output(gen, ch)
+- query_output_state(gen, ch)
+- query_frequency(gen, ch)
+- query_amplitude(gen, ch)
+- reset_generator(gen)
+"""
 
 import time
 
@@ -90,6 +118,24 @@ def setup_noise(gen, ch, vpp, offset):
     """
     gen.write(f":SOUR{ch}:APPL:NOIS {0},{vpp},{offset},0")  # Freq and phase not applicable for noise
     gen.write(f":OUTP{ch} ON")
+
+def setup_dc(gen, ch, voltage):
+    """
+    Setup a steady DC output on specified channel.
+
+    gen: Generator instrument handle
+    ch: Channel number (1-4)
+    voltage: DC voltage in volts
+    """
+    try:
+        gen.write(f":SOUR{ch}:APPL:DC")
+        gen.write(f":SOUR{ch}:VOLT:OFFS {voltage}")  # Set offset to voltage for pure DC
+        time.sleep(1)  # Short delay to ensure settings are applied
+        gen.write(f":OUTP{ch} ON")
+        return True
+    except Exception as e:
+        print(f"setup_dc failed for CH{ch}={voltage}: {e}")
+        return False
 
 def apply_waveform(gen, ch, waveform, freq, vpp, offset, phase=0, duty=50):
     """

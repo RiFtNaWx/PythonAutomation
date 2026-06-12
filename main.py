@@ -1,11 +1,28 @@
-# main.py
+"""Main test runner.
+
+Author: William
+Version: 1.0
+
+Coordinates instrument setup, test execution, and result logging.
+
+Imports available helper functions from:
+- instruments
+- logic_tests
+- configurations
+- datalog
+- dmm_setup
+- generator_setup
+- psu_setup
+- scope_setup
+"""
+
+from typing import Set
 
 from instruments import Instruments
-from logic_tests import *
-from opa_tests import *
+from logic_tests import test_supply_current, test_off_current, test_delta_supply_current
 #from config import *
 from configurations import *
-from datalog import save_results, DataLogger
+from datalog import save_results
 from dmm_setup import *
 from generator_setup import *
 from psu_setup import *
@@ -79,43 +96,49 @@ def test_generator_procedures(instr):
 
     print("Generator test completed.\n")
 
+def verify_current_measurement_procedure(instr, samples=10, delay=0.1):
+    """Verify DC current readings by clearing the DMM buffer and reading statistics."""
+    if not instr.dmm:
+        print("No DMM instrument available.")
+        return None
+
+    print("Verifying current measurement on DMM...")
+    stats = verify_current_measurement(instr.dmm, samples=samples, delay=0.1)
+    print(f"  Average current: {stats['average']:.6g} A")
+    print(f"  Max current: {stats['max']:.6g} A")
+    print(f"  Min current: {stats['min']:.6g} A")
+    return stats
+
+
 def main():
     print("Final Main:")
     print(f"Configured VCC values: {VCC_LIST}")
 
     instr = Instruments()
-    logger = DataLogger(test_name="OPA_GBW_SR_Test", user_id="user")
-    results = []
-    
     try:
         instr.reset_all()
 
         # Test generator procedures first
-        # test_generator_procedures(instr)
+       # test_generator_procedures(instr)
 
-        # Run OPA tests
-        print("\n=== Running OPA GBW and SR Tests ===")
-        for vcc in VCC_LIST:
-            print(f"\nRunning OPA tests at VCC={vcc}V")
-            # results.append(test_opa_gbw(instr, vcc, logger))
-            # results.append(test_opa_sr(instr, vcc, logger))
-            results.append(test_settlingTime(instr, vcc, logger))
-            # results.append(test_SSR(instr, vcc, logger))
-            # results.append(test_LSR(instr, vcc, logger))
-            # results.append(test_ORT(instr, vcc, logger))
-            # results.append(test_powerONtime(instr, vcc, logger))  
-            
-
+        # print("Running RS1G08 supply current sweep from 1.65V to 5.5V...")
+        # supply_results = test_supply_current(instr)
+        # save_results(supply_results, EXCEL_FILE, sheet_name='Supply_Current')
+        # print(f"Saved supply current sweep results to {EXCEL_FILE} sheet 'Supply_Current'.")
+        
+        print("Running delta supply current measurement...")
+        delta_results = test_delta_supply_current(instr, vcc=3.0)  
+        save_results(delta_results, EXCEL_FILE, sheet_name='Delta_Supply_Current')
+        print(f"Saved delta supply current results to {EXCEL_FILE} sheet 'Delta_Supply_Current'.")
+        # off_results = test_off_current(instr, vcc=0.0)
+        # save_results(off_results, EXCEL_FILE, sheet_name='Off_Current')
+        # print(f"Saved off-current results to {EXCEL_FILE} sheet 'Off_Current'.")
+        
     except Exception as e:
-        print(f"Error occurred during testing: {e}")
+        print(f"Serious fail occurred: {e}")
         raise
     finally:
         print("Cleaning up: turning off outputs before closing instruments...")
-        try:
-            logger.save_to_csv()
-        except Exception as e:
-            print(f"Warning: could not save datalog: {e}")
-        
         try:
             stop_output(instr.gen)
         except Exception as e:
@@ -127,9 +150,13 @@ def main():
             print(f"Warning: could not turn off PSU outputs: {e}")
 
         try:
-            instr.close_all()
+            disable_all_scope_channels(instr.scope)
         except Exception as e:
-            print(f"Warning: could not close instruments: {e}")
+            print(f"Warning: could not disable scope channels: {e}")
+
+        instr.close_all()
 
 if __name__ == "__main__":
     main()
+
+
