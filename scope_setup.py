@@ -1,4 +1,22 @@
-# scope_setup.py
+"""Scope setup helpers.
+
+Author: William
+Version: 1.0
+
+Provides oscilloscope configuration, measurement, and channel control helpers.
+
+Available functions:
+- measure_delay(scope, item, ch1, ch2)
+- measure_single(scope, item, ch)
+- scope_setup(scope, time_scale, trig_level)
+- set_threshold(scope, ch)
+- enable_scope_channel(scope, ch)
+- disable_scope_channel(scope, ch)
+- disable_all_scope_channels(scope, channels=(1, 2, 3, 4))
+- connect_scope(config=None, auto_disconnect=True)
+- screenshot()
+"""
+
 from pathlib import Path
 from dataclasses import dataclass, field
 from enum import Enum
@@ -34,8 +52,6 @@ def scope_setup(scope, time_scale, trig_level):
     scope.write(f"TIMebase:MAIN:SCAle {time_scale}")
     scope.write(":TRIGger:EDGE:SLOPe POSitive")
     scope.write(f":TRIGger:EDGE:LEVel {trig_level}")
-    time.sleep(1)
-    scope.write(":SYSTem:KEY:PRESs MOFF")
 
 def set_threshold(scope, ch):
     scope.write(f":MEASure:THR:SOURce CHAN{ch}")
@@ -43,6 +59,22 @@ def set_threshold(scope, ch):
     scope.write(":MEASure:SETup:MIN 20")
     scope.write(":MEASure:SETup:MID 50")
  
+
+def enable_scope_channel(scope, ch):
+    """Turn on the display for a scope channel."""
+    scope.write(f":CHAN{ch}:DISP ON")
+
+
+def disable_scope_channel(scope, ch):
+    """Turn off the display for a scope channel."""
+    scope.write(f":CHAN{ch}:DISP OFF")
+
+
+def disable_all_scope_channels(scope, channels=(1, 2, 3, 4)):
+    """Turn off display for all provided scope channels."""
+    for ch in channels:
+        disable_scope_channel(scope, ch)
+
 
 @contextmanager
 def connect_scope(
