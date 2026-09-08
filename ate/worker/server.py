@@ -9,6 +9,7 @@ import traceback
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, unquote, urlparse
 
 # Ensure repo root on path
 _REPO = Path(__file__).resolve().parents[2]
@@ -16,10 +17,10 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 from ate.core.paths import JSONRPC_HOST, JSONRPC_PORT
-from ate.core.registry import FAMILY_PACKAGES, active_family, all_tests
+from ate.core.registry import active_family, all_tests, family_labels, known_families, refresh_family_table
 from ate.core.runner import ATECore, RunParams
 
-WORKER_VERSION = "0.2.3"
+WORKER_VERSION = "0.2.17"
 
 
 class _State:
@@ -43,6 +44,8 @@ def _build_run_params(params: dict[str, Any]) -> RunParams:
     part = str(p.get("part") or ctx.part_key or "rs622")
     gain_profile = str(p.get("gain_profile") or "default")
     run_label = str(p.get("run_label") or "").strip()
+    raw_vccb = p.get("vccb")
+    vccb = float(raw_vccb) if raw_vccb not in (None, "") else None
     rp = RunParams(
         vcc=float(p.get("vcc", 5.0)),
         freq_hz=float(p.get("freq_hz", 500.0)),
@@ -63,6 +66,7 @@ def _build_run_params(params: dict[str, Any]) -> RunParams:
         run_label=run_label,
         gain_profile=gain_profile,
         current_limit_a=float(p.get("current_limit_a", 0.10)),
+        vccb=vccb,
     )
     ids_hint = list(p.get("test_ids") or [])
     if "gbw" in ids_hint:
@@ -126,9 +130,15 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
     if method == "get_family":
         return {
             "family": core.family or active_family() or "opamp",
-            "known": sorted(FAMILY_PACKAGES.keys()),
+            "known": known_families(),
+            "labels": family_labels(),
             "default": "opamp",
         }
+
+    if method == "list_owners":
+        from ate.core.database import load_owners
+
+        return {"owners": load_owners()}
 
     if method == "set_family":
         if core.busy:
@@ -140,6 +150,20 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
     if method == "list_tests":
         from ate.core.timeline import short_test_tag
 
+        specs = list(all_tests())
+        if core.family in ("logic", "lim", "switch"):
+            from ate.core.database import get_context
+            from ate.fixture.modes import enabled_tests_for_part
+
+            ctx = get_context()
+            default_pk = "rs2323" if core.family in ("lim", "switch") else "rs29511"
+            enabled = enabled_tests_for_part(
+                str(ctx.part_key or default_pk),
+                catalog=ctx.load_test_catalog(),
+            )
+            if enabled is not None:
+                allow = set(enabled)
+                specs = [t for t in specs if t.id in allow]
         return [
             {
                 "id": t.id,
@@ -152,15 +176,27 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
                 "fixed_steps": list(t.fixed_steps) if t.fixed_steps else [],
                 "dual_channel": bool(getattr(t, "dual_channel", True)),
             }
-            for t in all_tests()
+            for t in specs
         ]
 
     if method == "list_fixture_modes":
-        if core.family != "opamp":
-            return []
-        from ate.fixture.modes import catalog_for_ui
+        from ate.core.database import get_context
 
-        return catalog_for_ui(str(params.get("part") or "rs622"))
+        ctx = get_context()
+        part = str(params.get("part") or ctx.part_key or "rs622")
+        if core.family == "opamp":
+            from ate.fixture.modes import catalog_for_ui
+
+            return catalog_for_ui(part)
+        if core.family == "logic":
+            from ate.fixture.modes import logic_catalog_for_ui
+
+            return logic_catalog_for_ui(part if part != "rs622" else "rs29511")
+        if core.family in ("lim", "switch"):
+            from ate.fixture.modes import logic_catalog_for_ui
+
+            return logic_catalog_for_ui(part if part not in ("rs622", "") else "rs2323")
+        return []
 
     if method == "list_db_tree":
         from ate.core.database import list_tree
@@ -178,13 +214,14 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
         }
 
     if method == "set_db_context":
-        from ate.core.database import list_test_folders, set_context
+        from ate.core.database import family_for_component, list_test_folders, set_context
         from ate.core.paths import sync_defaults_from_context
 
         ctx = set_context(
             component=params.get("component"),
             part=params.get("part"),
             package=params.get("package"),
+            operator=params.get("operator"),
             version=params.get("version"),
             model=params.get("model"),
             part_key=params.get("part_key"),
@@ -192,11 +229,29 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
             sample_size=params.get("sample_size"),
         )
         sync_defaults_from_context()
-        return {
+        wanted = family_for_component(ctx.component)
+        family = core.family
+        family_error = ""
+        if wanted and wanted != family:
+            if core.busy:
+                family_error = "Runner busy — campaign saved; switch family after the run"
+            else:
+                try:
+                    family = core.load_family(wanted)
+                except ValueError as exc:
+                    family_error = str(exc)
+        elif not wanted:
+            family_error = "RUN-IC class has no ATE suite yet; folders saved, family left as-is"
+        out = {
             "context": ctx.identity(),
             "tests": list_test_folders(ctx),
             "created": ctx.ensure_tree(),
+            "family": family,
+            "test_count": len(all_tests()),
         }
+        if family_error:
+            out["family_error"] = family_error
+        return out
 
     if method == "db_how_to":
         from ate.core.database import how_to_use
@@ -229,6 +284,35 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
             dest_name=str(params.get("dest_name") or ""),
             pick=bool(params.get("pick")),
         )
+
+    if method == "import_family":
+        from ate.core.family_ingest import import_family
+
+        result = import_family(
+            source=str(params.get("source") or params.get("url") or params.get("source_url") or ""),
+            family=str(params.get("family") or params.get("family_key") or ""),
+            local_path=str(params.get("local_path") or params.get("path") or ""),
+        )
+        fam = str(result.get("family") or "").strip()
+        if fam and not core.busy:
+            try:
+                loaded = core.load_family(fam)
+                result["loaded_family"] = loaded
+                result["test_count"] = len(all_tests())
+            except Exception as exc:
+                result["load_error"] = str(exc)
+        elif fam and core.busy:
+            result["load_error"] = "Runner busy — family files written; switch family after the run"
+        return result
+
+    if method == "reload_families":
+        known = sorted(refresh_family_table())
+        return {
+            "ok": True,
+            "known": known,
+            "family": core.family or active_family() or "opamp",
+            "restart_hint": "If a new family is missing, run restart_ate_app.bat (ports 8766/5174; leave 8765).",
+        }
 
     if method == "discover":
         return core.discover()
@@ -279,7 +363,8 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
         from ate.core.param_defaults import catalog_for_ui
 
         part = str(params.get("part") or "rs622")
-        return catalog_for_ui(part)
+        family = str(params.get("family") or core.family or active_family() or "opamp")
+        return catalog_for_ui(part, family=family)
 
     if method == "run_sequence":
         ids = list(params.get("test_ids") or [])
@@ -352,6 +437,198 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
         core.emergency_cleanup()
         return {"ok": True}
 
+    if method == "layout_preview":
+        from ate.reporting.photo_layout import layout_preview
+
+        key = params.get("test_key")
+        return layout_preview(str(key) if key else None)
+
+    if method == "save_photo_layout":
+        from ate.reporting.photo_layout import save_photo_anchors
+
+        photos = params.get("photos") or {}
+        if not isinstance(photos, dict):
+            raise ValueError("photos must be a map of key -> Excel cell")
+        return save_photo_anchors(str(params.get("test_key") or ""), photos)
+
+    if method == "mapped_coverage":
+        from ate.core.check_mapped_tests import coverage_payload
+
+        return coverage_payload(core.mapping)
+
+    if method == "list_categories":
+        from ate.core.new_product import load_categories
+
+        return {"categories": load_categories(), "source": "https://en.run-ic.com/"}
+
+    if method == "list_inventory":
+        from ate.core.new_product import load_inventory
+
+        return {"parts": load_inventory()}
+
+    if method == "ensure_product":
+        from ate.core.new_product import ensure_product
+
+        result = ensure_product(
+            category_id=str(params.get("category") or params.get("category_id") or "opamp"),
+            part=str(params.get("part") or ""),
+            package=str(params.get("package") or "SOT23"),
+            model=str(params.get("model") or ""),
+            sample_size=int(params.get("sample_size") or 4),
+            operator=str(params.get("operator") or ""),
+            open_folder=bool(params.get("open_folder", True)),
+            apply=True,
+        )
+        fam = str(result.get("family") or "")
+        if fam and result.get("live") and not core.busy:
+            try:
+                loaded = core.load_family(fam)
+                result["loaded_family"] = loaded
+                result["test_count"] = len(all_tests())
+            except Exception as exc:
+                result["family_error"] = str(exc)
+        return result
+
+    if method == "run_demo":
+        if core.busy:
+            raise RuntimeError("Runner busy — wait for run to finish")
+        from ate.core.new_product import run_demo
+
+        ids = list(params.get("test_ids") or [])
+        p = params.get("params") or {}
+        return run_demo(ids, p)
+
+    if method == "list_detected_tests":
+        from ate.core.test_detect import list_detected_tests
+
+        fam = str(params.get("family") or core.family or "").strip() or None
+        return list_detected_tests(family=fam)
+
+    if method == "wrap_detected_test":
+        if core.busy:
+            raise RuntimeError("Runner busy — wait for run to finish")
+        from ate.core.test_detect import wrap_detected_test
+
+        fam = str(params.get("family") or core.family or "logic").strip()
+        result = wrap_detected_test(
+            file=str(params.get("file") or ""),
+            fn=str(params.get("fn") or ""),
+            test_id=str(params.get("test_id") or params.get("id") or ""),
+            family=fam,
+            enable_part=str(params.get("enable_part") or params.get("part") or ""),
+            lab_sheet=str(params.get("lab_sheet") or ""),
+        )
+        if result.get("family") and not core.busy:
+            try:
+                core.load_family(str(result["family"]))
+                result["loaded_family"] = core.family
+                result["test_count"] = len(all_tests())
+            except Exception as exc:
+                result["family_error"] = str(exc)
+        return result
+
+    if method == "enable_tests_on_part":
+        from ate.core.test_detect import copy_enabled_tests, enable_tests_on_part
+
+        src = str(params.get("source_part") or "").strip()
+        dest = str(params.get("dest_part") or params.get("part") or "").strip()
+        ids = list(params.get("test_ids") or [])
+        if src and dest and not ids:
+            return copy_enabled_tests(source_part=src, dest_part=dest)
+        return enable_tests_on_part(
+            dest_part=dest,
+            test_ids=ids,
+            family=str(params.get("family") or core.family or ""),
+            source_part=src,
+        )
+
+    if method == "ensure_version":
+        from ate.core.new_product import ensure_version
+
+        return ensure_version(
+            component=str(params.get("component") or ""),
+            part=str(params.get("part") or ""),
+            package=str(params.get("package") or ""),
+            operator=str(params.get("operator") or ""),
+            version=str(params.get("version") or ""),
+            sample_size=int(params.get("sample_size") or 4),
+            copy_from_version=str(params.get("copy_from_version") or ""),
+            open_folder=bool(params.get("open_folder", False)),
+            apply=bool(params.get("apply", True)),
+        )
+
+    if method == "new_run_session":
+        from ate.core.new_product import new_run_session
+
+        return new_run_session(
+            run_label=str(params.get("run_label") or params.get("label") or ""),
+            params=params.get("params") if isinstance(params.get("params"), dict) else None,
+        )
+
+    if method == "list_tags":
+        from ate.core.tags import list_tags_rpc
+
+        return list_tags_rpc()
+
+    if method == "save_tags":
+        from ate.core.tags import save_tags
+
+        tags = params.get("tags") if isinstance(params.get("tags"), list) else None
+        boards = params.get("boards") if isinstance(params.get("boards"), list) else None
+        return save_tags(tags, boards)
+
+    if method == "import_tags":
+        from ate.core.tags import import_tags
+
+        src = str(params.get("from_root") or params.get("source") or "").strip()
+        if not src:
+            raise ValueError("from_root required")
+        return import_tags(src, merge=bool(params.get("merge", True)))
+
+    if method == "list_boards":
+        from ate.core.tags import list_boards
+
+        return {
+            "boards": list_boards(
+                family=str(params.get("family") or ""),
+                package=str(params.get("package") or ""),
+            )
+        }
+
+    if method == "filter_campaigns_by_tag":
+        from ate.core.tags import filter_campaigns_by_tag
+
+        tag = str(params.get("tag") or "").strip()
+        if not tag:
+            raise ValueError("tag required")
+        return {
+            "campaigns": filter_campaigns_by_tag(
+                tag, component=str(params.get("component") or "")
+            )
+        }
+
+    if method == "get_session_report":
+        from ate.core.datalog import load_report
+
+        return load_report()
+
+    if method == "paste_session_photos":
+        from ate.reporting.session_paste import paste_session_photos
+
+        return paste_session_photos()
+
+    if method == "apply_golden_workbook":
+        from ate.reporting.golden_workbook import apply_golden_workbook
+
+        path = str(params.get("path") or "").strip() or None
+        return apply_golden_workbook(path)
+
+    if method == "check_golden_workbook":
+        from ate.reporting.golden_workbook import check_golden_workbook
+
+        path = str(params.get("path") or "").strip() or None
+        return check_golden_workbook(path, fix=bool(params.get("fix", False)))
+
     raise ValueError(f"Unknown method: {method}")
 
 
@@ -370,11 +647,53 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_HEAD(self) -> None:
+        if self._try_serve_shot(body=False):
+            return
         self._reply_browser_probe(body=False)
 
     def do_GET(self) -> None:
-        """Health/probe for browsers. RPC remains POST JSON-RPC."""
+        """Health/probe for browsers. /shot serves campaign graphs. RPC remains POST."""
+        if self._try_serve_shot(body=True):
+            return
         self._reply_browser_probe(body=True)
+
+    def _try_serve_shot(self, *, body: bool) -> bool:
+        parsed = urlparse(self.path)
+        if parsed.path.rstrip("/") != "/shot":
+            return False
+        qs = parse_qs(parsed.query)
+        rel = unquote((qs.get("rel") or [""])[0] or "")
+        from ate.reporting.photo_layout import resolve_shot_file
+
+        try:
+            path = resolve_shot_file(rel)
+        except PermissionError:
+            self.send_response(403)
+            self._cors()
+            self.end_headers()
+            return True
+        except FileNotFoundError:
+            self.send_response(404)
+            self._cors()
+            self.end_headers()
+            return True
+        mime = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+        }.get(path.suffix.lower(), "application/octet-stream")
+        data = path.read_bytes() if body else b""
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(path.stat().st_size if not body else len(data)))
+        self.send_header("Cache-Control", "private, max-age=5")
+        self._cors()
+        self.end_headers()
+        if body:
+            self.wfile.write(data)
+        return True
 
     def _reply_browser_probe(self, *, body: bool) -> None:
         accept = (self.headers.get("Accept") or "").lower()

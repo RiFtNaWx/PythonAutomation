@@ -1,0 +1,36 @@
+# PCB / fixture board revisions by family + package.
+# Tags page multi-selects from these; free-text tags still allowed.
+# Not the same as fixture gain modes (BUFFER/G11) in ate/fixture/modes.py.
+
+families:
+  opamp:
+    TTSOP8:
+      - G11-REV2
+      - G11-REV3
+      - BUFFER-REV1
+      - G_NEG100-REV1
+      - VOS-G201-REV1
+    DIP8:
+      - BUFFER-DIP-REV1
+      - G11-DIP-REV1
+    default:
+      - G11-REV3
+      - BUFFER-REV1
+  logic:
+    SOT23:
+      - LOGIC-SOT23-REV1
+      - LOGIC-SOT23-REV2
+    SOIC:
+      - LOGIC-SOIC-REV1
+    TSSOP14:
+      - LOGIC-TSSOP14-REV1
+    default:
+      - LOGIC-GENERIC-REV1
+  switch:
+    MSOP:
+      - SWITCH-MSOP-REV1
+    default:
+      - SWITCH-GENERIC-REV1
+  level:
+    default:
+      - LEVEL-GENERIC-REV1

@@ -1,4 +1,4 @@
-"""Test Database tree — component / part / package / version orchestration.
+"""Test Database tree — component / part / package / operator / version.
 
 Canonical layout (images + waveforms + manifests; Excel linked by sheet_map):
 
@@ -6,16 +6,17 @@ Canonical layout (images + waveforms + manifests; Excel linked by sheet_map):
     {Component}/          e.g. OpAmp
       {Part}/             e.g. RS622
         {Package}/        e.g. TTSOP8
-          {Version_N}/    e.g. Version_1  (campaign — not calendar year)
-            _manifest/
-              sheet_map.yaml      # folder ↔ Excel sheet ↔ paste anchors
-              test_catalog.yaml
-            workbook/             # lab report (editable; Excel MCP target)
-            sessions/             # per-run JSON manifests
-            {TestKey}/            # ORT, VOS, SlewRate, …
-              DUT_{1..N}/
-                screenshots/
-                graphs/
+          {Operator}/     e.g. Eugene (person folder; not "All")
+            {Version_N}/  e.g. Version_1  (campaign — not calendar year)
+              _manifest/
+                sheet_map.yaml      # folder <-> Excel sheet <-> paste anchors
+                test_catalog.yaml
+              workbook/             # lab report (editable; Excel MCP target)
+              sessions/             # per-run JSON manifests
+              {TestKey}/            # ORT, VOS, SlewRate, …
+                DUT_{1..N}/
+                  screenshots/
+                  graphs/
 
 Fixture / gain "config" is NOT a path segment — it lives in sheet_map +
 ate/fixture/modes.py and drives operator prompts between batches.
@@ -39,6 +40,47 @@ from ate.core.paths import CONFIG_DIR, PARTS_DIR, TEST_DB_ROOT
 MYT = timezone(timedelta(hours=8))
 
 _VERSION_RE = re.compile(r"^Version_(\d+)$", re.IGNORECASE)
+UNASSIGNED_OPERATOR = "_unassigned"
+WRITE_BLOCKED_OPERATORS = frozenset({"", "all", "All", "ALL"})
+
+
+def is_version_name(name: str) -> bool:
+    n = str(name or "")
+    return bool(_VERSION_RE.match(n) or n.lower().startswith("version"))
+
+
+def is_campaign_dir(path: Path) -> bool:
+    """True if path looks like a Version campaign root."""
+    if not path.is_dir():
+        return False
+    if is_version_name(path.name):
+        return True
+    return (path / "_manifest").is_dir() or (path / "workbook").is_dir()
+
+
+def operator_folder_label(owner_id_or_label: str | None) -> str:
+    """Map owners.yaml id/label to a filesystem folder name. Never returns All."""
+    raw = str(owner_id_or_label or "").strip()
+    if not raw or raw.lower() == "all":
+        raise ValueError("Operator=All is view-only; pick a person before writing campaigns")
+    for row in load_owners():
+        oid = str(row.get("id") or "")
+        label = str(row.get("label") or oid)
+        if oid.lower() == raw.lower() or label.lower() == raw.lower():
+            if oid.lower() == "all":
+                raise ValueError("Operator=All is view-only; pick a person before writing campaigns")
+            return label
+    if raw.startswith("_"):
+        return raw
+    return UNASSIGNED_OPERATOR
+
+
+def require_write_operator(operator: str | None) -> str:
+    """Normalize operator folder for writes; reject All / empty."""
+    raw = str(operator or "").strip()
+    if raw in WRITE_BLOCKED_OPERATORS or raw.lower() == "all":
+        raise ValueError("Operator=All is view-only; pick a person before writing campaigns")
+    return operator_folder_label(raw)
 
 
 @dataclass
@@ -48,6 +90,7 @@ class DbContext:
     component: str = "OpAmp"
     part: str = "RS622"
     package: str = "TTSOP8"
+    operator: str = "Eugene"  # person folder under Package/
     version: str = "Version_1"
     model: str = "RS622XK"  # marketing / datasheet model name
     sample_size: int = 4
@@ -56,7 +99,8 @@ class DbContext:
     notes: str = ""
 
     def root(self) -> Path:
-        return TEST_DB_ROOT / self.component / self.part / self.package / self.version
+        op = str(self.operator or UNASSIGNED_OPERATOR).strip() or UNASSIGNED_OPERATOR
+        return TEST_DB_ROOT / self.component / self.part / self.package / op / self.version
 
     def manifest_dir(self) -> Path:
         return self.root() / "_manifest"
@@ -108,15 +152,28 @@ class DbContext:
         return str(self.screenshot_dir(test_key, dut_index))
 
     def identity(self) -> dict[str, Any]:
+        tags: list[str] = []
+        boards: list[str] = []
+        try:
+            from ate.core.tags import load_tags
+
+            t = load_tags(self)
+            tags = list(t.get("tags") or [])
+            boards = list(t.get("boards") or [])
+        except Exception:
+            pass
         return {
             "component": self.component,
             "part": self.part,
             "package": self.package,
+            "operator": self.operator,
             "version": self.version,
             "model": self.model,
             "sample_size": self.sample_size,
             "part_key": self.part_key,
             "year": self.year,
+            "tags": tags,
+            "boards": boards,
             "root": str(self.root()),
             "lab_report": str(self.lab_report_path()),
             "sheet_map": str(self.sheet_map_path()),
@@ -243,28 +300,37 @@ def default_context() -> DbContext:
     bench = _read_bench_defaults()
     part_key = str(bench.get("default_part") or "rs622")
     model, package, sample = _model_from_part_yaml(part_key)
+    year = str(bench.get("year") or datetime.now(MYT).year)
 
     # Prefer parsing test_database path from bench.yaml
     td = bench.get("test_database")
     if td:
         p = Path(str(td))
-        # …/#Test_Database/OpAmp/RS622/TTSOP8/Version_1
+        # New: …/#Test_Database/OpAmp/RS622/TTSOP8/Eugene/Version_1
+        # Legacy: …/#Test_Database/OpAmp/RS622/TTSOP8/Version_1
         try:
             parts = p.parts
             idx = next(i for i, x in enumerate(parts) if x == "#Test_Database" or x == "Test_Database")
             component = parts[idx + 1]
             part = parts[idx + 2]
             package = parts[idx + 3]
-            version = parts[idx + 4]
+            seg4 = parts[idx + 4]
+            if is_version_name(seg4):
+                operator = UNASSIGNED_OPERATOR
+                version = seg4
+            else:
+                operator = seg4
+                version = parts[idx + 5]
             return DbContext(
                 component=component,
                 part=part,
                 package=package,
+                operator=operator,
                 version=version,
                 model=model,
                 sample_size=sample,
                 part_key=part_key,
-                year=str(bench.get("year") or datetime.now(MYT).year),
+                year=year,
             )
         except (StopIteration, IndexError):
             pass
@@ -273,12 +339,74 @@ def default_context() -> DbContext:
         component="OpAmp",
         part="RS622",
         package=package,
+        operator="Eugene",
         version="Version_1",
         model=model,
         sample_size=sample,
         part_key=part_key,
-        year=str(datetime.now(MYT).year),
+        year=year,
     )
+
+
+def family_for_component(component: str) -> str:
+    """Map #Test_Database component folder to ATE family key (product class)."""
+    c = (component or "").strip().lower().replace(" ", "").replace("_", "")
+    if c in ("logic", "logictranslator", "logicseries", "levelshifters", "levelshifter"):
+        return "logic"
+    if c in ("level",):
+        return "level"
+    if c in (
+        "opamp",
+        "operationalamplifier",
+        "lownoiseopamp",
+        "generalopamp",
+        "precisionopamp",
+    ):
+        return "opamp"
+    if c in ("switch", "analogswitch", "analogsw"):
+        return "switch"
+    if c in ("lim",):
+        return "switch"
+    try:
+        from ate.core.new_product import load_categories
+
+        for row in load_categories():
+            comp = str(row.get("component") or "").strip().lower().replace(" ", "").replace("_", "")
+            if comp != c:
+                continue
+            fam = str(row.get("family") or "").strip()
+            if row.get("live") and fam:
+                return fam
+            return ""
+    except Exception:
+        pass
+    try:
+        from ate.core.registry import FAMILY_ALIASES, known_families
+
+        if c in FAMILY_ALIASES:
+            return FAMILY_ALIASES[c]
+        for fam in known_families():
+            key = str(fam).lower().replace(" ", "").replace("_", "")
+            if key == c:
+                return FAMILY_ALIASES.get(fam, fam)
+    except Exception:
+        pass
+    return "opamp"
+
+
+def load_owners() -> list[dict[str, Any]]:
+    path = CONFIG_DIR / "owners.yaml"
+    if not path.is_file():
+        return []
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    rows = data.get("owners") if isinstance(data, dict) else None
+    if not isinstance(rows, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if isinstance(row, dict) and row.get("id"):
+            out.append(row)
+    return out
 
 
 def get_context() -> DbContext:
@@ -294,6 +422,7 @@ def set_context(
     component: Optional[str] = None,
     part: Optional[str] = None,
     package: Optional[str] = None,
+    operator: Optional[str] = None,
     version: Optional[str] = None,
     model: Optional[str] = None,
     part_key: Optional[str] = None,
@@ -303,15 +432,32 @@ def set_context(
     global _active
     with _lock:
         cur = _active or default_context()
-        pk = part_key or cur.part_key
+        next_part = part or cur.part
+        # Derive part_key from part name when yaml exists (rs29511 / rs1g08 / rs622)
+        if part_key:
+            pk = part_key
+        else:
+            candidate = str(next_part or "").strip().lower()
+            if candidate and (PARTS_DIR / f"{candidate}.yaml").is_file():
+                pk = candidate
+            else:
+                pk = cur.part_key
         m, pkg, sample = _model_from_part_yaml(pk)
+        next_op = operator if operator is not None else cur.operator
+        next_op = require_write_operator(next_op)
         ctx = DbContext(
             component=component or cur.component,
-            part=part or cur.part,
-            package=package or cur.package or pkg,
+            part=next_part,
+            package=package or (pkg if pk != cur.part_key else cur.package) or pkg,
+            operator=next_op,
             version=version or cur.version,
-            model=model or cur.model or m,
-            sample_size=int(sample_size or cur.sample_size or sample),
+            # Prefer part-yaml model when switching parts (do not keep RS622XK on Logic)
+            model=model or m or cur.model,
+            sample_size=int(
+                sample_size
+                if sample_size is not None
+                else (sample if pk != cur.part_key else cur.sample_size or sample)
+            ),
             part_key=pk,
             year=year if year is not None else cur.year,
         )
@@ -321,6 +467,8 @@ def set_context(
             ctx.component = str(sm.get("component") or ctx.component)
             ctx.part = str(sm.get("part") or ctx.part)
             ctx.package = str(sm.get("package") or ctx.package)
+            if sm.get("operator"):
+                ctx.operator = require_write_operator(str(sm.get("operator")))
             ctx.version = str(sm.get("version") or ctx.version)
             if sm.get("sample_size"):
                 ctx.sample_size = int(sm["sample_size"])
@@ -330,7 +478,7 @@ def set_context(
 
 
 def list_tree(root: Optional[Path] = None) -> dict[str, Any]:
-    """Scan #Test_Database into nested component → part → package → versions."""
+    """Scan #Test_Database into component → part → package → operator → versions."""
     base = Path(root) if root else TEST_DB_ROOT
     tree: dict[str, Any] = {"root": str(base), "components": {}}
     if not base.is_dir():
@@ -340,16 +488,61 @@ def list_tree(root: Optional[Path] = None) -> dict[str, Any]:
         for part in sorted(p for p in comp.iterdir() if p.is_dir()):
             packages: dict[str, Any] = {}
             for pkg in sorted(p for p in part.iterdir() if p.is_dir()):
-                versions: list[str] = []
-                for ver in sorted(p for p in pkg.iterdir() if p.is_dir()):
-                    if _VERSION_RE.match(ver.name) or ver.name.lower().startswith("version"):
-                        versions.append(ver.name)
-                    elif (ver / "_manifest").is_dir() or (ver / "workbook").is_dir():
-                        versions.append(ver.name)
-                packages[pkg.name] = {"versions": versions}
+                operators: dict[str, Any] = {}
+                for child in sorted(p for p in pkg.iterdir() if p.is_dir()):
+                    # Legacy: Package/Version_N
+                    if is_campaign_dir(child) and is_version_name(child.name):
+                        op_key = UNASSIGNED_OPERATOR
+                        ops = operators.setdefault(op_key, {"versions": []})
+                        if child.name not in ops["versions"]:
+                            ops["versions"].append(child.name)
+                        continue
+                    # New: Package/Operator/Version_N
+                    versions: list[str] = []
+                    for ver in sorted(p for p in child.iterdir() if p.is_dir()):
+                        if is_campaign_dir(ver):
+                            versions.append(ver.name)
+                    if versions or is_campaign_dir(child):
+                        operators[child.name] = {"versions": versions}
+                packages[pkg.name] = {"operators": operators}
             parts[part.name] = {"packages": packages}
         tree["components"][comp.name] = {"parts": parts}
     return tree
+
+
+def find_campaign_root(
+    component: str,
+    part: str,
+    package: str,
+    version: str = "Version_1",
+    *,
+    operator: Optional[str] = None,
+    base: Optional[Path] = None,
+) -> Optional[Path]:
+    """Prefer Package/Operator/Version; fall back to legacy Package/Version."""
+    root = Path(base) if base else TEST_DB_ROOT
+    pkg = root / component / part / package
+    if operator:
+        try:
+            op = require_write_operator(operator)
+        except ValueError:
+            op = str(operator)
+        cand = pkg / op / version
+        if cand.is_dir():
+            return cand
+    # Any operator folder that owns this version
+    if pkg.is_dir():
+        for child in sorted(pkg.iterdir()):
+            if not child.is_dir() or is_version_name(child.name):
+                continue
+            cand = child / version
+            if cand.is_dir():
+                return cand
+        legacy = pkg / version
+        if legacy.is_dir():
+            return legacy
+    return None
+
 
 
 def list_test_folders(ctx: Optional[DbContext] = None) -> list[dict[str, Any]]:
@@ -413,6 +606,12 @@ def begin_session(
     with _lock:
         _current_session = session
     _write_session(session)
+    try:
+        from ate.core.datalog import sync_report_from_session
+
+        sync_report_from_session(session.to_dict())
+    except Exception:
+        pass
     return session
 
 
@@ -424,25 +623,36 @@ def record_step(
     error: str = "",
     fixture_mode: str = "",
     artifacts: Optional[list[dict[str, Any]]] = None,
+    measurements: Optional[list[dict[str, Any]]] = None,
+    dut: int | None = None,
 ) -> None:
     with _lock:
         session = _current_session
         if session is None:
             return
-        session.steps.append(
-            {
-                "test_id": test_id,
-                "success": success,
-                "summary": summary,
-                "error": error,
-                "fixture_mode": fixture_mode,
-                "at": datetime.now(MYT).isoformat(timespec="seconds"),
-            }
-        )
+        row: dict[str, Any] = {
+            "test_id": test_id,
+            "success": success,
+            "summary": summary,
+            "error": error,
+            "fixture_mode": fixture_mode,
+            "at": datetime.now(MYT).isoformat(timespec="seconds"),
+        }
+        if dut is not None:
+            row["dut"] = int(dut)
+        if measurements:
+            row["measurements"] = list(measurements)
+        session.steps.append(row)
         if artifacts:
             session.artifacts.extend(artifacts)
         snap = session
     _write_session(snap)
+    try:
+        from ate.core.datalog import sync_report_from_session
+
+        sync_report_from_session(snap.to_dict())
+    except Exception:
+        pass
 
 
 def end_session(status: str = "completed") -> Optional[Path]:
@@ -455,7 +665,27 @@ def end_session(status: str = "completed") -> Optional[Path]:
         session.status = status
         _current_session = None
         snap = session
-    return _write_session(snap)
+    path = _write_session(snap)
+    try:
+        from ate.core.datalog import archive_report, sync_report_from_session
+
+        sync_report_from_session(snap.to_dict())
+        archive_report(snap.to_dict())
+    except Exception:
+        pass
+    try:
+        from ate.reporting.session_paste import paste_session_photos
+
+        paste_session_photos(snap.to_dict())
+    except Exception:
+        pass
+    try:
+        from ate.reporting.golden_workbook import check_golden_workbook
+
+        check_golden_workbook(fix=False)
+    except Exception:
+        pass
+    return path
 
 
 def current_session() -> Optional[dict[str, Any]]:
@@ -478,14 +708,15 @@ def how_to_use() -> dict[str, Any]:
     return {
         "heading": "ATE <-> #Test_Database orchestration",
         "tree": (
-            f"{ctx.component} / {ctx.part} / {ctx.package} / {ctx.version} "
+            f"{ctx.component} / {ctx.part} / {ctx.package} / {ctx.operator} / {ctx.version} "
             f"(model {ctx.model}, sample_size={ctx.sample_size})"
         ),
         "root": str(ctx.root()),
         "axes": {
-            "component": "Family under #Test_Database (OpAmp, …)",
+            "component": "Family under #Test_Database (OpAmp, Logic, AnalogSwitch, …)",
             "part": "Device under test folder name (RS622)",
             "package": "Package variant (TTSOP8)",
+            "operator": "Person folder (Eugene / Ariff / …). All is view-only.",
             "version": "Characterization campaign Version_N (not calendar year)",
             "year": "Optional metadata on the run session only",
             "config": "Fixture / gain mode (BUFFER, G11, G_NEG100 general; G201/G1001 = VOS research only)",

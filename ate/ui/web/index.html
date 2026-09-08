@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ATE Control — OPA Bench</title>
+  <title>ATE Control</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20260822a" />
+  <link rel="stylesheet" href="styles.css?v=20260908f24" />
 </head>
 <body>
   <div class="bg"></div>
@@ -16,6 +16,7 @@
       <p class="family-rail-label">Family</p>
       <button type="button" class="family-btn active" data-family="opamp">OpAmp</button>
       <button type="button" class="family-btn" data-family="logic">Logic</button>
+      <button type="button" class="family-btn" data-family="switch" title="Analog switch (RS2323 / RS2227)">Analog SW</button>
       <button type="button" class="family-btn family-stub" data-family="level" title="Stub slot — no Level suite yet">Level</button>
     </aside>
     <div class="app">
@@ -36,10 +37,15 @@
         </button>
       </div>
       <div class="header-actions">
+        <label class="owner-login" title="Operator defaults their products. Other families stay.">
+          <span>Operator</span>
+          <select id="owner-select"></select>
+        </label>
         <div class="status-tiles" id="tiles">
           <span class="tile" data-k="MSO">MSO</span>
           <span class="tile" data-k="PSU">PSU</span>
           <span class="tile" data-k="AWG">AWG</span>
+          <span class="tile" data-k="DMM">DMM</span>
         </div>
         <span id="header-bin" class="run-pill ready">READY</span>
         <button type="button" id="btn-stop" class="btn danger btn-compact">STOP</button>
@@ -51,6 +57,7 @@
       <button class="tab active" data-page="setup">Setup</button>
       <button class="tab" data-page="run">Run</button>
       <button class="tab" data-page="results">Results</button>
+      <button class="tab" data-page="tags">Tags</button>
     </nav>
 
     <main>
@@ -58,7 +65,7 @@
         <div class="grid">
           <div class="glass panel wide">
             <h2>Test Database</h2>
-            <p class="hint">Component → Part → Package → Version_N. Config/gain is a board mode, not a folder. Year is run metadata only.</p>
+            <p class="hint">Component → Part → Package → Operator → Version_N. Top-right Operator jumps to that person's campaign. All is view-only (no writes). Config/gain is a board mode, not a folder.</p>
             <div class="db-grid">
               <label>Component
                 <select id="db-component"></select>
@@ -69,16 +76,27 @@
               <label>Package
                 <select id="db-package"></select>
               </label>
+              <label>Operator folder
+                <select id="db-operator"></select>
+              </label>
               <label>Version
                 <select id="db-version"></select>
               </label>
+              <div class="row" style="align-items:flex-end; gap:6px">
+                <button type="button" id="btn-add-version" class="btn ghost" title="Create next Version_N">+ Version</button>
+              </div>
               <label>Model name
                 <input id="db-model" type="text" readonly />
               </label>
+              <div class="model-tags-wrap" aria-label="Campaign tags">
+                <span class="hint" style="margin:0">Tags</span>
+                <div id="db-tag-chips" class="tag-chips"></div>
+              </div>
               <label>Year (meta)
                 <input id="db-year" type="text" placeholder="2026" />
               </label>
             </div>
+            <p class="hint" id="psu-safety-hint">PSU safety: OVP/OCP always ON (defaults Vset+0.3 V, Iset+0.1 A). Not instrument max. SAFE IDLE turns AWG then PSU off before Continue waits.</p>
             <div class="row" style="margin-top:10px">
               <button id="btn-apply-db" class="btn accent">Apply campaign</button>
               <button id="btn-open-db" class="btn ghost">Open DB folder</button>
@@ -91,8 +109,59 @@
               <button id="btn-import-xlsx" class="btn ghost">Import xlsx into campaign</button>
             </div>
             <p class="hint">Import copies the file into this campaign workbook/ and stubs sheet_map.yaml from sheet names if missing (FILL_ME paste cells). A filled sheet_map is left intact. Blank path opens a file picker.</p>
+            <div class="row" style="margin-top:10px; align-items:flex-end">
+              <label style="flex:2 1 280px">GitHub family URL or local folder
+                <input id="db-family-source" type="text" placeholder="https://github.com/org/ate-family or C:\path\to\family" />
+              </label>
+              <label style="flex:1 1 140px">Family key (optional)
+                <input id="db-family-key" type="text" placeholder="analog" />
+              </label>
+              <button id="btn-import-family" class="btn ghost">Import family</button>
+            </div>
+            <p class="hint">Drops Python test modules into ate/tests/&lt;family&gt;/ and records extra_families.yaml. Refuses opamp/logic/level overwrite. Random repos fail closed (see ATE_PLUGIN.md). If the rail stays stale, restart_ate_app.bat.</p>
+            <h3 class="subhead">New product under test</h3>
+            <p class="hint">RUN-IC class from en.run-ic.com. Type a part we are testing -- folders + stub yaml are created and the campaign folder opens. Website catalog SKUs (RS724-Q1 …) stay off until we test them.</p>
+            <div class="db-grid">
+              <label>Tracking sheet
+                <select id="inv-select"><option value="">-- pick a row --</option></select>
+              </label>
+              <label>RUN-IC class
+                <select id="np-category"></select>
+              </label>
+              <label>Part number
+                <input id="np-part" type="text" placeholder="RS1GT34" />
+              </label>
+              <label>Package
+                <input id="np-package" type="text" placeholder="SOT23" />
+              </label>
+              <label>Model / orderable
+                <input id="np-model" type="text" placeholder="RS1GT34XC5" />
+              </label>
+              <label>Sample size
+                <input id="np-sample" type="number" step="1" value="4" />
+              </label>
+            </div>
+            <div class="row" style="margin-top:10px">
+              <button type="button" id="btn-new-product" class="btn accent">Create folders + open</button>
+            </div>
+            <p class="hint" id="np-hint">Folders: #Test_Database / {class} / {part} / {package} / {operator} / Version_1</p>
+            <h3 class="subhead">Detected tests (golden + ate/tests)</h3>
+            <p class="hint">AST scan only -- never runs golden code. Rows with input() stay blocked until rewritten to Continue. Wrap writes a TestSpec scaffold; copy enables ids on another same-family part.</p>
+            <div class="row" style="margin-top:8px; align-items:flex-end; gap:8px; flex-wrap:wrap">
+              <button type="button" id="btn-refresh-detected" class="btn ghost">Refresh scan</button>
+              <label>Wrap family
+                <select id="detect-family"></select>
+              </label>
+              <label>Copy tests from part
+                <select id="detect-copy-from"></select>
+              </label>
+              <button type="button" id="btn-copy-tests" class="btn ghost">Copy to current part</button>
+            </div>
+            <div id="detected-tests" class="test-list" style="max-height:220px; overflow:auto; margin-top:8px"></div>
+            <p class="hint" id="detect-hint">Scan after Apply campaign.</p>
             <p class="hint" id="db-path-hint">Photos: …</p>
             <p class="hint" id="db-excel-hint">Lab report: …</p>
+            <p class="hint" id="setup-map-hint">Map coverage: Apply campaign, then Discover.</p>
           </div>
 
           <div class="glass panel">
@@ -103,7 +172,13 @@
               <button id="btn-shot" class="btn">Screenshot</button>
               <button id="btn-folder" class="btn ghost">Open Screenshots</button>
             </div>
-            <p class="hint" id="session-hint">Init = Discover → Open Session</p>
+            <div class="row" style="margin-top:8px; align-items:flex-end; gap:8px">
+              <label style="flex:1 1 160px">Run label (optional)
+                <input id="session-run-label" type="text" placeholder="bench-note" />
+              </label>
+              <button type="button" id="btn-new-session" class="btn ghost" title="Write sessions/session_*.json without START">+ Session</button>
+            </div>
+            <p class="hint" id="session-hint">Init = Discover → Open Session. + Session = new run record JSON only (no VISA). DMM optional at open; VOL / Logic IDD need it at run.</p>
           </div>
 
           <div class="glass panel">
@@ -122,14 +197,8 @@
             </div>
             <input id="unit" type="hidden" value="1" />
             <p class="hint" id="param-active-hint">Order: same board/category → all DUTs on that channel → next channel → next category.</p>
-          </div>
-
-          <div class="glass panel" id="panel-gain-boards">
-            <h2>Board gains (locked)</h2>
-            <p class="hint">Gain follows the physical board — not a software knob. VOS ≈201 is research-only.</p>
-            <div id="gain-boards" class="gain-boards"></div>
             <label class="check manual-toggle">
-              <input id="manual-mode" type="checkbox" /> Manual parameters
+              <input id="manual-mode" type="checkbox" /> Advanced bench (freq / amp / repeats)
             </label>
             <div id="param-advanced" class="param-advanced hidden">
               <div class="param-grid">
@@ -139,16 +208,36 @@
                 <label>Repeats<input id="repeats" type="number" step="1" value="3" /></label>
               </div>
               <label class="check"><input id="reset" type="checkbox" /> Reset instruments before run</label>
-              <p class="hint">PSU: Iset=100 mA, OVP=Vset+0.3 V, OCP=Iset+0.1 A.</p>
+              <p class="hint">PSU: Iset=100 mA, OVP=Vset+0.3 V, OCP=Iset+0.1 A. Photo anchors: Results → Waveform layout (sheet_map.yaml).</p>
             </div>
+          </div>
+
+          <div class="glass panel hidden" id="panel-run-conditions">
+            <h2>Run conditions</h2>
+            <p class="hint">Corners come from this part's YAML (vcc_sweep_list or controls:). Tests stay checkboxes in Test program.</p>
+            <div id="run-conditions" class="param-grid"></div>
+          </div>
+
+          <div class="glass panel" id="panel-gain-boards">
+            <h2>Board gains (locked)</h2>
+            <p class="hint">Gain follows the physical board — not a software knob. VOS ≈201 is research-only.</p>
+            <div id="gain-boards" class="gain-boards"></div>
           </div>
 
           <div class="glass panel wide">
             <h2>Test program</h2>
-            <p class="hint">Boards start collapsed — click a row to expand tests downward. Order: category (board) → channel → DUTs → tests. Popup shows short test name (ORT / Settling / GBW). Continue only when board / DUT / channel must change.</p>
+            <p class="hint">Boards start collapsed. Tick the tests to run (Select all / Clear). Order: category (board) → channel → DUTs → tests.</p>
+            <div class="row test-list-actions">
+              <button type="button" id="btn-tests-all" class="btn ghost">Select all</button>
+              <button type="button" id="btn-tests-none" class="btn ghost">Clear</button>
+            </div>
             <div id="test-plans" class="test-plans"></div>
             <div id="test-list" class="test-list"></div>
-            <button id="btn-start" class="btn accent big" disabled>START</button>
+            <div class="row" style="margin-top:10px">
+              <button id="btn-start" class="btn accent big" disabled>START</button>
+              <button type="button" id="btn-demo" class="btn ghost big">DEMO dry-run</button>
+            </div>
+            <p class="hint">START needs Open Session + hardware. DEMO walks selected tests with mock MSO/PSU/AWG/DMM numbers and writes sessions/*.json -- does not stamp the lab xlsx as PASS.</p>
           </div>
         </div>
       </section>
@@ -180,10 +269,84 @@
       </section>
 
       <section id="page-results" class="page">
-        <div class="glass panel">
+        <div class="grid">
+        <div class="glass panel wide">
           <h2>Last results</h2>
           <table id="results-table"><thead><tr><th>DUT</th><th>Test</th><th>OK</th><th>Summary</th></tr></thead><tbody></tbody></table>
           <p class="hint" id="results-db-hint">Lab report + session JSON under the selected Version_N.</p>
+        </div>
+        <div class="glass panel wide" id="panel-layout">
+          <h2>Waveform layout</h2>
+          <p class="hint">One place to change image boxes: <code>_manifest/sheet_map.yaml</code> → <code>tests.&lt;key&gt;.paste.photos</code>. This grid is that layout, rebuilt from Test_Database graphs/screenshots. Edit the Excel cell, Save, next paste uses it. Click a shot to compare latest vs previous.</p>
+          <div class="row layout-toolbar">
+            <label>Test
+              <select id="layout-test"></select>
+            </label>
+            <button type="button" id="btn-layout-reload" class="btn">Reload</button>
+            <button type="button" id="btn-layout-save" class="btn accent">Save layout</button>
+            <label class="check"><input type="checkbox" id="layout-overlay" /> Overlay difference</label>
+          </div>
+          <p class="hint" id="layout-source"></p>
+          <div id="layout-grid" class="layout-grid"></div>
+          <div id="layout-compare" class="layout-compare hidden">
+            <h3 id="layout-compare-title">Compare</h3>
+            <div id="layout-compare-pair" class="layout-compare-pair">
+              <figure>
+                <img id="layout-img-latest" alt="latest waveform" />
+                <figcaption>Latest</figcaption>
+              </figure>
+              <figure>
+                <img id="layout-img-prev" alt="previous waveform" />
+                <figcaption>Previous</figcaption>
+              </figure>
+            </div>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <section id="page-tags" class="page">
+        <div class="grid">
+          <div class="glass panel wide">
+            <h2>Campaign tags</h2>
+            <p class="hint">Stored in <code>_manifest/tags.yaml</code> and campaign-root <code>TAGS.txt</code> (one token per line -- Explorer search and grep). Board revisions are family/package-specific. No new folder axis.</p>
+            <div class="db-grid">
+              <label>Board revision
+                <select id="tag-board-select"></select>
+              </label>
+              <div class="row" style="align-items:flex-end; gap:6px">
+                <button type="button" id="btn-tag-add-board" class="btn ghost">Add board</button>
+              </div>
+              <label>Free-text tag
+                <input id="tag-free" type="text" placeholder="project:RS622-char" />
+              </label>
+              <div class="row" style="align-items:flex-end; gap:6px">
+                <button type="button" id="btn-tag-add-free" class="btn ghost">Add tag</button>
+              </div>
+            </div>
+            <div id="tags-editor-chips" class="tag-chips" style="margin-top:12px"></div>
+            <div class="row" style="margin-top:10px">
+              <button type="button" id="btn-tags-save" class="btn accent">Save tags</button>
+              <button type="button" id="btn-tags-reload" class="btn ghost">Reload</button>
+            </div>
+            <p class="hint" id="tags-path-hint">TAGS.txt: Apply campaign first.</p>
+          </div>
+          <div class="glass panel">
+            <h2>Import / filter</h2>
+            <label>Import from campaign root
+              <input id="tag-import-root" type="text" placeholder="C:\Users\...\#Test_Database\OpAmp\..." />
+            </label>
+            <div class="row" style="margin-top:10px">
+              <button type="button" id="btn-tags-import" class="btn ghost">Import tags</button>
+            </div>
+            <label style="margin-top:12px; display:block">Filter campaigns by tag
+              <input id="tag-filter" type="text" placeholder="board:G11-REV3" />
+            </label>
+            <div class="row" style="margin-top:10px">
+              <button type="button" id="btn-tags-filter" class="btn ghost">Search</button>
+            </div>
+            <ul id="tag-filter-results" class="history" style="margin-top:10px"></ul>
+          </div>
         </div>
       </section>
     </main>
@@ -203,6 +366,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20260822a"></script>
+  <script src="app.js?v=20260908f23b"></script>
 </body>
 </html>

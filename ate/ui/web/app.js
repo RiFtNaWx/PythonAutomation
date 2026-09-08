@@ -36,14 +36,57 @@ async function rpc(method, params = {}) {
 
 function $(id) { return document.getElementById(id); }
 
+let knownFamilies = ["opamp", "logic", "level", "switch"];
+let familyLabels = { opamp: "OpAmp", logic: "Logic", level: "Level", switch: "Analog SW" };
+
 const FAMILY_UI = {
   opamp: { brand: "OpAmp ATE", kicker: "Operator console" },
   logic: { brand: "Logic ATE", kicker: "Operator console" },
+  switch: { brand: "Analog Switch ATE", kicker: "Operator console" },
+  lim: { brand: "Analog Switch ATE", kicker: "Operator console" },
   level: { brand: "Level ATE", kicker: "Stub — no suite yet" },
 };
 
+function familyMeta(family) {
+  if (FAMILY_UI[family]) return FAMILY_UI[family];
+  const nice = (familyLabels[family] || String(family || "ATE")).replace(/_/g, " ");
+  return { brand: `${nice} ATE`, kicker: "Imported family" };
+}
+
+function renderFamilyRail(known, labels) {
+  const rail = document.querySelector(".family-rail");
+  if (!rail) return;
+  if (Array.isArray(known) && known.length) knownFamilies = known.slice();
+  if (labels && typeof labels === "object") {
+    familyLabels = { ...familyLabels, ...labels };
+  }
+  const builtins = new Set(["opamp", "logic", "level", "switch"]);
+  rail.querySelectorAll(".family-btn[data-extra='1']").forEach((el) => el.remove());
+  (known || []).forEach((fam) => {
+    if (fam === "lim") return;
+    if (rail.querySelector(`.family-btn[data-family="${fam}"]`)) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "family-btn";
+    btn.dataset.family = fam;
+    btn.dataset.extra = "1";
+    btn.textContent = familyLabels[fam] || fam;
+    if (fam === "level") {
+      btn.classList.add("family-stub");
+      btn.title = "Stub slot — no Level suite yet";
+    }
+    if (builtins.has(fam)) {
+      const levelBtn = rail.querySelector('.family-btn[data-family="level"]');
+      if (levelBtn) rail.insertBefore(btn, levelBtn);
+      else rail.appendChild(btn);
+    } else {
+      rail.appendChild(btn);
+    }
+  });
+}
+
 function paintBrand(family) {
-  const meta = FAMILY_UI[family] || FAMILY_UI.opamp;
+  const meta = familyMeta(family);
   const title = $("brand-title");
   if (title) title.textContent = meta.brand;
   const kicker = document.querySelector(".brand-kicker");
@@ -62,6 +105,7 @@ function updateFamilyChrome(family) {
 
 async function syncFamilyFromWorker() {
   const res = await rpc("get_family");
+  renderFamilyRail(res.known || [], res.labels || {});
   updateFamilyChrome(res.family || "opamp");
   return activeFamily;
 }
@@ -72,8 +116,189 @@ async function switchFamily(family) {
   updateFamilyChrome(res.family || family);
   await loadFixtureCatalog();
   await loadTests();
+  await loadParamDefaults();
   log(`Family switched: ${activeFamily}\n`);
   return activeFamily;
+}
+
+function familyFromComponent(component) {
+  const c = String(component || "").trim().toLowerCase().replace(/[\s_]/g, "");
+  if (c === "logic") return "logic";
+  if (c === "level") return "level";
+  if (c === "opamp") return "opamp";
+  if (c === "switch" || c === "analogswitch" || c === "analogsw" || c === "lim") return "switch";
+  const hit = knownFamilies.find((f) => String(f).toLowerCase().replace(/[\s_]/g, "") === c);
+  if (hit) return hit;
+  return c || "opamp";
+}
+
+function componentFromFamily(family) {
+  const labels = { opamp: "OpAmp", logic: "Logic", switch: "AnalogSwitch", lim: "AnalogSwitch", level: "Level" };
+  if (labels[family]) return labels[family];
+  const comps = Object.keys(dbTree.components || {});
+  return comps.find((c) => c.toLowerCase() === family) || "";
+}
+
+function firstCampaignInComponent(component) {
+  const partsObj = ((dbTree.components || {})[component] || {}).parts || {};
+  const parts = Object.keys(partsObj);
+  if (!parts.length) return null;
+  const part = parts[0];
+  const pkgsObj = (partsObj[part] || {}).packages || {};
+  const packages = Object.keys(pkgsObj);
+  const pkg = packages[0] || "";
+  const opsObj = (pkgsObj[pkg] || {}).operators || {};
+  const operators = Object.keys(opsObj);
+  const prefer = writeOperatorLabel();
+  const op = operators.includes(prefer) ? prefer : (operators[0] || prefer || "Eugene");
+  const versions = (opsObj[op] || {}).versions || [];
+  return {
+    component,
+    part,
+    package: pkg,
+    operator: op,
+    version: versions[0] || "Version_1",
+    model: "",
+    year: ($("db-year") && $("db-year").value) || "2026",
+  };
+}
+
+const OWNER_KEY = "ate_operator";
+let ownersList = [];
+
+function readSavedOwner() {
+  try {
+    return localStorage.getItem(OWNER_KEY) || "all";
+  } catch (_) {
+    return "all";
+  }
+}
+
+function saveOwner(id) {
+  try {
+    localStorage.setItem(OWNER_KEY, id);
+  } catch (_) { /* ignore */ }
+}
+
+async function loadOwners() {
+  const el = $("owner-select");
+  if (!el) return;
+  try {
+    const res = await rpc("list_owners");
+    ownersList = res.owners || [];
+  } catch (_) {
+    ownersList = [];
+  }
+  const cur = readSavedOwner();
+  el.innerHTML = ownersList.map((o) => {
+    const sel = o.id === cur ? "selected" : "";
+    return `<option value="${o.id}" ${sel}>${o.label}</option>`;
+  }).join("");
+  if (!el.value && ownersList[0]) el.value = ownersList[0].id;
+  el.onchange = async () => {
+    saveOwner(el.value);
+    try {
+      await applyOwner(el.value);
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
+
+async function applyOwner(id) {
+  const row = ownersList.find((o) => o.id === id);
+  if (!row || id === "all") return;
+  const part = String(row.default_part || "").toUpperCase();
+  const label = row.label || id;
+  paintCampaign({
+    component: row.default_component,
+    part,
+    package: row.default_package || "",
+    operator: label,
+    version: "Version_1",
+    model: part,
+    year: ($("db-year") && $("db-year").value) || "2026",
+  });
+  await applyDb();
+  log(`Operator ${label}: ${row.default_component} / ${part} / ${label}\n`);
+}
+
+function writeOperatorLabel() {
+  const id = ($("owner-select") && $("owner-select").value) || readSavedOwner();
+  if (!id || id === "all") return "";
+  const row = ownersList.find((o) => o.id === id);
+  return (row && row.label) || id;
+}
+
+function requireWriteOperator() {
+  const label = ($("db-operator") && $("db-operator").value) || writeOperatorLabel();
+  if (!label || label === "All" || label === "all" || label === "_unassigned") {
+    throw new Error("Pick a person operator (not All) before writing folders / DEMO / START");
+  }
+  return label;
+}
+
+let inventoryRows = [];
+let categoryRows = [];
+
+async function loadCategories() {
+  const el = $("np-category");
+  if (!el) return;
+  try {
+    const res = await rpc("list_categories");
+    categoryRows = res.categories || [];
+  } catch (_) {
+    categoryRows = [];
+  }
+  el.innerHTML = categoryRows.map((c) => {
+    const tag = c.live ? "" : " (stub)";
+    return `<option value="${c.id}">${c.run_ic || c.id}${tag}</option>`;
+  }).join("");
+  el.onchange = async () => {
+    const row = categoryRows.find((c) => c.id === el.value);
+    if (!row) return;
+    const comp = row.component || "";
+    if ($("db-component") && comp) {
+      const comps = Object.keys(dbTree.components || {});
+      if (comps.includes(comp)) $("db-component").value = comp;
+    }
+    if (row.live && row.family) {
+      try {
+        await switchFamily(row.family);
+      } catch (e) {
+        log(`Category family: ${e.message}\n`);
+      }
+    } else {
+      log(`RUN-IC class ${row.run_ic || row.id} is stub -- folders only, no suite.\n`);
+    }
+  };
+}
+
+async function loadInventory() {
+  const el = $("inv-select");
+  if (!el) return;
+  try {
+    const res = await rpc("list_inventory");
+    inventoryRows = res.parts || [];
+  } catch (_) {
+    inventoryRows = [];
+  }
+  el.innerHTML = `<option value="">-- pick a row --</option>` + inventoryRows.map((r, i) => {
+    const st = r.status || "";
+    const cls = r.category || "";
+    return `<option value="${i}">${r.part} · ${cls} · ${st} · ${r.package || ""}</option>`;
+  }).join("");
+  el.onchange = () => {
+    const row = inventoryRows[Number(el.value)];
+    if (!row) return;
+    if ($("np-category")) {
+      // Tracking class vs live suite: Level Shifter RS0204 uses ate_suite=logic
+      $("np-category").value = row.ate_suite || row.category || "opamp";
+    }
+    if ($("np-part")) $("np-part").value = row.part || "";
+    if ($("np-package")) $("np-package").value = row.package || "";
+    if ($("np-model")) $("np-model").value = row.model || row.part || "";
+  };
 }
 
 function log(text) {
@@ -92,6 +317,21 @@ function setTiles(mapping) {
     t.classList.toggle("on", !!(mapping && mapping[k]));
     t.classList.toggle("off", !(mapping && mapping[k]));
   });
+}
+
+async function loadMappedCoverage() {
+  const el = $("setup-map-hint");
+  if (!el) return;
+  try {
+    const c = await rpc("mapped_coverage");
+    const miss = c.missing_specs || [];
+    const dmm = c.dmm ? "DMM found" : "DMM not in Discover (VOL / Logic IDD need it at run)";
+    el.textContent = miss.length
+      ? `Map coverage FAIL: ${miss.join(", ")}`
+      : `Map coverage OK: ${c.n_map} sheet_map tests registered. ${dmm}`;
+  } catch (e) {
+    el.textContent = `Map coverage: ${e.message}`;
+  }
 }
 
 function setRunPill(mode) {
@@ -132,6 +372,7 @@ function switchPage(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
   $(`page-${name}`).classList.add("active");
   document.querySelector(`.tab[data-page="${name}"]`).classList.add("active");
+  if (name === "results") loadLayoutPreview().catch(() => {});
 }
 
 function selectedDuts() {
@@ -148,14 +389,37 @@ function selectedChannels() {
   return order.filter((c) => picked.includes(c));
 }
 
-let paramCatalog = { tests: {}, gain_profiles: {}, psu_golden: {}, gbw_steps: [], gbw_run_labels: {} };
+let paramCatalog = { tests: {}, gain_profiles: {}, psu_golden: {}, gbw_steps: [], gbw_run_labels: {}, controls: [], sample_size: 4 };
 
 function isManualMode() {
   return $("manual-mode") && $("manual-mode").checked;
 }
 
+function condNum(id, fallback) {
+  const el = $(`cond-${id}`);
+  if (!el) return fallback;
+  const n = Number(el.value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function benchValues() {
   const d = mergeTestDefaults(selectedTests());
+  if (activeFamily !== "opamp") {
+    const out = {
+      vcc: condNum("vcc", d.vcc),
+      freq_hz: d.freq_hz,
+      amp_vpp: d.amp_vpp,
+      n_repeats: d.n_repeats,
+    };
+    const vccb = condNum("vccb", d.vccb);
+    if (vccb != null && Number.isFinite(Number(vccb))) out.vccb = Number(vccb);
+    if (isManualMode() && $("freq")) {
+      out.freq_hz = Number($("freq").value);
+      out.amp_vpp = Number($("amp").value);
+      out.n_repeats = Number($("repeats").value);
+    }
+    return out;
+  }
   if (isManualMode()) {
     return {
       vcc: Number($("vcc").value),
@@ -184,7 +448,7 @@ function params() {
     ? (($("run-label") && $("run-label").value.trim()) || labels[profileKey] || "")
     : "";
   if ($("unit")) $("unit").value = String(duts[0] || 1);
-  return {
+  const out = {
     ...bench,
     unit_index: duts[0],
     dut_indices: duts,
@@ -197,6 +461,7 @@ function params() {
     gain_profile: gbwOn ? profileKey : "default",
     current_limit_a: (paramCatalog.psu_golden && paramCatalog.psu_golden.current_limit_a) || 0.1,
   };
+  return out;
 }
 
 function selectedTests() {
@@ -229,29 +494,30 @@ function mergeTestDefaults(ids) {
 function applyTestDefaults(force) {
   const ids = selectedTests();
   if (!ids.length) {
-    $("param-active-hint").textContent = "Select tests — standard defaults apply.";
+    if ($("param-active-hint")) $("param-active-hint").textContent = "Select tests — standard defaults apply.";
     renderRunPlans();
     return;
   }
   const d = mergeTestDefaults(ids);
-  if (force || !isManualMode()) {
+  if ((force || !isManualMode()) && $("vcc")) {
     $("vcc").value = d.vcc;
-    $("freq").value = d.freq_hz;
-    $("amp").value = d.amp_vpp;
-    $("repeats").value = d.n_repeats;
+    if ($("freq")) $("freq").value = d.freq_hz;
+    if ($("amp")) $("amp").value = d.amp_vpp;
+    if ($("repeats")) $("repeats").value = d.n_repeats;
     delete $("vcc").dataset.userEdited;
   }
-  // Channel A/B — operator choice only; never overwrite from test catalog
   if (ids.includes("gbw") && d.gain_profile && $("gain-profile")) {
     $("gain-profile").value = d.gain_profile;
     syncGainProfileHint(force);
   }
   const chans = selectedChannels().join("+");
   const manual = isManualMode();
-  $("param-advanced").classList.toggle("hidden", !manual);
-  $("param-active-hint").textContent = manual
-    ? `Manual — ${ids.join(", ")} · ${chans}`
-    : `${ids.join(", ")} · ${chans} — board gain locked · expand run plan below`;
+  if ($("param-advanced")) $("param-advanced").classList.toggle("hidden", !manual);
+  if ($("param-active-hint")) {
+    $("param-active-hint").textContent = manual
+      ? `Manual — ${ids.join(", ")} · ${chans}`
+      : `${ids.join(", ")} · ${chans} — pick tests / corners above · expand run plan below`;
+  }
   renderRunPlans();
 }
 
@@ -407,11 +673,63 @@ function renderRunPlans() {
 async function loadParamDefaults() {
   try {
     const part = (dbContext && dbContext.part_key) || "rs622";
-    paramCatalog = await rpc("list_param_defaults", { part });
+    paramCatalog = await rpc("list_param_defaults", { part, family: activeFamily });
+    if (!paramCatalog.controls) paramCatalog.controls = [];
+    renderConditions();
+    renderDutPicks();
     applyTestDefaults(false);
   } catch (_) {
-    paramCatalog = { tests: {}, gain_profiles: {}, psu_golden: { current_limit_a: 0.1 }, gbw_steps: [], gbw_run_labels: {} };
+    paramCatalog = { tests: {}, gain_profiles: {}, psu_golden: { current_limit_a: 0.1 }, gbw_steps: [], gbw_run_labels: {}, controls: [], sample_size: 4 };
+    renderConditions();
   }
+}
+
+function renderConditions() {
+  const panel = $("panel-run-conditions");
+  const box = $("run-conditions");
+  if (!panel || !box) return;
+  const opamp = activeFamily === "opamp";
+  panel.classList.toggle("hidden", opamp);
+  if (opamp) {
+    box.innerHTML = "";
+    return;
+  }
+  const rows = paramCatalog.controls || [];
+  if (!rows.length) {
+    box.innerHTML = `<p class="hint">No YAML corners for this part. Tests are still checkboxes below. Add vcc_sweep_list / vcc_sweep or a controls: list in ate/config/parts.</p>`;
+    return;
+  }
+  box.innerHTML = rows.map((c) => {
+    const id = `cond-${c.id}`;
+    const val = c.value != null ? c.value : "";
+    const choices = c.choices || [];
+    if (choices.length) {
+      const have = new Set(choices.map((x) => String(x)));
+      const extra = (val !== "" && !have.has(String(val)))
+        ? `<option value="${val}" selected>${val}</option>`
+        : "";
+      const opts = extra + choices.map((x) => {
+        const sel = String(x) === String(val) ? "selected" : "";
+        return `<option value="${x}" ${sel}>${x}</option>`;
+      }).join("");
+      return `<label>${c.label}<select id="${id}">${opts}</select></label>`;
+    }
+    return `<label>${c.label}<input id="${id}" type="number" step="0.01" value="${val}" /></label>`;
+  }).join("");
+}
+
+function renderDutPicks() {
+  const box = $("dut-picks");
+  if (!box) return;
+  const n = Math.max(1, Math.min(16, Number(paramCatalog.sample_size) || 4));
+  const prev = new Set([...document.querySelectorAll(".dut-cb:checked")].map((c) => String(c.value)));
+  if (!prev.size) prev.add("1");
+  let html = `<span class="hint">DUTs:</span>`;
+  for (let i = 1; i <= n; i += 1) {
+    const checked = prev.has(String(i)) ? "checked" : "";
+    html += `<label class="check"><input type="checkbox" class="dut-cb" value="${i}" ${checked} /> ${i}</label>`;
+  }
+  box.innerHTML = html;
 }
 
 function kindLabel(kind) {
@@ -662,10 +980,12 @@ function fillSelect(el, values, selected) {
 }
 
 const CAMPAIGN_KEY = "ate_last_campaign";
+const CAMPAIGN_BY_FAMILY_KEY = "ate_last_campaign_by_family";
 const DEFAULT_CAMPAIGN = {
   component: "OpAmp",
   part: "RS622",
   package: "TTSOP8",
+  operator: "Eugene",
   version: "Version_1",
   model: "RS622XK",
   year: "2026",
@@ -682,19 +1002,34 @@ function readSavedCampaign() {
 }
 
 function saveCampaign(sel) {
+  const payload = {
+    component: sel.component || "",
+    part: sel.part || "",
+    package: sel.package || "",
+    operator: sel.operator || "",
+    version: sel.version || "",
+    model: sel.model || "",
+    year: sel.year || "",
+  };
   try {
-    localStorage.setItem(
-      CAMPAIGN_KEY,
-      JSON.stringify({
-        component: sel.component || "",
-        part: sel.part || "",
-        package: sel.package || "",
-        version: sel.version || "",
-        model: sel.model || "",
-        year: sel.year || "",
-      })
-    );
+    localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(payload));
   } catch (_) { /* ignore */ }
+  try {
+    const fam = familyFromComponent(sel.component);
+    const all = JSON.parse(localStorage.getItem(CAMPAIGN_BY_FAMILY_KEY) || "{}");
+    all[fam] = payload;
+    localStorage.setItem(CAMPAIGN_BY_FAMILY_KEY, JSON.stringify(all));
+  } catch (_) { /* ignore */ }
+}
+
+function readSavedByFamily(family) {
+  try {
+    const all = JSON.parse(localStorage.getItem(CAMPAIGN_BY_FAMILY_KEY) || "{}");
+    const hit = all[family];
+    return hit && hit.component ? hit : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 function ensureTreeHasCampaign(sel) {
@@ -702,25 +1037,29 @@ function ensureTreeHasCampaign(sel) {
   const c = sel.component || DEFAULT_CAMPAIGN.component;
   const p = sel.part || DEFAULT_CAMPAIGN.part;
   const pkg = sel.package || DEFAULT_CAMPAIGN.package;
+  const op = sel.operator || DEFAULT_CAMPAIGN.operator;
   const ver = sel.version || DEFAULT_CAMPAIGN.version;
   if (!dbTree.components[c]) dbTree.components[c] = { parts: {} };
   if (!dbTree.components[c].parts[p]) dbTree.components[c].parts[p] = { packages: {} };
   if (!dbTree.components[c].parts[p].packages[pkg]) {
-    dbTree.components[c].parts[p].packages[pkg] = { versions: [ver] };
+    dbTree.components[c].parts[p].packages[pkg] = { operators: {} };
   }
-  const vers = dbTree.components[c].parts[p].packages[pkg].versions || [];
+  const pkgNode = dbTree.components[c].parts[p].packages[pkg];
+  if (!pkgNode.operators) pkgNode.operators = {};
+  if (!pkgNode.operators[op]) pkgNode.operators[op] = { versions: [ver] };
+  const vers = pkgNode.operators[op].versions || [];
   if (!vers.includes(ver)) vers.push(ver);
-  dbTree.components[c].parts[p].packages[pkg].versions = vers;
+  pkgNode.operators[op].versions = vers;
 }
 
 function paintCampaign(sel) {
   ensureTreeHasCampaign(sel);
   refreshDbCascades(sel);
-  if (sel.model && $("db-model")) $("db-model").value = sel.model;
+  if ($("db-model")) $("db-model").value = sel.model || sel.part || "";
   if (sel.year && $("db-year") && !$("db-year").value) $("db-year").value = sel.year;
   if ($("db-breadcrumb") && sel.component) {
     $("db-breadcrumb").textContent =
-      `${sel.component} / ${sel.part} / ${sel.package} / ${sel.version}` +
+      `${sel.component} / ${sel.part} / ${sel.package} / ${sel.operator || "?"} / ${sel.version}` +
       (sel.model ? ` · ${sel.model}` : "");
   }
 }
@@ -730,6 +1069,7 @@ function currentDbSelection() {
     component: $("db-component").value,
     part: $("db-part").value,
     package: $("db-package").value,
+    operator: ($("db-operator") && $("db-operator").value) || "",
     version: $("db-version").value,
     model: $("db-model").value,
     year: $("db-year").value,
@@ -752,7 +1092,17 @@ function refreshDbCascades(preserve) {
   const pkg = packages.includes(sel.package) ? sel.package : packages[0];
   fillSelect($("db-package"), packages, pkg);
 
-  const versions = (pkgsObj[pkg] || {}).versions || [];
+  const opsObj = (pkgsObj[pkg] || {}).operators || {};
+  let operators = Object.keys(opsObj);
+  // Prefer person labels from owners when tree empty
+  if (!operators.length) {
+    operators = ownersList.filter((o) => o.id !== "all").map((o) => o.label || o.id);
+  }
+  const preferOp = sel.operator || writeOperatorLabel();
+  const operator = operators.includes(preferOp) ? preferOp : operators[0];
+  if ($("db-operator")) fillSelect($("db-operator"), operators, operator);
+
+  const versions = (opsObj[operator] || {}).versions || ["Version_1"];
   const version = versions.includes(sel.version) ? sel.version : versions[0];
   fillSelect($("db-version"), versions, version);
 }
@@ -761,7 +1111,7 @@ function renderDbHints(ctx) {
   dbContext = ctx;
   if (!ctx) return;
   $("db-breadcrumb").textContent =
-    `${ctx.component} / ${ctx.part} / ${ctx.package} / ${ctx.version} · ${ctx.model}`;
+    `${ctx.component} / ${ctx.part} / ${ctx.package} / ${ctx.operator || "?"} / ${ctx.version} · ${ctx.model}`;
   $("db-model").value = ctx.model || "";
   if (!$("db-year").value && ctx.year) $("db-year").value = ctx.year;
   $("db-path-hint").textContent = `Photos: ${ctx.photo_example}`;
@@ -775,6 +1125,7 @@ function renderDbHints(ctx) {
     cb.disabled = v > n;
     if (v > n) cb.checked = false;
   });
+  refreshTagsUI();
 }
 
 async function pollEvents() {
@@ -853,7 +1204,8 @@ function renderGainBoards(modes) {
 
 async function loadFixtureCatalog() {
   try {
-    fixtureCatalog = await rpc("list_fixture_modes");
+    const part = (dbContext && dbContext.part_key) || "rs622";
+    fixtureCatalog = await rpc("list_fixture_modes", { part });
   } catch (_) {
     fixtureCatalog = [];
   }
@@ -869,25 +1221,15 @@ async function loadDb() {
     component: ctx.component || saved.component,
     part: ctx.part || saved.part,
     package: ctx.package || saved.package,
+    operator: ctx.operator || saved.operator || writeOperatorLabel() || "Eugene",
     version: ctx.version || saved.version,
     model: ctx.model || saved.model,
     year: ctx.year || saved.year || $("db-year")?.value || "2026",
   };
   paintCampaign(sel);
   renderDbHints({ ...saved, ...ctx, ...sel });
-  // Re-apply so worker + UI agree after restart (campaign was never "gone", just not restored)
   try {
-    const res = await rpc("set_db_context", {
-      component: sel.component,
-      part: sel.part,
-      package: sel.package,
-      version: sel.version,
-      model: sel.model || undefined,
-      year: sel.year || undefined,
-    });
-    renderDbHints(res.context);
-    saveCampaign({ ...sel, ...(res.context || {}) });
-    log(`Campaign ready: ${(res.context && res.context.root) || sel.component}\n`);
+    await applyDb();
   } catch (e) {
     log(`Campaign restore warn: ${e.message}\n`);
   }
@@ -896,23 +1238,160 @@ async function loadDb() {
   }
 }
 
+let campaignTags = [];
+let campaignBoards = [];
+let boardVocab = [];
+
+function renderTagChips(el, tags, { removable = false } = {}) {
+  if (!el) return;
+  el.innerHTML = "";
+  for (const t of tags || []) {
+    const chip = document.createElement("span");
+    chip.className = "tag-chip";
+    chip.textContent = t;
+    if (removable) {
+      const x = document.createElement("button");
+      x.type = "button";
+      x.className = "tag-chip-x";
+      x.textContent = "x";
+      x.title = "Remove";
+      x.onclick = () => {
+        campaignTags = campaignTags.filter((v) => v !== t);
+        if (t.startsWith("board:")) {
+          const b = t.slice(6);
+          campaignBoards = campaignBoards.filter((v) => v !== b);
+        }
+        paintTagsEditor();
+      };
+      chip.appendChild(x);
+    }
+    el.appendChild(chip);
+  }
+  if (!(tags || []).length) {
+    const empty = document.createElement("span");
+    empty.className = "hint";
+    empty.textContent = "none";
+    el.appendChild(empty);
+  }
+}
+
+function paintTagsEditor() {
+  renderTagChips($("db-tag-chips"), campaignTags, { removable: false });
+  renderTagChips($("tags-editor-chips"), campaignTags, { removable: true });
+}
+
+async function refreshTagsUI() {
+  try {
+    const data = await rpc("list_tags");
+    campaignTags = Array.isArray(data.tags) ? data.tags.slice() : [];
+    campaignBoards = Array.isArray(data.boards) ? data.boards.slice() : [];
+    boardVocab = Array.isArray(data.boards_vocab) ? data.boards_vocab.slice() : [];
+    const sel = $("tag-board-select");
+    if (sel) fillSelect(sel, boardVocab.length ? boardVocab : ["(no boards.yaml)"], boardVocab[0] || "");
+    paintTagsEditor();
+    if ($("tags-path-hint")) {
+      $("tags-path-hint").textContent =
+        `TAGS.txt: ${data.tags_txt || "—"} · yaml: ${data.tags_yaml || "—"}`;
+    }
+  } catch (e) {
+    if ($("tags-path-hint")) $("tags-path-hint").textContent = `Tags: ${e.message}`;
+  }
+}
+
 async function applyDb() {
   const sel = currentDbSelection();
+  const operator = sel.operator || requireWriteOperator();
   const res = await rpc("set_db_context", {
     component: sel.component,
     part: sel.part,
     package: sel.package,
+    operator,
     version: sel.version,
     model: sel.model || undefined,
     year: sel.year || undefined,
   });
   renderDbHints(res.context);
-  saveCampaign({ ...sel, ...(res.context || {}) });
+  saveCampaign({ ...sel, operator, ...(res.context || {}) });
   log(`Campaign applied: ${res.context.root}\n`);
   if (res.created?.length) {
     log(`Created ${res.created.length} folder(s) under DUT tree\n`);
   }
+  if (res.family_error) {
+    log(`Family not switched: ${res.family_error}\n`);
+  }
+  if (res.family) updateFamilyChrome(res.family);
   await loadParamDefaults();
+  await loadFixtureCatalog();
+  await loadTests();
+  await loadMappedCoverage();
+  await refreshDetectedPanel();
+  await refreshTagsUI();
+}
+
+function fillDetectFamilySelect() {
+  const el = $("detect-family");
+  if (!el) return;
+  const fams = (knownFamilies || []).filter((f) => f !== "lim");
+  const cur = activeFamily || "logic";
+  fillSelect(el, fams.length ? fams : ["opamp", "logic", "switch"], cur);
+}
+
+function fillDetectCopyFrom() {
+  const el = $("detect-copy-from");
+  if (!el) return;
+  const sel = currentDbSelection();
+  const partsObj = ((dbTree.components || {})[sel.component] || {}).parts || {};
+  const parts = Object.keys(partsObj).filter((p) => p !== sel.part);
+  const opts = [""].concat(parts);
+  el.innerHTML = "";
+  opts.forEach((p) => {
+    const o = document.createElement("option");
+    o.value = p;
+    o.textContent = p || "-- same-family part --";
+    el.appendChild(o);
+  });
+}
+
+async function refreshDetectedPanel() {
+  const box = $("detected-tests");
+  const hint = $("detect-hint");
+  if (!box) return;
+  fillDetectFamilySelect();
+  fillDetectCopyFrom();
+  try {
+    const res = await rpc("list_detected_tests", { family: activeFamily });
+    const rows = res.detected || [];
+    box.innerHTML = "";
+    if (!rows.length) {
+      box.innerHTML = '<p class="hint">No unmatched def test_* (or golden roots missing).</p>';
+    } else {
+      rows.slice(0, 80).forEach((r) => {
+        const div = document.createElement("div");
+        div.className = "test-item";
+        const blocked = !!r.blocked;
+        const status = blocked ? "blocked" : "ready";
+        const reason = blocked ? (r.blocked_reason || "blocked") : "wrap-ready";
+        const shortFile = String(r.file || "").replace(/\\/g, "/").split("/").slice(-2).join("/");
+        div.innerHTML =
+          `<label style="display:flex;gap:8px;align-items:flex-start;width:100%">` +
+          `<input type="checkbox" class="detect-cb" data-id="${r.id}" data-fn="${r.fn || ""}" ` +
+          `data-file="${encodeURIComponent(r.file || "")}" ${blocked ? "disabled" : ""} />` +
+          `<span><strong>${r.id}</strong> <span class="hint">(${status})</span><br/>` +
+          `<span class="hint">${shortFile}:${r.lineno || "?"} — ${reason}</span></span></label>`;
+        box.appendChild(div);
+      });
+    }
+    const missing = (res.roots || []).filter((x) => !x.exists).map((x) => x.label || x.path);
+    if (hint) {
+      hint.textContent =
+        `Scanned ${res.scanned_files || 0} files → ${res.count || 0} unmatched` +
+        (res.blocked_count ? ` (${res.blocked_count} blocked)` : "") +
+        (missing.length ? `. Missing golden: ${missing.join(", ")}` : ".");
+    }
+  } catch (e) {
+    box.innerHTML = "";
+    if (hint) hint.textContent = `Detect scan: ${e.message}`;
+  }
 }
 
 async function loadTests() {
@@ -924,9 +1403,11 @@ async function loadTests() {
     const stub =
       activeFamily === "level"
         ? "Level family is a stub slot — no characterization suite yet."
-        : activeFamily === "logic"
-          ? "Logic family loaded — no tests registered yet (A02)."
-          : "No tests registered for this family.";
+          : activeFamily === "logic"
+          ? "Logic family loaded — no enabled tests for this part/campaign."
+          : (activeFamily === "lim" || activeFamily === "switch")
+            ? "Analog Switch family loaded — no enabled tests for this part/campaign."
+            : "No tests registered for this family.";
     box.innerHTML = `<p class="hint">${stub}</p>`;
     renderRunPlans();
     return;
@@ -1003,20 +1484,59 @@ document.querySelectorAll(".tab").forEach((t) => {
   t.addEventListener("click", () => switchPage(t.dataset.page));
 });
 
-document.querySelectorAll(".family-btn").forEach((btn) => {
-  btn.addEventListener("click", async () => {
+const familyRail = document.querySelector(".family-rail");
+if (familyRail) {
+  familyRail.addEventListener("click", async (ev) => {
+    const btn = ev.target.closest(".family-btn");
+    if (!btn) return;
     const family = btn.dataset.family;
-    if (!family || family === activeFamily) return;
+    if (!family) return;
+    const dirFam = familyFromComponent(($("db-component") && $("db-component").value) || "");
+    if (family === activeFamily && dirFam === family) return;
     try {
-      await switchFamily(family);
+      const component = componentFromFamily(family);
+      const hasDir = !!(component && (dbTree.components || {})[component]);
+      if (hasDir) {
+        const last = readSavedByFamily(family);
+        const sel = (last && (dbTree.components || {})[last.component])
+          ? last
+          : firstCampaignInComponent(component);
+        if (sel) paintCampaign(sel);
+        await applyDb();
+      } else {
+        await switchFamily(family);
+      }
     } catch (e) {
       alert(e.message);
     }
   });
-});
+}
 
-["db-component", "db-part", "db-package"].forEach((id) => {
-  $(id).addEventListener("change", () => refreshDbCascades());
+["db-component", "db-part", "db-package", "db-operator", "db-version"].forEach((id) => {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("change", async () => {
+    refreshDbCascades();
+    if ((id === "db-component" || id === "db-part") && $("db-model")) {
+      $("db-model").value = "";
+    }
+    // Component change also switches family suite in the same click
+    if (id === "db-component") {
+      const fam = familyFromComponent(($("db-component") && $("db-component").value) || "");
+      if (fam && fam !== activeFamily) {
+        try {
+          await switchFamily(fam);
+        } catch (e) {
+          log(`Family switch: ${e.message}\n`);
+        }
+      }
+    }
+    try {
+      await applyDb();
+    } catch (e) {
+      alert(e.message);
+    }
+  });
 });
 
 $("btn-apply-db").onclick = async () => {
@@ -1026,6 +1546,91 @@ $("btn-apply-db").onclick = async () => {
     alert(e.message);
   }
 };
+
+if ($("btn-tag-add-board")) {
+  $("btn-tag-add-board").onclick = () => {
+    const b = ($("tag-board-select") && $("tag-board-select").value) || "";
+    if (!b || b.startsWith("(")) return;
+    if (!campaignBoards.includes(b)) campaignBoards.push(b);
+    const tok = `board:${b}`;
+    if (!campaignTags.includes(tok)) campaignTags.push(tok);
+    paintTagsEditor();
+  };
+}
+if ($("btn-tag-add-free")) {
+  $("btn-tag-add-free").onclick = () => {
+    const t = (($("tag-free") && $("tag-free").value) || "").trim();
+    if (!t) return;
+    if (!campaignTags.includes(t)) campaignTags.push(t);
+    if ($("tag-free")) $("tag-free").value = "";
+    paintTagsEditor();
+  };
+}
+if ($("btn-tags-save")) {
+  $("btn-tags-save").onclick = async () => {
+    try {
+      const res = await rpc("save_tags", { tags: campaignTags, boards: campaignBoards });
+      campaignTags = res.tags || campaignTags;
+      campaignBoards = res.boards || campaignBoards;
+      paintTagsEditor();
+      if ($("tags-path-hint")) {
+        $("tags-path-hint").textContent = `Saved TAGS.txt: ${res.tags_txt}`;
+      }
+      log(`Tags saved (${(res.tags || []).length})\n`);
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
+if ($("btn-tags-reload")) {
+  $("btn-tags-reload").onclick = () => refreshTagsUI().catch((e) => alert(e.message));
+}
+if ($("btn-tags-import")) {
+  $("btn-tags-import").onclick = async () => {
+    try {
+      const src = (($("tag-import-root") && $("tag-import-root").value) || "").trim();
+      if (!src) {
+        alert("Paste a campaign root path");
+        return;
+      }
+      const res = await rpc("import_tags", { from_root: src, merge: true });
+      campaignTags = res.tags || [];
+      campaignBoards = res.boards || [];
+      paintTagsEditor();
+      log(`Imported tags from ${src}\n`);
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
+if ($("btn-tags-filter")) {
+  $("btn-tags-filter").onclick = async () => {
+    try {
+      const tag = (($("tag-filter") && $("tag-filter").value) || "").trim();
+      if (!tag) return;
+      const res = await rpc("filter_campaigns_by_tag", {
+        tag,
+        component: ($("db-component") && $("db-component").value) || "",
+      });
+      const ul = $("tag-filter-results");
+      if (!ul) return;
+      ul.innerHTML = "";
+      for (const c of res.campaigns || []) {
+        const li = document.createElement("li");
+        li.textContent = `${c.component}/${c.part}/${c.package}/${c.operator}/${c.version}`;
+        li.title = c.root;
+        ul.appendChild(li);
+      }
+      if (!(res.campaigns || []).length) {
+        const li = document.createElement("li");
+        li.textContent = "No campaigns matched";
+        ul.appendChild(li);
+      }
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
 
 $("btn-open-db").onclick = async () => {
   try {
@@ -1061,11 +1666,39 @@ $("btn-import-xlsx").onclick = async () => {
   }
 };
 
+if ($("btn-import-family")) {
+  $("btn-import-family").onclick = async () => {
+    try {
+      const source = ($("db-family-source") && $("db-family-source").value.trim()) || "";
+      const family = ($("db-family-key") && $("db-family-key").value.trim()) || "";
+      if (!source) {
+        alert("Paste a GitHub URL / owner/repo, or a local family folder.");
+        return;
+      }
+      const res = await rpc("import_family", { source, family });
+      renderFamilyRail(res.known || [], res.labels || {});
+      if (res.family) {
+        log("Imported family: " + res.family + " -> " + (res.dest || "") + "\n");
+        log((res.note || "") + "\n");
+        if (res.load_error) log("Load warning: " + res.load_error + "\n");
+        if (res.copied) log("Copied: " + res.copied.join(", ") + "\n");
+      }
+      await syncFamilyFromWorker();
+      if (res.family && res.family !== "opamp") {
+        try { await switchFamily(res.family); } catch (_) { /* stay on current */ }
+      }
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
+
 $("btn-discover").onclick = async () => {
   try {
     const m = await rpc("discover");
     setTiles(m);
     log(`Discovered ${JSON.stringify(m)}\n`);
+    await loadMappedCoverage();
   } catch (e) {
     alert(e.message);
   }
@@ -1087,6 +1720,10 @@ $("btn-open").onclick = async () => {
       );
     }
     await refreshSession();
+    await loadMappedCoverage();
+    if (!m.DMM) {
+      log("DMM not in session -- OpAmp VOL and Logic IDD/VOUT/cap_load will fail until Discover finds it\n");
+    }
   } catch (e) {
     alert(e.message);
   }
@@ -1122,6 +1759,209 @@ $("btn-folder").onclick = async () => {
   }
 };
 
+if ($("btn-tests-all")) {
+  $("btn-tests-all").onclick = () => {
+    document.querySelectorAll("#test-list .test-item input").forEach((i) => { i.checked = true; });
+    renderRunPlans();
+    applyTestDefaults(false);
+  };
+}
+if ($("btn-tests-none")) {
+  $("btn-tests-none").onclick = () => {
+    document.querySelectorAll("#test-list .test-item input").forEach((i) => { i.checked = false; });
+    renderRunPlans();
+    applyTestDefaults(false);
+  };
+}
+
+if ($("btn-new-product")) {
+  $("btn-new-product").onclick = async () => {
+    const part = ($("np-part") && $("np-part").value.trim()) || "";
+    if (!part) return alert("Enter a part number we are testing");
+    try {
+      const operator = requireWriteOperator();
+      const pkg = ($("np-package") && $("np-package").value.trim()) || "SOT23";
+      const model = ($("np-model") && $("np-model").value.trim()) || part;
+      const res = await rpc("ensure_product", {
+        category: $("np-category") && $("np-category").value,
+        part,
+        package: pkg,
+        model,
+        operator,
+        sample_size: Number($("np-sample") && $("np-sample").value) || 4,
+        open_folder: true,
+      });
+      if ($("np-hint")) $("np-hint").textContent = `${res.note || ""} ${res.root || ""}`;
+      log(`New product: ${res.root}\n${res.note || ""}\n`);
+      if (res.loaded_family) updateFamilyChrome(res.loaded_family);
+      dbTree = await rpc("list_db_tree");
+      paintCampaign({
+        component: res.component,
+        part,
+        package: pkg,
+        operator: res.operator || operator,
+        version: "Version_1",
+        model,
+        year: ($("db-year") && $("db-year").value) || "2026",
+      });
+      await applyDb();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
+
+if ($("btn-add-version")) {
+  $("btn-add-version").onclick = async () => {
+    try {
+      const operator = requireWriteOperator();
+      const sel = currentDbSelection();
+      const res = await rpc("ensure_version", {
+        component: sel.component,
+        part: sel.part,
+        package: sel.package,
+        operator,
+        copy_from_version: sel.version,
+        sample_size: Number((dbContext && dbContext.sample_size) || 4),
+        open_folder: false,
+        apply: true,
+      });
+      log(`+ Version: ${res.version} → ${res.root}\n`);
+      dbTree = await rpc("list_db_tree");
+      paintCampaign({
+        ...sel,
+        operator: res.operator || operator,
+        version: res.version,
+        model: (dbContext && dbContext.model) || sel.model,
+      });
+      await applyDb();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
+
+if ($("btn-new-session")) {
+  $("btn-new-session").onclick = async () => {
+    try {
+      requireWriteOperator();
+      await applyDb();
+      const label = ($("session-run-label") && $("session-run-label").value.trim()) || "";
+      const res = await rpc("new_run_session", { run_label: label });
+      log(`+ Session: ${res.session_id}\n${res.path || ""}\n${res.note || ""}\n`);
+      if ($("session-hint")) {
+        $("session-hint").textContent =
+          `Last run record: ${res.session_id}. Discover → Open Session still required for instruments.`;
+      }
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
+
+if ($("btn-refresh-detected")) {
+  $("btn-refresh-detected").onclick = async () => {
+    try {
+      await refreshDetectedPanel();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
+
+if ($("btn-copy-tests")) {
+  $("btn-copy-tests").onclick = async () => {
+    try {
+      requireWriteOperator();
+      const src = ($("detect-copy-from") && $("detect-copy-from").value) || "";
+      const dest = ($("db-part") && $("db-part").value) || "";
+      if (!src) return alert("Pick a same-family source part");
+      if (!dest) return alert("Apply a campaign part first");
+      const res = await rpc("enable_tests_on_part", {
+        source_part: src,
+        dest_part: dest,
+      });
+      log(`Copy tests ${src} → ${dest}: added ${(res.added || []).join(", ") || "(none new)"}\n`);
+      await loadTests();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
+
+async function wrapSelectedDetected() {
+  const fam = ($("detect-family") && $("detect-family").value) || activeFamily || "logic";
+  const part = ($("db-part") && $("db-part").value) || "";
+  const cbs = Array.from(document.querySelectorAll("#detected-tests .detect-cb:checked"));
+  if (!cbs.length) {
+    alert("Tick one or more wrap-ready detected tests");
+    return;
+  }
+  for (const cb of cbs) {
+    const file = decodeURIComponent(cb.dataset.file || "");
+    const fn = cb.dataset.fn || "";
+    const id = cb.dataset.id || "";
+    const res = await rpc("wrap_detected_test", {
+      file,
+      fn,
+      test_id: id,
+      family: fam,
+      enable_part: part,
+    });
+    log(`Wrap ${res.id} → ${res.module} (family ${res.family})\n`);
+    if (res.loaded_family) updateFamilyChrome(res.loaded_family);
+  }
+  await loadTests();
+  await refreshDetectedPanel();
+}
+
+// Click on detected panel: double-click row or use wrap via refresh button area
+if ($("detected-tests")) {
+  const wrapBtn = document.createElement("button");
+  wrapBtn.type = "button";
+  wrapBtn.id = "btn-wrap-detected";
+  wrapBtn.className = "btn accent";
+  wrapBtn.textContent = "Wrap + enable on part";
+  wrapBtn.style.marginTop = "8px";
+  wrapBtn.onclick = async () => {
+    try {
+      requireWriteOperator();
+      await wrapSelectedDetected();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+  const hint = $("detect-hint");
+  if (hint && hint.parentNode) hint.parentNode.insertBefore(wrapBtn, hint);
+}
+
+if ($("btn-demo")) {
+  $("btn-demo").onclick = async () => {
+    try {
+      requireWriteOperator();
+      await applyDb();
+      const res = await rpc("run_demo", { test_ids: selectedTests(), params: params() });
+      log(`DEMO: ${res.note || ""}\nSession: ${res.session || ""}\n`);
+      (res.steps || []).forEach((s) => {
+        const inst = (s.instruments || []).join("+") || "none";
+        log(`  ${s.test_id} -> ${inst} ${JSON.stringify(s.mock)}\n`);
+      });
+      const tb = $("results-table") && $("results-table").querySelector("tbody");
+      if (tb) {
+        tb.innerHTML = "";
+        for (const s of res.steps || []) {
+          const inst = (s.instruments || []).join("+") || "none";
+          tb.innerHTML += `<tr><td>demo</td><td>${s.test_id}</td><td>true</td><td>mock ${inst}</td></tr>`;
+        }
+      }
+      setRunPill("pass");
+      switchPage("results");
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
+
 $("btn-start").onclick = async () => {
   const ids = selectedTests();
   if (!ids.length) return alert("Select at least one test");
@@ -1129,6 +1969,11 @@ $("btn-start").onclick = async () => {
   if (!duts.length) return alert("Select at least one DUT");
   if (!sessionOpen) return alert("Open Session first");
   if (runPollActive) return alert("Run already in progress");
+  try {
+    requireWriteOperator();
+  } catch (e) {
+    return alert(e.message);
+  }
   try {
     await applyDb();
   } catch (_) {
@@ -1233,6 +2078,103 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+let layoutState = { test_key: "", cells: [] };
+
+function shotUrl(shot) {
+  return shot && shot.url ? shot.url : "";
+}
+
+function layoutLabel(cell) {
+  const pol = cell.polarity ? `${cell.polarity} ` : "";
+  return `U${cell.unit} ${pol}${cell.channel || ""}`.trim();
+}
+
+function fillLayoutSelect(preview) {
+  const sel = $("layout-test");
+  if (!sel) return;
+  const tests = preview.tests || [];
+  const current = preview.test_key || sel.value;
+  sel.innerHTML = tests.map((t) => {
+    const label = `${t.excel_sheet} (${t.test_key})`;
+    const selAttr = t.test_key === current ? " selected" : "";
+    return `<option value="${t.test_key}"${selAttr}>${label}</option>`;
+  }).join("");
+}
+
+function showCompare(cell) {
+  const box = $("layout-compare");
+  const pair = $("layout-compare-pair");
+  const latest = $("layout-img-latest");
+  const prev = $("layout-img-prev");
+  if (!box || !cell) return;
+  $("layout-compare-title").textContent = `${layoutLabel(cell)} @ ${cell.anchor}`;
+  if (cell.latest) {
+    latest.src = shotUrl(cell.latest);
+    latest.alt = cell.latest.name;
+  } else {
+    latest.removeAttribute("src");
+    latest.alt = "no latest";
+  }
+  if (cell.previous) {
+    prev.src = shotUrl(cell.previous);
+    prev.alt = cell.previous.name;
+    prev.parentElement.style.display = "";
+  } else {
+    prev.removeAttribute("src");
+    prev.alt = "no previous";
+    prev.parentElement.style.display = cell.latest ? "none" : "";
+  }
+  box.classList.remove("hidden");
+  if (pair) pair.classList.toggle("overlay", !!($("layout-overlay") && $("layout-overlay").checked));
+}
+
+function renderLayoutGrid(preview) {
+  const grid = $("layout-grid");
+  const src = $("layout-source");
+  if (src) src.textContent = preview.hint || preview.source || "";
+  if (!grid) return;
+  layoutState = { test_key: preview.test_key || "", cells: preview.cells || [] };
+  const units = [...new Set(layoutState.cells.map((c) => c.unit).filter(Boolean))].sort((a, b) => a - b);
+  if (units.length) grid.style.gridTemplateColumns = `repeat(${Math.min(units.length, 4)}, minmax(0, 1fr))`;
+  grid.innerHTML = "";
+  layoutState.cells.forEach((cell, idx) => {
+    const el = document.createElement("div");
+    el.className = "layout-cell";
+    el.dataset.idx = String(idx);
+    const shot = cell.latest;
+    const img = shot
+      ? `<img src="${shotUrl(shot)}" alt="${shot.name}" />`
+      : `<div class="layout-empty">no shot yet</div>`;
+    el.innerHTML = `${img}<div class="layout-meta">${layoutLabel(cell)} · ${cell.n_shots || 0} files</div><input data-raw="${cell.raw}" value="${cell.anchor || ""}" />`;
+    el.addEventListener("click", (ev) => {
+      if (ev.target.tagName === "INPUT") return;
+      grid.querySelectorAll(".layout-cell").forEach((n) => n.classList.remove("active"));
+      el.classList.add("active");
+      showCompare(cell);
+    });
+    grid.appendChild(el);
+  });
+}
+
+async function loadLayoutPreview(testKey) {
+  const key = testKey || ($("layout-test") && $("layout-test").value) || "";
+  const preview = await rpc("layout_preview", key ? { test_key: key } : {});
+  fillLayoutSelect(preview);
+  renderLayoutGrid(preview);
+  return preview;
+}
+
+async function saveLayoutPreview() {
+  const grid = $("layout-grid");
+  if (!grid || !layoutState.test_key) return;
+  const photos = {};
+  grid.querySelectorAll("input[data-raw]").forEach((inp) => {
+    photos[inp.dataset.raw] = inp.value.trim();
+  });
+  await rpc("save_photo_layout", { test_key: layoutState.test_key, photos });
+  await loadLayoutPreview(layoutState.test_key);
+}
+
 function tick() {
   $("clock").textContent = new Date().toLocaleTimeString();
 }
@@ -1265,11 +2207,41 @@ function pollLoop() {
       renderRunPlans();
     });
   });
+  if ($("layout-test")) {
+    const onLayoutTest = () => {
+      loadLayoutPreview($("layout-test").value).catch((e) => alert(e.message));
+    };
+    $("layout-test").addEventListener("change", onLayoutTest);
+    $("layout-test").addEventListener("input", onLayoutTest);
+  }
+  if ($("btn-layout-reload")) {
+    $("btn-layout-reload").onclick = () => loadLayoutPreview($("layout-test") && $("layout-test").value).catch((e) => alert(e.message));
+  }
+  if ($("btn-layout-save")) {
+    $("btn-layout-save").onclick = () => saveLayoutPreview().catch((e) => alert(e.message));
+  }
+  if ($("layout-overlay")) {
+    $("layout-overlay").addEventListener("change", () => {
+      const pair = $("layout-compare-pair");
+      if (pair) pair.classList.toggle("overlay", $("layout-overlay").checked);
+    });
+  }
   for (let i = 0; i < 20; i++) {
     try {
       await rpc("ping");
       $("session-hint").textContent = "Worker online — Discover → Open Session";
       await loadDb();
+      await loadOwners();
+      await loadCategories();
+      await loadInventory();
+      const ownerId = readSavedOwner();
+      if (ownerId && ownerId !== "all") {
+        try {
+          await applyOwner(ownerId);
+        } catch (e) {
+          log(`Operator default warn: ${e.message}\n`);
+        }
+      }
       await syncFamilyFromWorker();
       await loadFixtureCatalog();
       await loadParamDefaults();

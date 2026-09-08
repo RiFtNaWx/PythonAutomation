@@ -41,6 +41,13 @@ def _pick_src() -> Path:
 
 
 def main() -> int:
+    if "--campaign" in sys.argv or "--ctx" in sys.argv:
+        from ate.reporting.golden_workbook import apply_golden_workbook
+
+        report = apply_golden_workbook()
+        print(json.dumps(report, indent=2, default=str))
+        return 0
+
     src = _pick_src()
     print(f"Source: {src}")
 
