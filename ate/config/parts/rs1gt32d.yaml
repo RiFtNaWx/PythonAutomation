@@ -1,0 +1,121 @@
+# RS1GT32D Logic — RUN-IC small logic. Owner Ariff.
+
+
+
+part: RS1GT32D
+
+model: RS1GT32D
+
+component: Logic
+
+device: RS1GT32D
+
+package: SOT23
+
+version: Version_1
+
+sample_size: 4
+
+year: "2026"
+
+owner: ariff
+
+part_key: rs1gt32d
+
+product_class: logic
+
+
+
+vcc: 1.65
+
+current_limit: 0.05
+
+timing:
+
+  timeout_s: 4.0
+
+  settle_s: 0.3
+
+
+
+vcc_sweep_list: [1.65, 3.3, 5.0, 5.5]
+
+ioff_vcc_list: [0.0, 5.5]
+
+vih_vil_vcc_list: [2.0, 3.3, 5.0]
+
+vplus_v: 5.0
+
+voh_vol_settle_s: 1.0
+
+# Same RS1G08-class DC corners already used by ariff_dc defaults.
+voh_table:
+  - {vcc: 2.0, vref: 0.080, spec_min: 1.6, ioh_a: 0.008}
+  - {vcc: 3.3, vref: 0.240, spec_min: 2.5, ioh_a: 0.024}
+  - {vcc: 4.5, vref: 0.320, spec_min: 3.8, ioh_a: 0.032}
+  - {vcc: 5.0, vref: 0.320, spec_min: 4.2, ioh_a: 0.032}
+  - {vcc: 5.5, vref: 0.320, spec_min: 4.8, ioh_a: 0.032}
+vol_table:
+  - {vcc: 2.0, vref: 4.92, spec_max: 0.45, iol_a: 0.008}
+  - {vcc: 3.3, vref: 4.76, spec_max: 0.55, iol_a: 0.024}
+  - {vcc: 4.5, vref: 4.68, spec_max: 0.55, iol_a: 0.032}
+  - {vcc: 5.0, vref: 4.68, spec_max: 0.50, iol_a: 0.032}
+  - {vcc: 5.5, vref: 4.68, spec_max: 0.45, iol_a: 0.032}
+
+enabled_tests:
+
+  - delta_supply_current
+
+  - off_current
+
+  - input_thresholds
+
+  - ioff_leakage
+
+  - input_leakage_sweep
+
+  - supply_current_sweep
+
+  - vih_vil
+
+  - voh_load
+
+  - vol_load
+
+
+
+fixture_modes:
+
+  LOGIC:
+
+    label: "Logic board (RS1GT32D)"
+
+    board_class: general
+
+    checklist:
+
+      - "RS1GT32D is small logic."
+
+      - "Select only the rows you need; leave others unchecked."
+
+    tests:
+
+      - delta_supply_current
+
+      - off_current
+
+      - input_thresholds
+
+      - ioff_leakage
+
+      - input_leakage_sweep
+
+      - supply_current_sweep
+
+      - vih_vil
+
+      - voh_load
+
+      - vol_load
+
+

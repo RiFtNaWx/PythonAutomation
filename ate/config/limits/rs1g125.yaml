@@ -1,0 +1,17 @@
+part: RS1G125
+datasheet:
+  lang: en
+  source: local-reference
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1G125_(RevA.6).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1g125.txt
+specs:
+- id: ICC_uA
+  unit: uA
+  max: 1.0
+  test: supply_current
+  source: local:RS1G125_(RevA.6).pdf
+- id: VCC_V
+  unit: V
+  min: 1.65
+  max: 5.5
+  source: local:RS1G125_(RevA.6).pdf

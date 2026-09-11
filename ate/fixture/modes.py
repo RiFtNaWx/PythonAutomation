@@ -120,7 +120,7 @@ _DEFAULT_CATALOG: dict[str, dict[str, Any]] = {
 
         ],
 
-        "tests": ["slew", "settling", "sssr", "lssr", "no_phase_reversal", "power_on"],
+        "tests": ["slew", "settling", "sssr", "lssr", "no_phase_reversal", "power_on_time"],
 
     },
 
@@ -146,7 +146,7 @@ _DEFAULT_CATALOG: dict[str, dict[str, Any]] = {
 
             "IN+ referenced per GBW procedure",
 
-            "Probes: CH1 = OutB, CH2 = junction/input as specified",
+            "Probes: CH1 = IN+, CH2 = VOUT (gain-11 output)",
 
         ],
 
@@ -200,9 +200,12 @@ _DEFAULT_CATALOG: dict[str, dict[str, Any]] = {
 
         "gain_editable": False,
 
-        "checklist": ["ATE fixture / STM relay bank not yet automated"],
+        "checklist": [
+            "ATE fixture / STM relay bank not yet automated",
+            "Noise 0.1-10 Hz: high-gain, shield, AWG off, AC-couple VOUT, 1 s/div",
+        ],
 
-        "tests": ["psrr", "cmrr", "aol", "vohl", "emirr"],
+        "tests": ["psrr", "cmrr", "aol", "vohl", "emirr", "noise"],
 
     },
 
@@ -429,5 +432,72 @@ def catalog_for_ui(part: str = "rs622") -> list[dict[str, Any]]:
         )
 
     return rows
+
+
+def _part_yaml(part: str) -> dict[str, Any]:
+    path = PARTS_DIR / f"{part}.yaml"
+    if not path.is_file():
+        return {}
+    with path.open(encoding="utf-8") as fh:
+        data = yaml.safe_load(fh) or {}
+    return data if isinstance(data, dict) else {}
+
+
+def logic_catalog_for_ui(part: str = "rs29511") -> list[dict[str, Any]]:
+    """Logic fixture modes only -- never merge OPA BUFFER/G11 defaults."""
+    data = _part_yaml(part)
+    modes = data.get("fixture_modes") or {}
+    if not isinstance(modes, dict) or not modes:
+        modes = {
+            "LOGIC": {
+                "label": "Logic board",
+                "board_class": "general",
+                "tests": [],
+                "checklist": ["Logic fixture"],
+            }
+        }
+    rows: list[dict[str, Any]] = []
+    for mode, entry in modes.items():
+        if not isinstance(entry, dict):
+            continue
+        rows.append(
+            {
+                "mode": str(mode),
+                "label": entry.get("label") or mode,
+                "gain": entry.get("gain"),
+                "board_class": entry.get("board_class") or "general",
+                "topology": entry.get("topology"),
+                "rf": entry.get("rf"),
+                "ri": entry.get("ri"),
+                "gain_editable": False,
+                "tests": list(entry.get("tests") or []),
+            }
+        )
+    return rows
+
+
+def enabled_tests_for_part(part: str, catalog: dict[str, Any] | None = None) -> list[str] | None:
+    """Return enabled test ids for a Logic part, or None = no filter.
+
+    Priority: campaign test_catalog.enabled_tests > part enabled_tests
+    > fixture_modes.LOGIC.tests.
+    """
+    if isinstance(catalog, dict):
+        raw = catalog.get("enabled_tests")
+        if isinstance(raw, list) and raw:
+            return [str(x) for x in raw]
+    data = _part_yaml(part)
+    raw = data.get("enabled_tests")
+    if isinstance(raw, list) and raw:
+        return [str(x) for x in raw]
+    modes = data.get("fixture_modes") or {}
+    logic = modes.get("LOGIC") if isinstance(modes, dict) else None
+    if isinstance(logic, dict):
+        tests = logic.get("tests")
+        if isinstance(tests, list) and tests:
+            return [str(x) for x in tests]
+    if isinstance(raw, list):
+        return []
+    return None
 
 

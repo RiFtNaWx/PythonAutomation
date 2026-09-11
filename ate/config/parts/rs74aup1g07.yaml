@@ -1,0 +1,26 @@
+# RS74AUP1G07 open-drain buffer -- wait sample. Same DC family as RS1G07.
+
+part: RS74AUP1G07
+model: RS74AUP1G07
+component: Logic
+version: Version_1
+sample_size: 4
+year: "2026"
+part_key: rs74aup1g07
+product_class: logic
+vcc: 5.0
+current_limit: 0.10
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+enabled_tests:
+  - supply_current
+  - delta_supply_current
+  - ioff_leakage
+fixture_modes:
+  LOGIC:
+    label: "Logic board (RS74AUP1G07)"
+    board_class: general
+    checklist:
+      - "Open-drain buffer. Wait sample / plan to MP."
+    tests: [supply_current, delta_supply_current, ioff_leakage]

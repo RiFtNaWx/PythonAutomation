@@ -9,6 +9,11 @@ AI and humans must keep the console shape stable.
 3. Reuse `glass panel`, `db-grid`, `btn`, `btn accent`, `btn ghost`, `hint`, `row`.
 4. Bump `styles.css?v=` cache query in `index.html`.
 5. Wire clicks in `app.js` only (no second framework).
+6. Setup Component/Part/Package/Operator/Version/Kind/Value/Scope use `.combo` (caret + body `#ate-combo-menu`). Do not bring back `<datalist>`.
+7. Tags: `#db-tag-input` Space/Enter adds; chips compact with `+N more` then expand. `#btn-tags-clear` empties campaign tags. `#label-scope` is this campaign / this class / all products.
+8. Results `#run-ledger` lists session JSON from the central `#Test_Database`. No extra tab.
+9. Setup `#btn-open-central` opens the SharePoint-synced folder, or the `sharepoint.url` https if that folder is missing. It must not mkdir a private `#Test_Database`.
+10. Results `#btn-export-datalog` writes STS `sessions/datalog.md|.html|.pdf`. `#btn-fetch-datasheet` fills `ate/config/limits/<part>.yaml` from local Reference PDFs first (en.run-ic.com only if unfound). `#btn-fill-excel` writes `paste.values` numbers from living `report.json` (DUT list or CHA/CHB grid).
 
 ## Forbidden
 

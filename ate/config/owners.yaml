@@ -1,0 +1,76 @@
+# Operators are people. Family rail is product class (RUN-IC).
+# Picking an operator defaults their campaign; other families stay.
+
+owners:
+- id: all
+  label: All
+  default_family: opamp
+  default_part: rs622
+  default_component: OpAmp
+  default_package: TTSOP8
+  parts: []
+- id: eugene
+  label: Eugene
+  default_family: opamp
+  default_part: rs622
+  default_component: OpAmp
+  default_package: TTSOP8
+  parts:
+  - rs622
+  - lm358
+  - rs1g07
+  - rs1g14
+- id: soo
+  label: Soo
+  default_family: logic
+  default_part: rs29511
+  default_component: Logic
+  default_package: SOIC
+  parts:
+  - rs29511
+- id: ariff
+  label: Ariff
+  default_family: logic
+  default_part: rs1g08
+  default_component: Logic
+  default_package: SOT23
+  parts:
+  - rs1g08
+  - rs1g32
+  - rs1gt32d
+- id: lim
+  label: Lim
+  default_family: switch
+  default_part: rs2323
+  default_component: AnalogSwitch
+  default_package: MSOP
+  parts:
+  - rs2323
+  - rs2227
+  - rs1g126
+  - rs1g97
+  - rs1g125
+- id: seelim
+  label: SeeLim
+  default_family: switch
+  default_part: rs2323
+  default_component: AnalogSwitch
+  default_package: MSOP
+  parts:
+  - rs2323
+- id: changthong
+  label: ChangThong
+  default_family: level
+  default_part: rs0204
+  default_component: Level
+  default_package: TSSOP14
+  parts:
+  - rs0204
+- id: ate
+  label: ATE
+  default_family: level
+  default_part: rs0204
+  default_component: Level
+  default_package: TSSOP14
+  parts:
+  - rs0204

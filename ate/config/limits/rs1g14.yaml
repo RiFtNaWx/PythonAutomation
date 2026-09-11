@@ -1,0 +1,17 @@
+part: RS1G14
+datasheet:
+  lang: en
+  source: local-reference
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1G14_(RevA.3.1).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1g14.txt
+specs:
+- id: ICC_uA
+  unit: uA
+  max: 1.0
+  test: supply_current
+  source: local:RS1G14_(RevA.3.1).pdf
+- id: VCC_V
+  unit: V
+  min: 1.65
+  max: 5.5
+  source: local:RS1G14_(RevA.3.1).pdf

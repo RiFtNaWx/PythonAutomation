@@ -1,6 +1,16 @@
 # PCB / fixture board revisions by family + package.
-# Tags page multi-selects from these; free-text tags still allowed.
-# Not the same as fixture gain modes (BUFFER/G11) in ate/fixture/modes.py.
+# Label kinds are data-driven. Setup "Add labels" picks kind + value.
+# Not a #Test_Database path axis. Not fixture gain modes (BUFFER/G11).
+
+kinds:
+  board:
+    label: Board
+  board_type:
+    label: Board type
+  tag:
+    label: Tag
+  task:
+    label: Task
 
 families:
   opamp:
@@ -16,6 +26,10 @@ families:
     default:
       - G11-REV3
       - BUFFER-REV1
+    board_types:
+      - G11
+      - BUFFER
+      - G_NEG100
   logic:
     SOT23:
       - LOGIC-SOT23-REV1
@@ -26,11 +40,32 @@ families:
       - LOGIC-TSSOP14-REV1
     default:
       - LOGIC-GENERIC-REV1
+    board_types:
+      - Logic
   switch:
     MSOP:
       - SWITCH-MSOP-REV1
+    UQFN:
+      - SWITCH-UQFN-REV1
+    "UQFN1.4X1.8-10":
+      - SWITCH-UQFN-REV1
     default:
       - SWITCH-GENERIC-REV1
+    board_types:
+      - AnalogSwitch
   level:
+    TSSOP14:
+      - LEVEL-TSSOP14-REV1
     default:
       - LEVEL-GENERIC-REV1
+    board_types:
+      - LevelShifter
+  power:
+    SOT23-5:
+      - LDO-SOT23-REV1
+    ESOP8:
+      - LDO-ESOP8-REV1
+    default:
+      - LDO-GENERIC-REV1
+    board_types:
+      - LDO

@@ -1,0 +1,26 @@
+# RS164 shift register -- Qualification Main SOP14.
+
+part: RS164
+model: RS164XP
+component: Logic
+package: SOP14
+version: Version_1
+sample_size: 4
+year: "2026"
+part_key: rs164
+product_class: logic
+vcc: 5.0
+current_limit: 0.10
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+enabled_tests:
+  - tp
+  - supply_current
+fixture_modes:
+  LOGIC:
+    label: "Logic board (RS164)"
+    board_class: general
+    checklist:
+      - "RS164 is an 8-bit shift register. Add serial/clock slots via Wrap, do not copy AND-gate ids."
+    tests: [tp, supply_current]

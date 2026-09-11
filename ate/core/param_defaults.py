@@ -26,6 +26,91 @@ GBW_RUN_LABELS = {
     "alt_100r_1k": "G11_100R_1k",
 }
 
+# OPA measurement timing (family-local; bodies may keep literals equivalent)
+_OPA_TIMEOUT_S = 6.0
+_OPA_SETTLE_SLEW_S = 1.8
+_OPA_SETTLE_DEFAULT_S = 1.5
+
+# Logic bench defaults (vcc etc. for wraps; no OPA gain/GBW chrome)
+LOGIC_TEST_DEFAULTS: dict[str, dict[str, Any]] = {
+    "tp": {"vcc": 5.0},
+    "tidle": {"vcc": 5.0},
+    "tdis": {"vcc": 5.0},
+    "ten": {"vcc": 5.0},
+    "supply_current": {"vcc": 5.0},
+    "output_voltage": {"vcc": 5.0},
+    "cap_load": {},
+    # Ariff / RS1G08 DC slots (A09/A12) — part yaml may override vcc
+    "delta_supply_current": {"vcc": 1.65},
+    "off_current": {"vcc": 1.65},
+    "input_thresholds": {"vcc": 1.65},
+    "ioff_leakage": {"vcc": 1.65},
+    "input_leakage_sweep": {"vcc": 1.65},
+    "supply_current_sweep": {"vcc": 1.65},
+    "vih_vil": {"vcc": 1.65},
+    "voh_load": {"vcc": 1.65},
+    "vol_load": {"vcc": 1.65},
+    # RS0204 dual-rail (vcc = VCCA; vccb from part yaml)
+    "vih": {"vcc": 1.8, "vccb": 3.3},
+    "vil": {"vcc": 1.8, "vccb": 3.3},
+    "voh": {"vcc": 1.8, "vccb": 3.3},
+    "vol": {"vcc": 1.8, "vccb": 3.3},
+    "icc": {"vcc": 1.8, "vccb": 3.3},
+    "il": {"vcc": 1.8, "vccb": 3.3},
+    "tpd": {"vcc": 1.8, "vccb": 3.3, "freq_hz": 400000.0},
+    "tp_rs0204": {"vcc": 1.8, "vccb": 3.3, "freq_hz": 400000.0},
+    "tsu": {"vcc": 1.8, "vccb": 3.3},
+    "th": {"vcc": 1.8, "vccb": 3.3},
+    "fmax": {"vcc": 1.8, "vccb": 3.3},
+    "tr": {"vcc": 1.8, "vccb": 3.3},
+    "tf": {"vcc": 1.8, "vccb": 3.3},
+    "tsk": {"vcc": 1.8, "vccb": 3.3},
+    "cpd": {"vcc": 1.8, "vccb": 3.3},
+    "tw": {"vcc": 1.8, "vccb": 3.3},
+}
+
+LIM_TEST_DEFAULTS: dict[str, dict[str, Any]] = {
+    "iplus": {"vcc": 5.0},
+    "leakage_off": {"vcc": 5.0},
+    "leakage_on": {"vcc": 5.0},
+    "input_leakage": {"vcc": 5.0},
+}
+
+POWER_TEST_DEFAULTS: dict[str, dict[str, Any]] = {
+    "iq": {"vcc": 5.0},
+    "vinmin": {"vcc": 5.0},
+    "lir": {"vcc": 5.0},
+    "lor": {"vcc": 5.0},
+    "ioutmax": {"vcc": 5.0},
+    "enable_current": {"vcc": 5.0},
+}
+
+# Per-family timing lookup (non-opamp must not inherit OPA settle/timeout)
+FAMILY_TIMING: dict[str, dict[str, dict[str, float]]] = {
+    "opamp": {
+        "slew": {"timeout_s": _OPA_TIMEOUT_S, "settle_s": _OPA_SETTLE_SLEW_S},
+        "_default": {"timeout_s": _OPA_TIMEOUT_S, "settle_s": _OPA_SETTLE_DEFAULT_S},
+    },
+    "logic": {
+        "_default": {"timeout_s": 4.0, "settle_s": 0.3},
+    },
+    "switch": {
+        "_default": {"timeout_s": 120.0, "settle_s": 0.5},
+    },
+    "lim": {
+        "_default": {"timeout_s": 120.0, "settle_s": 0.5},
+    },
+    "power": {
+        "_default": {"timeout_s": 120.0, "settle_s": 0.5},
+    },
+    "level": {
+        "_default": {"timeout_s": 4.0, "settle_s": 0.3},
+    },
+    "demo_ingest": {
+        "_default": {"timeout_s": 2.0, "settle_s": 0.1},
+    },
+}
+
 TEST_DEFAULTS: dict[str, dict[str, Any]] = {
     "gbw": {
         "vcc": 5.0,
@@ -170,7 +255,169 @@ def merged_defaults(test_ids: list[str]) -> dict[str, Any]:
     return out
 
 
-def catalog_for_ui(part: str = "rs622") -> dict[str, Any]:
+def _load_part_yaml(part: str) -> dict[str, Any]:
+    try:
+        from ate.core.paths import PARTS_DIR
+        import yaml as _yaml
+
+        path = PARTS_DIR / f"{str(part or '').strip()}.yaml"
+        if not path.is_file():
+            return {}
+        raw = _yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        return raw if isinstance(raw, dict) else {}
+    except Exception:
+        return {}
+
+
+def _num_list(raw: Any) -> list[float]:
+    if not isinstance(raw, list):
+        return []
+    out: list[float] = []
+    for x in raw:
+        try:
+            out.append(float(x))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def controls_from_part(raw: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Operator dropdowns/numbers. Explicit yaml `controls:` wins, else VCC rails."""
+    raw = raw if isinstance(raw, dict) else {}
+    explicit = raw.get("controls")
+    if isinstance(explicit, list) and explicit:
+        out: list[dict[str, Any]] = []
+        for row in explicit:
+            if not isinstance(row, dict):
+                continue
+            cid = str(row.get("id") or "").strip()
+            if not cid:
+                continue
+            item: dict[str, Any] = {
+                "id": cid,
+                "label": str(row.get("label") or cid),
+            }
+            if row.get("value") is not None:
+                item["value"] = row["value"]
+            choices = row.get("choices") or row.get("options")
+            nums = _num_list(choices)
+            if nums:
+                item["choices"] = nums
+            elif isinstance(choices, list) and choices:
+                item["choices"] = [str(x) for x in choices]
+            out.append(item)
+        if out:
+            return out
+    controls: list[dict[str, Any]] = []
+    vcc = raw.get("vcc", raw.get("vcca"))
+    sweeps = _num_list(
+        raw.get("vcc_sweep_list")
+        or raw.get("vcc_sweep")
+        or raw.get("vcca_sweep_list")
+        or raw.get("vcca_sweep")
+    )
+    if vcc is not None or sweeps:
+        try:
+            val = float(vcc) if vcc is not None else sweeps[0]
+        except (TypeError, ValueError):
+            val = sweeps[0] if sweeps else 5.0
+        item = {
+            "id": "vcc",
+            "label": "VCCA (V)" if raw.get("vccb") is not None else "VCC (V)",
+            "value": val,
+        }
+        if sweeps:
+            item["choices"] = sweeps
+        controls.append(item)
+    if raw.get("vccb") is not None:
+        item = {
+            "id": "vccb",
+            "label": "VCCB (V)",
+            "value": float(raw["vccb"]),
+        }
+        sweeps_b = _num_list(raw.get("vccb_sweep_list") or raw.get("vccb_sweep"))
+        if sweeps_b:
+            item["choices"] = sweeps_b
+        controls.append(item)
+    return controls
+
+
+def _apply_part_to_tests(tests: dict[str, Any], part_key: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Overlay part yaml vcc/vccb/test_defaults and filter enabled_tests."""
+    from ate.fixture.modes import enabled_tests_for_part
+
+    raw = _load_part_yaml(part_key)
+    if not raw:
+        return tests, {}
+    vcc = raw.get("vcc", raw.get("vcca"))
+    vccb = raw.get("vccb")
+    if vcc is not None:
+        vcc_f = float(vcc)
+        for tid, entry in list(tests.items()):
+            if isinstance(entry, dict) and "vcc" in entry:
+                tests[tid] = {**entry, "vcc": vcc_f}
+        vcc = vcc_f
+    if vccb is not None:
+        vccb_f = float(vccb)
+        for tid, entry in list(tests.items()):
+            if isinstance(entry, dict):
+                tests[tid] = {**entry, "vccb": vccb_f}
+        vccb = vccb_f
+    extra = raw.get("test_defaults")
+    if isinstance(extra, dict):
+        for tid, entry in extra.items():
+            if not isinstance(entry, dict):
+                continue
+            tid_s = str(tid)
+            tests[tid_s] = {**(tests.get(tid_s) or {}), **entry}
+    enabled = enabled_tests_for_part(part_key)
+    if enabled is not None:
+        allow = set(enabled)
+        tests = {k: v for k, v in tests.items() if k in allow}
+        for tid in enabled:
+            if tid in tests:
+                continue
+            stub: dict[str, Any] = {}
+            if vcc is not None:
+                stub["vcc"] = vcc
+            if vccb is not None:
+                stub["vccb"] = vccb
+            tests[str(tid)] = stub
+    return tests, raw
+
+
+def timing_for(
+    family: str | None = None,
+    test_id: str | None = None,
+    part: str | None = None,
+) -> dict[str, float]:
+    """Family-local settle/timeout; unknown non-opamp families get {} (no OPA fallback).
+
+    Optional `part` overlays ate/config/parts/<part>.yaml `timing:` without copying OPA literals.
+    """
+    fam = (family or "opamp").strip().lower()
+    if fam == "lim":
+        fam = "switch"
+    table = FAMILY_TIMING.get(fam)
+    if table is None:
+        out: dict[str, float] = {}
+    else:
+        key = (test_id or "").strip().lower()
+        if key and key in table:
+            out = dict(table[key])
+        else:
+            out = dict(table.get("_default") or {})
+    if part:
+        block = _load_part_yaml(part).get("timing")
+        if isinstance(block, dict):
+            if block.get("timeout_s") is not None:
+                out["timeout_s"] = float(block["timeout_s"])
+            if block.get("settle_s") is not None:
+                out["settle_s"] = float(block["settle_s"])
+    return out
+
+
+def _opa_catalog(part: str) -> dict[str, Any]:
     profiles: dict[str, Any] = {}
     for mode in ("G11",):
         rows = []
@@ -186,10 +433,77 @@ def catalog_for_ui(part: str = "rs622") -> dict[str, Any]:
             rows.append(row)
         if rows:
             profiles[mode] = rows
+    raw = _load_part_yaml(part)
+    sample = int(raw.get("sample_size") or 4) if raw else 4
     return {
         "tests": TEST_DEFAULTS,
-        "psu_golden": PSU_GOLDEN,
+        "psu_golden": _psu_golden_for_part(raw),
         "gain_profiles": profiles,
         "gbw_steps": GBW_FIXED_STEPS,
         "gbw_run_labels": GBW_RUN_LABELS,
+        "controls": [],
+        "sample_size": sample,
     }
+
+
+def _empty_catalog() -> dict[str, Any]:
+    return {
+        "tests": {},
+        "psu_golden": PSU_GOLDEN,
+        "gain_profiles": {},
+        "gbw_steps": [],
+        "gbw_run_labels": {},
+        "controls": [],
+        "sample_size": 4,
+    }
+
+
+def _psu_golden_for_part(raw: dict[str, Any] | None) -> dict[str, Any]:
+    out = dict(PSU_GOLDEN)
+    raw = raw if isinstance(raw, dict) else {}
+    ilim = raw.get("current_limit_a", raw.get("current_limit"))
+    if ilim is not None:
+        try:
+            out["current_limit_a"] = float(ilim)
+        except (TypeError, ValueError):
+            pass
+    return out
+
+
+def _yaml_family_catalog(part_key: str, defaults: dict[str, Any]) -> dict[str, Any]:
+    tests, raw = _apply_part_to_tests(dict(defaults), part_key)
+    sample = int(raw.get("sample_size") or 4) if raw else 4
+    cat = _empty_catalog()
+    cat["tests"] = tests
+    cat["controls"] = controls_from_part(raw)
+    cat["sample_size"] = sample
+    cat["psu_golden"] = _psu_golden_for_part(raw)
+    return cat
+
+
+def catalog_for_ui(part: str = "rs622", family: str | None = None) -> dict[str, Any]:
+    fam = (family or "opamp").strip().lower()
+    if fam == "lim":
+        fam = "switch"
+    if fam == "opamp":
+        return _opa_catalog(part)
+    if fam == "logic":
+        return _yaml_family_catalog(str(part or "rs29511"), LOGIC_TEST_DEFAULTS)
+    if fam == "switch":
+        return _yaml_family_catalog(str(part or "rs2323"), LIM_TEST_DEFAULTS)
+    if fam == "power":
+        return _yaml_family_catalog(str(part or "rs3213"), POWER_TEST_DEFAULTS)
+    # extra families: no OPA TEST_DEFAULTS. Part yaml controls only if this part belongs here.
+    raw = _load_part_yaml(str(part or ""))
+    cat = _empty_catalog()
+    if raw:
+        comp = str(raw.get("component") or "").lower().replace(" ", "").replace("_", "")
+        fam_n = fam.replace(" ", "").replace("_", "")
+        if comp and (
+            comp == fam_n
+            or (fam_n == "switch" and comp in ("analogswitch", "switch", "lim"))
+            or (fam_n == "power" and comp in ("power", "ldo"))
+        ):
+            cat["controls"] = controls_from_part(raw)
+            cat["sample_size"] = int(raw.get("sample_size") or 4)
+    return cat

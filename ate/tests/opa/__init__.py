@@ -3,6 +3,28 @@
 Import order is cosmetic — all_tests() / group_by_fixture() reorder by
 FIXTURE_RUN_ORDER (BUFFER → G11 → G_NEG100 → …; VOS research last).
 """
-from ate.tests.opa import vos, ac_gain, ac_vin, slew, gbw, ort, settling, stubs  # noqa: F401
+from ate.tests.opa import (  # noqa: F401
+    vos,
+    ac_gain,
+    ac_vin,
+    slew,
+    gbw,
+    ort,
+    settling,
+    buffer_steps,
+    mapped_dc,
+    noise,
+)
 
-__all__ = ["vos", "ac_gain", "ac_vin", "slew", "gbw", "ort", "settling", "stubs"]
+__all__ = [
+    "vos",
+    "ac_gain",
+    "ac_vin",
+    "slew",
+    "gbw",
+    "ort",
+    "settling",
+    "buffer_steps",
+    "mapped_dc",
+    "noise",
+]

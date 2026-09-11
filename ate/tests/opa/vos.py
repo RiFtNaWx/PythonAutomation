@@ -17,10 +17,12 @@ def _run(instr, params: RunParams):
         excel_path=params.research_excel,
         sheet_name=sheet,
     )
+    vos = fit.get("vos_mV") if isinstance(fit, dict) else None
     return {
         "summary": f"VOS={fit.get('vos_mV', float('nan')):.4f} mV  R²={fit.get('r_squared', float('nan')):.6f}",
         "fit": fit,
         "lab_sheet": "VOS",
+        "measurements": [{"id": "VOS_mV", "value": vos, "unit": "mV"}] if vos is not None else [],
     }
 
 

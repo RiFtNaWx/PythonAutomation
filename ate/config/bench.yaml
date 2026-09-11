@@ -5,13 +5,23 @@ jsonrpc:
   # 8765 is AirGPT — ATE uses 8766
   port: 8766
 
-# Tree axes: Component / Part / Package / Version_N
+# Central tree. Everyone runs against this folder (OneDrive-sync the SharePoint library).
+# https:// SharePoint URL goes in ate/config/sharepoint.url (browser). Local synced
+# path can also live in ate/config/cloud_db.txt (overrides this on that PC).
+# Live library: RD / Shared Documents / General / Handover / #Test_Database
+# Do not unpark A13 Excel MCP -- the folder IS the database.
+test_database_root: "C:\\Users\\OoiJianHong\\#Test_Database"
+sharepoint_url: "https://jumptechwin.sharepoint.com/:f:/s/RD/IgC_gG1VFnI3RbuN7gqBaNAxAU6m3sLDVuj4EIdauFRGG4E?e=te8KJN"
+
+# Tree axes: Component / Part / Package / Operator / Version_N
 # (year is metadata only; fixture/gain config is NOT a folder)
-test_database: "C:\\Users\\OoiJianHong\\#Test_Database\\OpAmp\\RS622\\TTSOP8\\Version_1"
-lab_report: "C:\\Users\\OoiJianHong\\#Test_Database\\OpAmp\\RS622\\TTSOP8\\Version_1\\workbook\\RS622XK_Lab_Report_TTSOP.xlsx"
+test_database: "C:\\Users\\OoiJianHong\\#Test_Database\\OpAmp\\RS622\\TTSOP8\\Eugene\\Version_1"
+lab_report: "C:\\Users\\OoiJianHong\\#Test_Database\\OpAmp\\RS622\\TTSOP8\\Eugene\\Version_1\\workbook\\RS622XK_Lab_Report_TTSOP.xlsx"
 research_excel: "C:\\Users\\OoiJianHong\\Downloads\\VOS Research.xlsx"
-screenshot_dir: "C:\\Users\\OoiJianHong\\#Test_Database\\OpAmp\\RS622\\TTSOP8\\Version_1\\ORT\\DUT_1\\screenshots"
-sheet_map: "C:\\Users\\OoiJianHong\\#Test_Database\\OpAmp\\RS622\\TTSOP8\\Version_1\\_manifest\\sheet_map.yaml"
+# Local RUN-IC datasheets (RAG index). Fetch website only if a tested SKU has no PDF here.
+reference_root: "C:\\Users\\OoiJianHong\\Downloads\\Reference\\Reference"
+screenshot_dir: "C:\\Users\\OoiJianHong\\#Test_Database\\OpAmp\\RS622\\TTSOP8\\Eugene\\Version_1\\ORT\\DUT_1\\screenshots"
+sheet_map: "C:\\Users\\OoiJianHong\\#Test_Database\\OpAmp\\RS622\\TTSOP8\\Eugene\\Version_1\\_manifest\\sheet_map.yaml"
 
 default_vcc: 5.0
 current_limit_a: 0.10

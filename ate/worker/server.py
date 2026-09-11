@@ -20,7 +20,7 @@ from ate.core.paths import JSONRPC_HOST, JSONRPC_PORT
 from ate.core.registry import active_family, all_tests, family_labels, known_families, refresh_family_table
 from ate.core.runner import ATECore, RunParams
 
-WORKER_VERSION = "0.2.17"
+WORKER_VERSION = "0.2.25"
 
 
 class _State:
@@ -125,7 +125,14 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
     core = _core()
 
     if method == "ping":
-        return {"ok": True, "version": WORKER_VERSION}
+        from ate.core.paths import TEST_DB_ROOT, cloud_kind
+
+        return {
+            "ok": True,
+            "version": WORKER_VERSION,
+            "test_database_root": str(TEST_DB_ROOT),
+            "cloud_kind": cloud_kind(TEST_DB_ROOT),
+        }
 
     if method == "get_family":
         return {
@@ -140,6 +147,26 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
 
         return {"owners": load_owners()}
 
+    if method == "upsert_owner":
+        from ate.core.database import upsert_owner
+
+        return upsert_owner(
+            label=str(params.get("label") or params.get("operator") or ""),
+            owner_id=str(params.get("id") or params.get("owner_id") or ""),
+            default_family=str(params.get("default_family") or params.get("family") or ""),
+            default_part=str(params.get("default_part") or params.get("part") or ""),
+            default_component=str(params.get("default_component") or params.get("component") or ""),
+            default_package=str(params.get("default_package") or params.get("package") or ""),
+            task=str(params.get("task") or params.get("part") or ""),
+            parts=list(params.get("parts") or []) if isinstance(params.get("parts"), list) else None,
+            update_defaults=bool(params.get("update_defaults", True)),
+        )
+
+    if method == "remove_owner":
+        from ate.core.database import remove_owner
+
+        return remove_owner(str(params.get("owner") or params.get("label") or params.get("id") or ""))
+
     if method == "set_family":
         if core.busy:
             raise RuntimeError("Runner busy — wait for run to finish")
@@ -149,21 +176,39 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
 
     if method == "list_tests":
         from ate.core.timeline import short_test_tag
+        from ate.core.specs import load_part_specs, test_info_map
 
         specs = list(all_tests())
-        if core.family in ("logic", "lim", "switch"):
-            from ate.core.database import get_context
-            from ate.fixture.modes import enabled_tests_for_part
+        from ate.core.database import get_context
+        from ate.fixture.modes import enabled_tests_for_part
 
-            ctx = get_context()
-            default_pk = "rs2323" if core.family in ("lim", "switch") else "rs29511"
-            enabled = enabled_tests_for_part(
-                str(ctx.part_key or default_pk),
-                catalog=ctx.load_test_catalog(),
-            )
-            if enabled is not None:
-                allow = set(enabled)
-                specs = [t for t in specs if t.id in allow]
+        ctx = get_context()
+        defaults = {
+            "logic": "rs29511",
+            "lim": "rs2323",
+            "switch": "rs2323",
+            "power": "rs3213",
+            "opamp": "rs622",
+            "level": "rs0204",
+        }
+        pk = str(ctx.part_key or "") or defaults.get(core.family or "", "")
+        enabled = enabled_tests_for_part(pk, catalog=ctx.load_test_catalog()) if pk else None
+        if enabled is not None:
+            allow = set(enabled)
+            filtered = [t for t in specs if t.id in allow]
+            if filtered:
+                specs = filtered
+            elif not allow:
+                specs = []
+            else:
+                fallback = defaults.get(core.family or "", "")
+                if fallback and fallback != pk:
+                    enabled2 = enabled_tests_for_part(fallback)
+                    if enabled2:
+                        allow2 = set(enabled2)
+                        specs = [t for t in specs if t.id in allow2]
+        info_map = test_info_map(pk)
+        part_specs = load_part_specs(pk)
         return [
             {
                 "id": t.id,
@@ -175,6 +220,13 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
                 "notes": t.notes,
                 "fixed_steps": list(t.fixed_steps) if t.fixed_steps else [],
                 "dual_channel": bool(getattr(t, "dual_channel", True)),
+                "specs": [
+                    s
+                    for s in part_specs
+                    if str(s.get("test") or "").lower() == t.id.lower()
+                    or str(s.get("id") or "").lower() == t.id.lower()
+                ],
+                "info": info_map.get(t.id) or {},
             }
             for t in specs
         ]
@@ -188,14 +240,19 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
             from ate.fixture.modes import catalog_for_ui
 
             return catalog_for_ui(part)
-        if core.family == "logic":
+        if core.family in ("logic", "level"):
             from ate.fixture.modes import logic_catalog_for_ui
 
-            return logic_catalog_for_ui(part if part != "rs622" else "rs29511")
+            level_default = "rs0204" if core.family == "level" else "rs29511"
+            return logic_catalog_for_ui(part if part != "rs622" else level_default)
         if core.family in ("lim", "switch"):
             from ate.fixture.modes import logic_catalog_for_ui
 
             return logic_catalog_for_ui(part if part not in ("rs622", "") else "rs2323")
+        if core.family == "power":
+            from ate.fixture.modes import logic_catalog_for_ui
+
+            return logic_catalog_for_ui(part if part not in ("rs622", "") else "rs3213")
         return []
 
     if method == "list_db_tree":
@@ -214,9 +271,17 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
         }
 
     if method == "set_db_context":
-        from ate.core.database import family_for_component, list_test_folders, set_context
+        from ate.core.database import list_test_folders, remember_operator, set_context
         from ate.core.paths import sync_defaults_from_context
 
+        op_raw = str(params.get("operator") or "").strip()
+        if op_raw:
+            remember_operator(
+                op_raw,
+                component=str(params.get("component") or ""),
+                part=str(params.get("part") or ""),
+                package=str(params.get("package") or ""),
+            )
         ctx = set_context(
             component=params.get("component"),
             part=params.get("part"),
@@ -229,7 +294,14 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
             sample_size=params.get("sample_size"),
         )
         sync_defaults_from_context()
-        wanted = family_for_component(ctx.component)
+        from ate.core.new_product import suite_for_part
+
+        wanted = suite_for_part(
+            ctx.part,
+            component=ctx.component,
+            package=ctx.package,
+            model=ctx.model,
+        )
         family = core.family
         family_error = ""
         if wanted and wanted != family:
@@ -241,7 +313,11 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
                 except ValueError as exc:
                     family_error = str(exc)
         elif not wanted:
-            family_error = "RUN-IC class has no ATE suite yet; folders saved, family left as-is"
+            if core.busy:
+                family_error = "Runner busy — campaign saved; switch family after the run"
+            else:
+                family = core.load_family("")
+                family_error = "RUN-IC class has no ATE suite yet; empty test list"
         out = {
             "context": ctx.identity(),
             "tests": list_test_folders(ctx),
@@ -266,6 +342,48 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
         folder.mkdir(parents=True, exist_ok=True)
         os.startfile(str(folder))
         return {"folder": str(folder)}
+
+    if method == "open_central_db":
+        from ate.core.paths import cloud_kind, load_test_db_root, sharepoint_url
+        import os
+
+        root = load_test_db_root()
+        if root.is_dir():
+            os.startfile(str(root))
+            return {"folder": str(root), "cloud_kind": cloud_kind(root)}
+        url = sharepoint_url()
+        if url:
+            os.startfile(url)
+            return {
+                "folder": str(root),
+                "opened": "sharepoint_url",
+                "url": url,
+                "note": "Local sync folder missing. Opened SharePoint in the browser. Sync with OneDrive, put that folder in ate/config/cloud_db.txt, restart worker.",
+            }
+        raise FileNotFoundError(
+            "Central #Test_Database is not on this PC. Sync the SharePoint library in OneDrive, "
+            "then put that folder path in ate/config/cloud_db.txt (one line). Do not use a private unzip copy."
+        )
+
+    if method == "open_path":
+        from ate.core.datalog import _safe_session_json
+        from ate.core.paths import TEST_DB_ROOT
+        import os
+
+        raw = str(params.get("path") or "").strip()
+        if not raw:
+            raise ValueError("path required")
+        p = Path(raw)
+        if p.is_dir():
+            root = TEST_DB_ROOT.resolve()
+            resolved = p.resolve()
+            if root not in resolved.parents and resolved != root:
+                raise PermissionError("path is outside #Test_Database")
+            os.startfile(str(resolved))
+            return {"folder": str(resolved)}
+        target = _safe_session_json(p, TEST_DB_ROOT)
+        os.startfile(str(target))
+        return {"path": str(target)}
 
     if method == "open_sessions":
         from ate.core.database import get_context
@@ -575,7 +693,9 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
 
         tags = params.get("tags") if isinstance(params.get("tags"), list) else None
         boards = params.get("boards") if isinstance(params.get("boards"), list) else None
-        return save_tags(tags, boards)
+        labels = params.get("labels") if isinstance(params.get("labels"), list) else None
+        scope = str(params.get("remember_scope") or params.get("scope") or "campaign")
+        return save_tags(tags, boards, labels=labels, remember_scope=scope)
 
     if method == "import_tags":
         from ate.core.tags import import_tags
@@ -611,6 +731,72 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
         from ate.core.datalog import load_report
 
         return load_report()
+
+    if method == "list_runs":
+        from ate.core.datalog import list_runs
+
+        return list_runs(
+            scope=str(params.get("scope") or "part"),
+            component=str(params.get("component") or ""),
+            part=str(params.get("part") or ""),
+            package=str(params.get("package") or ""),
+            operator=str(params.get("operator") or ""),
+            version=str(params.get("version") or ""),
+            limit=int(params.get("limit") or 80),
+        )
+
+    if method == "delete_run":
+        from ate.core.datalog import delete_run_file
+
+        path = str(params.get("path") or "").strip()
+        if not path:
+            raise ValueError("path required")
+        return delete_run_file(path)
+
+    if method == "export_datalog":
+        from ate.core.datalog import load_report, report_path
+        from ate.core.database import get_context
+        from ate.reporting.sts_datalog import export_sts
+
+        doc = load_report()
+        c = get_context()
+        paths = export_sts(doc, c.sessions_dir())
+        return {"ok": True, **paths, "report": str(report_path(c))}
+
+    if method == "fetch_datasheet":
+        from ate.core.database import get_context
+        from ate.core.lookup import sync_limits_from_local
+
+        ctx = get_context()
+        part = str(params.get("part") or ctx.part or "")
+        return sync_limits_from_local(
+            part,
+            part_key=str(params.get("part_key") or ctx.part_key or ""),
+            web_ok=True,
+        )
+
+    if method == "sync_datasheet_index":
+        from ate.core.lookup import sync_inventory_limits
+
+        return sync_inventory_limits(web_ok=False)
+
+    if method == "fill_workbook":
+        from ate.reporting.session_values import fill_workbook_from_report
+
+        return fill_workbook_from_report()
+
+    if method == "list_specs":
+        from ate.core.database import get_context
+        from ate.core.specs import load_part_datasheet, load_part_specs, test_info_map
+
+        ctx = get_context()
+        pk = str(params.get("part_key") or ctx.part_key or "")
+        return {
+            "part_key": pk,
+            "specs": load_part_specs(pk),
+            "test_info": test_info_map(pk),
+            "datasheet": load_part_datasheet(pk),
+        }
 
     if method == "paste_session_photos":
         from ate.reporting.session_paste import paste_session_photos

@@ -1,0 +1,25 @@
+# RS2323 analog switch. English PDF in local Reference (not RS22X opamp).
+
+part: RS2323
+datasheet:
+  lang: en
+  source: local-reference
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS2323_(RevWeb).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs2323.txt
+  notes: Do not attach RS22X opamp. Fetched from www.run-ic.com/en/details/143/23.html into local Reference.
+
+specs:
+  - id: IPLUS_uA
+    test: iplus
+    unit: uA
+    max: 1.0
+    source: parts/rs2323.yaml display_limit_ua
+  - id: VCC_V
+    unit: V
+    min: 1.8
+    max: 5.5
+    source: local:RS2323_(RevWeb).pdf recommended operating
+  - id: RON_ohm
+    unit: ohm
+    typ: 0.6
+    source: local:RS2323_(RevWeb).pdf Low ON-State Resistance

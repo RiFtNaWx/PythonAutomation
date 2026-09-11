@@ -1,0 +1,17 @@
+part: RS1G74
+datasheet:
+  lang: en
+  source: local-reference
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1G74_(RevA.2).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1g74.txt
+specs:
+- id: VCC_V
+  unit: V
+  min: 1.65
+  max: 5.5
+  source: local:RS1G74_(RevA.2).pdf
+- id: ICC_uA
+  unit: uA
+  max: 10.0
+  test: supply_current
+  source: local:RS1G74_(RevA.2).pdf

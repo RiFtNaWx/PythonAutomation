@@ -1,4 +1,4 @@
-"""Instrument session — MSO required; PSU/AWG optional at open."""
+"""Instrument session -- MSO required; PSU/AWG/DMM optional at open."""
 from __future__ import annotations
 
 from typing import Optional
@@ -24,10 +24,11 @@ class Instruments:
         self.scope = self._open("MSO", required=True)
         self.psu = self._open("PSU", required=False)
         self.gen = self._open("AWG", required=False)
+        self.dmm = self._open("DMM", required=False)
 
-        for key, handle in (("PSU", self.psu), ("AWG", self.gen)):
+        for key, handle in (("PSU", self.psu), ("AWG", self.gen), ("DMM", self.dmm)):
             if handle is None:
-                print(f"{key} not connected — session open without it.")
+                print(f"{key} not connected -- session open without it.")
 
     def available_devices(self) -> set[str]:
         return set(self.inst_map.keys())
@@ -57,7 +58,7 @@ class Instruments:
         return self.scope
 
     def reset_all(self) -> None:
-        for inst in (self.scope, self.gen, self.psu):
+        for inst in (self.scope, self.gen, self.psu, self.dmm):
             if inst is None:
                 continue
             try:
@@ -66,7 +67,7 @@ class Instruments:
                 print(f"Reset failed: {exc}")
 
     def close_all(self) -> None:
-        for inst in (self.scope, self.gen, self.psu):
+        for inst in (self.scope, self.gen, self.psu, self.dmm):
             if inst is None:
                 continue
             try:

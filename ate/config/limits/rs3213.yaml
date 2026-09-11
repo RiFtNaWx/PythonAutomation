@@ -1,0 +1,30 @@
+# RS3213 LDO. English PDF in local Reference (not RS32X opamp).
+
+part: RS3213
+datasheet:
+  lang: en
+  source: local-reference
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS3213_(RevWeb).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs3213.txt
+  notes: Do not attach RS32X opamp. Fetched English product PDF into local Reference.
+
+specs:
+  - id: VOUT_V
+    test: iq
+    unit: V
+    typ: 3.3
+    source: parts/rs3213.yaml vout_nominal
+  - id: IQ_uA
+    test: iq
+    unit: uA
+    typ: 30
+    source: local:RS3213_(RevWeb).pdf Low IQ TYP
+  - id: VIN_V
+    unit: V
+    min: 1.6
+    max: 5.5
+    source: local:RS3213_(RevWeb).pdf Input Voltage Range
+  - id: VDO_mV
+    unit: mV
+    typ: 580
+    source: local:RS3213_(RevWeb).pdf dropout at 500 mA VOUT=3.3V

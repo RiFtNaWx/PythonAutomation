@@ -1,0 +1,4 @@
+# Copy to cloud_db.txt (same folder). One line = local OneDrive path
+# to the synced #Test_Database. Not a https:// SharePoint URL.
+# Example:
+# C:\Users\You\Company\Lab Characterization - Documents\#Test_Database

@@ -1,0 +1,17 @@
+part: RS1G97
+datasheet:
+  lang: en
+  source: local-reference
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1G97_(RevA.2.1).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1g97.txt
+specs:
+- id: VCC_V
+  unit: V
+  min: 1.65
+  max: 5.5
+  source: local:RS1G97_(RevA.2.1).pdf
+- id: ICC_uA
+  unit: uA
+  max: 10.0
+  test: supply_current
+  source: local:RS1G97_(RevA.2.1).pdf

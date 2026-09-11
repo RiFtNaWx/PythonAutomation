@@ -10,3 +10,5 @@ Thumbs.db
 datalog_output/
 *.xlsx
 *.csv
+dist/
+ate/config/cloud_db.txt

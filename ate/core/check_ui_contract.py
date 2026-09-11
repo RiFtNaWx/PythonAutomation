@@ -47,6 +47,54 @@ def main() -> int:
 
     if "tags" not in tabs:
         errors.append("Tags tab (data-page=tags) missing")
+    if 'data-family="power"' not in html:
+        errors.append("Power family rail button missing")
+    if 'id="setup-label-chips"' not in html or 'id="btn-setup-add-label"' not in html:
+        errors.append("Setup Add labels control missing")
+    if 'id="btn-add-version"' in html:
+        errors.append("+ Version extra button must not exist; Version box is editable")
+    if 'id="setup-label-new"' in html:
+        errors.append("Or type extra field must not exist; label value is editable")
+    if 'class="combo"' not in html or "combo-caret" not in html:
+        errors.append("Setup combo dropdown (caret + open list) missing")
+    if 'id="db-tag-input"' not in html:
+        errors.append("Setup tag type field missing")
+    if 'id="db-version-list"' in html or 'id="setup-label-value-list"' in html:
+        errors.append("datalist leftover; Setup uses .combo menu not datalist")
+    if 'id="run-ledger"' not in html or 'id="btn-open-central"' not in html:
+        errors.append("Run ledger / Open central DB missing")
+    if "sharepoint" not in html.lower():
+        errors.append("Setup central-db hint must mention SharePoint")
+    if 'id="btn-tags-clear"' not in html:
+        errors.append("Clear all tags control missing")
+    if 'id="label-scope"' not in html:
+        errors.append("Label scope (campaign / class / all) missing")
+    if 'id="btn-save-person"' not in html or 'id="btn-forget-person"' not in html:
+        errors.append("Save / Forget person controls missing")
+    if 'id="btn-export-datalog"' not in html or 'id="btn-fetch-datasheet"' not in html:
+        errors.append("STS datalog export / datasheet fetch controls missing")
+    if 'id="btn-fill-excel"' not in html:
+        errors.append("Fill Excel numbers control missing")
+
+    js_path = WEB / "app.js"
+    if not js_path.is_file():
+        errors.append("app.js missing")
+    else:
+        js = js_path.read_text(encoding="utf-8")
+        if re.search(r"\bif\s+![A-Za-z_]", js):
+            errors.append("app.js has invalid if ! without parentheses")
+        if "inventoryRows" not in js or "loadInventory" not in js:
+            errors.append("Setup tracking sheet must load inventory")
+        if "!(inventoryRows || []).length" not in js:
+            errors.append("family rail click must retry loadInventory when tracking rows are empty")
+        combo = re.search(
+            r'\["db-component", "db-part", "db-package", "db-operator", "db-version"\]\.forEach[\s\S]*?\$\("btn-apply-db"\)',
+            js,
+        )
+        if not combo:
+            errors.append("Setup campaign combo change listener missing")
+        elif "applyDb(" in combo.group(0):
+            errors.append("Setup combo change must not auto applyDb")
 
     if errors:
         print("FAIL check_ui_contract:")

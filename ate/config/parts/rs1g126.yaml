@@ -1,0 +1,43 @@
+# RS1G126 Logic bus buffer — RUN-IC small logic. Owner Lim.
+# Lim codes in Downloads/code/RS1G126 (input() waits) — not imported.
+
+part: RS1G126
+model: RS1G126
+component: Logic
+device: RS1G126
+package: SOT23
+version: Version_1
+sample_size: 4
+year: "2026"
+owner: lim
+part_key: rs1g126
+product_class: logic
+
+vcc: 5.0
+current_limit: 0.10
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+
+enabled_tests:
+  - tp
+  - ten
+  - tdis
+  - supply_current
+  - ioff_leakage
+  - input_thresholds
+
+fixture_modes:
+  LOGIC:
+    label: "Logic board (RS1G126 / Lim)"
+    board_class: general
+    checklist:
+      - "RS1G126 is small logic (bus buffer), not analog switch."
+      - "Lim recipes stay in Downloads/code; ATE uses platform Logic ids."
+    tests:
+      - tp
+      - ten
+      - tdis
+      - supply_current
+      - ioff_leakage
+      - input_thresholds

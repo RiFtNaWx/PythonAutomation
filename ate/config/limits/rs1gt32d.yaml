@@ -1,0 +1,57 @@
+part: RS1GT32D
+datasheet:
+  lang: en
+  source: unfound
+  file: ''
+  extract: ''
+specs:
+- id: VOH_2p0V
+  unit: V
+  min: 1.6
+  test: voh_load
+  source: parts/rs1gt32d.yaml voh_table
+- id: VOH_3p3V
+  unit: V
+  min: 2.5
+  test: voh_load
+  source: parts/rs1gt32d.yaml voh_table
+- id: VOH_4p5V
+  unit: V
+  min: 3.8
+  test: voh_load
+  source: parts/rs1gt32d.yaml voh_table
+- id: VOH_5p0V
+  unit: V
+  min: 4.2
+  test: voh_load
+  source: parts/rs1gt32d.yaml voh_table
+- id: VOH_5p5V
+  unit: V
+  min: 4.8
+  test: voh_load
+  source: parts/rs1gt32d.yaml voh_table
+- id: VOL_2p0V
+  unit: V
+  max: 0.45
+  test: vol_load
+  source: parts/rs1gt32d.yaml vol_table
+- id: VOL_3p3V
+  unit: V
+  max: 0.55
+  test: vol_load
+  source: parts/rs1gt32d.yaml vol_table
+- id: VOL_4p5V
+  unit: V
+  max: 0.55
+  test: vol_load
+  source: parts/rs1gt32d.yaml vol_table
+- id: VOL_5p0V
+  unit: V
+  max: 0.5
+  test: vol_load
+  source: parts/rs1gt32d.yaml vol_table
+- id: VOL_5p5V
+  unit: V
+  max: 0.45
+  test: vol_load
+  source: parts/rs1gt32d.yaml vol_table

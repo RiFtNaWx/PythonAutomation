@@ -1,0 +1,56 @@
+# RS3213 LDO (Linear Regulator). Each orderable (3.3 / 2.8 / 2.5 / 1.8) is a
+# separate inventory SKU. vout_nominal comes from the model suffix unless set here.
+
+part: RS3213
+model: RS3213-3.3XF5
+component: Power
+device: RS3213
+package: SOT23-5
+version: Version_1
+sample_size: 4
+year: "2026"
+part_key: rs3213
+product_class: power
+vout_nominal: 3.3
+vcc: 5.0
+current_limit: 0.10
+vin_current_limit: 0.4
+dmm_readings: 3
+dmm_settle_s: 0.3
+vin_iq: [2.0, 3.3, 5.0]
+vin_min_margin: 0.4
+vin_min_step: 0.2
+vin_lir: [3.4, 5.0]
+lor_vin: 3.9
+load_lor: [0.01, 0.5]
+iout_vin: [3.3, 5.0]
+load_iout: [0.01, 0.5]
+enable_vin: [3.4, 5.0]
+enable_ven: [0.0, 5.0]
+timing:
+  timeout_s: 120.0
+  settle_s: 0.5
+
+enabled_tests:
+  - iq
+  - vinmin
+  - lir
+  - lor
+  - ioutmax
+  - enable_current
+
+fixture_modes:
+  LDO:
+    label: "LDO board (RS3213)"
+    board_class: general
+    checklist:
+      - "RS3213 LDO; PSU CH1=VIN (or VOUT bias on IQ); DMM per slot"
+      - "Each orderable (3.3/2.8/2.5/1.8) is its own campaign"
+      - "Continue at wiring prompts; supplies off while waiting"
+    tests:
+      - iq
+      - vinmin
+      - lir
+      - lor
+      - ioutmax
+      - enable_current

@@ -1,0 +1,12 @@
+# Optional golden codebases to scan for def test_* (AST only; never execute).
+# Missing paths are skipped. ate/tests is always scanned.
+#
+# roots:
+#   - path: absolute or ~ path
+#     label: short name for UI
+
+roots:
+  - path: "C:/Users/OoiJianHong/Downloads/LabAutomation-1/LabAutomation-1"
+    label: LabAutomation-1
+  - path: "C:/Users/OoiJianHong/LabAutomation_14.7"
+    label: LabAutomation_14.7

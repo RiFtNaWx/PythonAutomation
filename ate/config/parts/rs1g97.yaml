@@ -1,0 +1,38 @@
+# RS1G97 Logic configurable gate — RUN-IC small logic. Owner Lim.
+# Lim codes in Downloads/code/RS1G97 — not imported.
+
+part: RS1G97
+model: RS1G97
+component: Logic
+device: RS1G97
+package: SOT23
+version: Version_1
+sample_size: 4
+year: "2026"
+owner: lim
+part_key: rs1g97
+product_class: logic
+
+vcc: 5.0
+current_limit: 0.10
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+
+enabled_tests:
+  - tp
+  - supply_current
+  - input_thresholds
+  - ioff_leakage
+
+fixture_modes:
+  LOGIC:
+    label: "Logic board (RS1G97 / Lim)"
+    board_class: general
+    checklist:
+      - "RS1G97 is configurable logic, not analog switch."
+    tests:
+      - tp
+      - supply_current
+      - input_thresholds
+      - ioff_leakage

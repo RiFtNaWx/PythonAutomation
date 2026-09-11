@@ -1,0 +1,40 @@
+# RS1G07 Logic (Eugene) — reuse Ariff DC slots via enabled_tests
+# Tree: #Test_Database/Logic/RS1G07/SOT23/Version_1
+# Parked: cpd, cin (no platform bodies this wave)
+
+part: RS1G07
+model: RS1G07
+component: Logic
+device: RS1G07
+package: SOT23
+version: Version_1
+sample_size: 4
+year: "2026"
+owner: eugene
+part_key: rs1g07
+
+vcc: 5.0
+current_limit: 0.10
+htol_ns: 230
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+
+enabled_tests:
+  - supply_current
+  - delta_supply_current
+  - ioff_leakage
+  - input_leakage_sweep
+
+fixture_modes:
+  LOGIC:
+    label: "Logic board (RS1G07 / Eugene)"
+    board_class: general
+    checklist:
+      - "Logic fixture for RS1G07"
+      - "DMM required for DC / leakage rows"
+    tests:
+      - supply_current
+      - delta_supply_current
+      - ioff_leakage
+      - input_leakage_sweep

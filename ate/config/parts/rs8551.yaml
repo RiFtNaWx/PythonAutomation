@@ -1,0 +1,46 @@
+# RS8551 precision Op-Amp -- Qualification Main SOP8.
+
+part: RS8551
+model: RS8551XK
+component: OpAmp
+device: RS8551
+package: SOP8
+version: Version_1
+sample_size: 4
+year: "2026"
+part_key: rs8551
+product_class: opamp
+vcc: 5.0
+current_limit: 0.10
+enabled_tests:
+  - vos_sweep
+  - gbw
+  - slew
+  - noise
+noise:
+  gain: 1001
+  timebase_s: 1.0
+  vdiv: 0.05
+  out_channel: 2
+fixture_modes:
+  BUFFER:
+    label: "Voltage Follower (Buffer)"
+    board_class: general
+    gain: 1
+    tests: [slew]
+  G11:
+    label: "Non-inverting Gain = 11"
+    board_class: general
+    gain: 11
+    tests: [gbw]
+  G201:
+    label: "Research VOS / AC"
+    board_class: research
+    gain: 201
+    tests: [vos_sweep]
+  ATE:
+    label: "ATE-only"
+    board_class: general
+    checklist:
+      - "Noise 0.1-10 Hz: high-gain, shield, AWG off, AC-couple VOUT"
+    tests: [noise]

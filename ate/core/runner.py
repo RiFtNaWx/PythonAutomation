@@ -54,6 +54,7 @@ class RunParams:
     rf: str = ""  # RF network label (10k, 1k, …)
     ri: str = ""  # RI network label
     current_limit_a: float = 0.10
+    vccb: Optional[float] = None  # dual-rail Logic; None = part yaml
     progress_hook: Optional[Callable[..., None]] = field(default=None, repr=False)
     pause_hook: Optional[Callable[[str], bool]] = field(default=None, repr=False)
 
@@ -172,7 +173,9 @@ class ATECore:
         self._mapping = dict(self._instr.inst_map)
         missing = [k for k in ("MSO", "PSU", "AWG") if k not in self._mapping]
         if missing:
-            self._log(f"WARNING missing: {missing} — check USB / close Ultra Sigma")
+            self._log(f"WARNING missing: {missing} -- check USB / close Ultra Sigma")
+        if "DMM" not in self._mapping:
+            self._log("WARNING DMM not found -- Logic IDD/VOUT/cap_load and OpAmp VOL need it")
         self._log(f"Session open: {list(self._mapping)}")
         return dict(self._mapping)
 
@@ -302,7 +305,7 @@ class ATECore:
                         "vcc", "freq_hz", "amp_vpp", "n_repeats",
                         "unit_index", "part", "reset_before_run",
                         "run_label", "gain_profile", "rf", "ri", "gain",
-                        "current_limit_a",
+                        "current_limit_a", "vccb",
                     )},
                     "dut_indices": duts,
                     "channels": channels,
@@ -700,13 +703,37 @@ class ATECore:
                                             {"path": p} if isinstance(p, str) else p
                                             for p in val
                                         )
+                            from ate.core.database import get_context
+                            from ate.core.specs import any_fail, measurements_from_result
+
+                            ctx = get_context()
+                            meas = measurements_from_result(
+                                step.data,
+                                test_id=step.test_id,
+                                part_key=str(ctx.part_key or ""),
+                            )
+                            ok = bool(step.success)
+                            if any_fail(meas):
+                                ok = False
+                                self._log(
+                                    f"SPEC FAIL DUT_{dut} {spec.id}: "
+                                    + ", ".join(
+                                        f"{m.get('id')}={m.get('value')} "
+                                        f"min={m.get('min')} max={m.get('max')}"
+                                        for m in meas
+                                        if m.get("result") == "fail"
+                                    )
+                                )
                             record_step(
                                 step.test_id,
-                                success=step.success,
+                                success=ok,
                                 summary=step.summary,
                                 error=step.error,
                                 fixture_mode=spec.fixture_mode,
                                 artifacts=arts or None,
+                                measurements=meas or None,
+                                dut=step.dut if step.dut is not None else dut,
+                                channel=use_ch,
                             )
                             if test_entry is not None:
                                 self._timeline.mark(

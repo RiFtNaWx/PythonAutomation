@@ -1,0 +1,47 @@
+# RS358 general Op-Amp -- Qualification Main SOP8. Same family as RS622/LM358.
+
+part: RS358
+model: RS358XK
+component: OpAmp
+device: RS358
+package: SOP8
+version: Version_1
+sample_size: 4
+year: "2026"
+part_key: rs358
+product_class: opamp
+vcc: 5.0
+current_limit: 0.10
+enabled_tests:
+  - slew
+  - settling
+  - gbw
+  - ort
+  - noise
+noise:
+  gain: 1001
+  timebase_s: 1.0
+  vdiv: 0.05
+  out_channel: 2
+fixture_modes:
+  BUFFER:
+    label: "Voltage Follower (Buffer)"
+    board_class: general
+    gain: 1
+    tests: [slew, settling]
+  G11:
+    label: "Non-inverting Gain = 11"
+    board_class: general
+    gain: 11
+    tests: [gbw]
+  G_NEG100:
+    label: "Inverting Gain = -100 (ORT)"
+    board_class: general
+    gain: -100
+    tests: [ort]
+  ATE:
+    label: "ATE-only"
+    board_class: general
+    checklist:
+      - "Noise 0.1-10 Hz: high-gain, shield, AWG off, AC-couple VOUT"
+    tests: [noise]

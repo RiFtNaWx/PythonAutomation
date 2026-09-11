@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20260908f24" />
+  <link rel="stylesheet" href="styles.css?v=20260911handover1" />
 </head>
 <body>
   <div class="bg"></div>
@@ -17,7 +17,8 @@
       <button type="button" class="family-btn active" data-family="opamp">OpAmp</button>
       <button type="button" class="family-btn" data-family="logic">Logic</button>
       <button type="button" class="family-btn" data-family="switch" title="Analog switch (RS2323 / RS2227)">Analog SW</button>
-      <button type="button" class="family-btn family-stub" data-family="level" title="Stub slot — no Level suite yet">Level</button>
+      <button type="button" class="family-btn" data-family="level" title="Level Shifters (RS0204 dual-rail)">Level</button>
+      <button type="button" class="family-btn" data-family="power" title="Linear Regulator / LDO">Power</button>
     </aside>
     <div class="app">
     <header class="glass bar">
@@ -65,43 +66,100 @@
         <div class="grid">
           <div class="glass panel wide">
             <h2>Test Database</h2>
-            <p class="hint">Component → Part → Package → Operator → Version_N. Top-right Operator jumps to that person's campaign. All is view-only (no writes). Config/gain is a board mode, not a folder.</p>
+            <p class="hint">Component → Part → Package → Operator → Version_N. Click the box or arrow to open the list. Pick, type to add, x to clear. A new Version_N is created on Apply (folders too). Type a new Operator name then Apply to add that person (owners.yaml). Top-right Operator jumps to that person's campaign. All is view-only. Config/gain is a board mode, not a folder. Runs and lab reports live in this same #Test_Database tree -- sync that folder with SharePoint/OneDrive if the lab needs a cloud copy (no second writer).</p>
             <div class="db-grid">
               <label>Component
-                <select id="db-component"></select>
+                <div class="combo">
+                  <input id="db-component" class="combo-input" type="text" autocomplete="off" spellcheck="false" aria-label="Component" />
+                  <button type="button" class="combo-clear hidden" tabindex="-1" aria-label="Clear">x</button>
+                  <button type="button" class="combo-caret" tabindex="-1" aria-label="Open list"></button>
+                </div>
               </label>
               <label>Part / device
-                <select id="db-part"></select>
+                <div class="combo">
+                  <input id="db-part" class="combo-input" type="text" autocomplete="off" spellcheck="false" aria-label="Part" />
+                  <button type="button" class="combo-clear hidden" tabindex="-1" aria-label="Clear">x</button>
+                  <button type="button" class="combo-caret" tabindex="-1" aria-label="Open list"></button>
+                </div>
               </label>
               <label>Package
-                <select id="db-package"></select>
+                <div class="combo">
+                  <input id="db-package" class="combo-input" type="text" autocomplete="off" spellcheck="false" aria-label="Package" />
+                  <button type="button" class="combo-clear hidden" tabindex="-1" aria-label="Clear">x</button>
+                  <button type="button" class="combo-caret" tabindex="-1" aria-label="Open list"></button>
+                </div>
               </label>
               <label>Operator folder
-                <select id="db-operator"></select>
+                <div class="combo">
+                  <input id="db-operator" class="combo-input" type="text" autocomplete="off" spellcheck="false" aria-label="Operator folder" />
+                  <button type="button" class="combo-clear hidden" tabindex="-1" aria-label="Clear">x</button>
+                  <button type="button" class="combo-caret" tabindex="-1" aria-label="Open list"></button>
+                </div>
               </label>
-              <label>Version
-                <select id="db-version"></select>
-              </label>
-              <div class="row" style="align-items:flex-end; gap:6px">
-                <button type="button" id="btn-add-version" class="btn ghost" title="Create next Version_N">+ Version</button>
+              <div class="row" style="align-items:flex-end; gap:6px; flex-wrap:wrap">
+                <button type="button" id="btn-save-person" class="btn ghost" title="Write owners.yaml from this name + current campaign">Save person</button>
+                <button type="button" id="btn-forget-person" class="btn ghost" title="Drop owners.yaml row only. Version folders stay.">Forget person</button>
               </div>
+              <p class="hint" id="person-hint">Type a new name then Apply or Save person. That records who + this SKU as their task. Forget person is yaml only (no folder delete). All stays view-only.</p>
+              <label>Version
+                <div class="combo">
+                  <input id="db-version" class="combo-input" type="text" placeholder="Version_1" autocomplete="off" spellcheck="false" aria-label="Version" />
+                  <button type="button" class="combo-clear hidden" tabindex="-1" aria-label="Clear">x</button>
+                  <button type="button" class="combo-caret" tabindex="-1" aria-label="Open list"></button>
+                </div>
+              </label>
               <label>Model name
-                <input id="db-model" type="text" readonly />
+                <input id="db-model" type="text" />
               </label>
               <div class="model-tags-wrap" aria-label="Campaign tags">
-                <span class="hint" style="margin:0">Tags</span>
-                <div id="db-tag-chips" class="tag-chips"></div>
+                <span class="hint" style="margin:0">Tags (Space or Enter adds)</span>
+                <div class="combo">
+                  <input id="db-tag-input" class="combo-input" type="text" placeholder="type then Space" autocomplete="off" spellcheck="false" />
+                  <button type="button" class="combo-clear hidden" tabindex="-1" aria-label="Clear">x</button>
+                  <button type="button" class="combo-caret" tabindex="-1" aria-label="Open list"></button>
+                </div>
+                <div id="db-tag-chips" class="tag-chips compact"></div>
               </div>
               <label>Year (meta)
                 <input id="db-year" type="text" placeholder="2026" />
               </label>
+              <div class="setup-labels-wrap" aria-label="Add labels">
+                <span class="hint" style="margin:0">Add labels (pick or type; shared per type)</span>
+                <div class="row" style="align-items:flex-end; gap:6px; flex-wrap:wrap">
+                  <label>Kind
+                    <div class="combo">
+                      <input id="setup-label-kind" class="combo-input" type="text" placeholder="board" autocomplete="off" spellcheck="false" />
+                      <button type="button" class="combo-clear hidden" tabindex="-1" aria-label="Clear">x</button>
+                      <button type="button" class="combo-caret" tabindex="-1" aria-label="Open list"></button>
+                    </div>
+                  </label>
+                  <label>Value
+                    <div class="combo">
+                      <input id="setup-label-value" class="combo-input" type="text" placeholder="LOGIC-SOT23-REV1" autocomplete="off" spellcheck="false" />
+                      <button type="button" class="combo-clear hidden" tabindex="-1" aria-label="Clear">x</button>
+                      <button type="button" class="combo-caret" tabindex="-1" aria-label="Open list"></button>
+                    </div>
+                  </label>
+                  <label>Scope
+                    <div class="combo">
+                      <input id="label-scope" class="combo-input" type="text" placeholder="this campaign" autocomplete="off" spellcheck="false" />
+                      <button type="button" class="combo-clear hidden" tabindex="-1" aria-label="Clear">x</button>
+                      <button type="button" class="combo-caret" tabindex="-1" aria-label="Open list"></button>
+                    </div>
+                  </label>
+                  <button type="button" id="btn-setup-add-label" class="btn ghost">Add label</button>
+                </div>
+                <div id="setup-label-chips" class="tag-chips compact hidden"></div>
+              </div>
             </div>
             <p class="hint" id="psu-safety-hint">PSU safety: OVP/OCP always ON (defaults Vset+0.3 V, Iset+0.1 A). Not instrument max. SAFE IDLE turns AWG then PSU off before Continue waits.</p>
             <div class="row" style="margin-top:10px">
               <button id="btn-apply-db" class="btn accent">Apply campaign</button>
               <button id="btn-open-db" class="btn ghost">Open DB folder</button>
               <button id="btn-open-sessions" class="btn ghost">Open sessions</button>
+              <button type="button" id="btn-open-central" class="btn ghost">Open central DB</button>
             </div>
+            <p class="hint" id="central-db-hint">Central #Test_Database is the SharePoint-synced folder (same tree for everyone). Apply campaign first.</p>
             <div class="row" style="margin-top:10px; align-items:flex-end">
               <label style="flex:1 1 280px">Existing xlsx path
                 <input id="db-xlsx-path" type="text" placeholder="C:\Users\...\Lab_Report.xlsx" />
@@ -125,6 +183,7 @@
               <label>Tracking sheet
                 <select id="inv-select"><option value="">-- pick a row --</option></select>
               </label>
+              <p class="hint" id="inv-type-hint">SKUs for the selected type (OpAmp / Logic / Analog SW / Level / Power).</p>
               <label>RUN-IC class
                 <select id="np-category"></select>
               </label>
@@ -144,7 +203,7 @@
             <div class="row" style="margin-top:10px">
               <button type="button" id="btn-new-product" class="btn accent">Create folders + open</button>
             </div>
-            <p class="hint" id="np-hint">Folders: #Test_Database / {class} / {part} / {package} / {operator} / Version_1</p>
+            <p class="hint" id="np-hint">Folders: #Test_Database / {class} / {part} / {package} / {operator} / Version_1. Create copies the tracking-sheet xlsx into workbook/ when a report path exists. DEMO never stamps PASS.</p>
             <h3 class="subhead">Detected tests (golden + ate/tests)</h3>
             <p class="hint">AST scan only -- never runs golden code. Rows with input() stay blocked until rewritten to Continue. Wrap writes a TestSpec scaffold; copy enables ids on another same-family part.</p>
             <div class="row" style="margin-top:8px; align-items:flex-end; gap:8px; flex-wrap:wrap">
@@ -208,7 +267,7 @@
                 <label>Repeats<input id="repeats" type="number" step="1" value="3" /></label>
               </div>
               <label class="check"><input id="reset" type="checkbox" /> Reset instruments before run</label>
-              <p class="hint">PSU: Iset=100 mA, OVP=Vset+0.3 V, OCP=Iset+0.1 A. Photo anchors: Results → Waveform layout (sheet_map.yaml).</p>
+              <p class="hint" id="psu-golden-hint">PSU: Iset=100 mA, OVP=Vset+0.3 V, OCP=Iset+0.1 A. Photo anchors: Results → Waveform layout (sheet_map.yaml).</p>
             </div>
           </div>
 
@@ -237,7 +296,7 @@
               <button id="btn-start" class="btn accent big" disabled>START</button>
               <button type="button" id="btn-demo" class="btn ghost big">DEMO dry-run</button>
             </div>
-            <p class="hint">START needs Open Session + hardware. DEMO walks selected tests with mock MSO/PSU/AWG/DMM numbers and writes sessions/*.json -- does not stamp the lab xlsx as PASS.</p>
+            <p class="hint">START needs Open Session + hardware. DEMO walks ticked tests in board order with mock MSO/PSU/AWG/DMM numbers (VOL stays low, dual-rail shows VCCA+VCCB) and writes sessions/*.json -- does not stamp the lab xlsx as PASS.</p>
           </div>
         </div>
       </section>
@@ -270,10 +329,27 @@
 
       <section id="page-results" class="page">
         <div class="grid">
+        <div class="glass panel wide" id="panel-run-ledger">
+          <h2>Run ledger</h2>
+          <p class="hint">Every START/DEMO writes JSON under that campaign's <code>sessions/</code> in the central #Test_Database. This list is checkable by operator, part, and time. Delete removes the JSON only -- never the Version folder or lab xlsx. Sync the #Test_Database folder with SharePoint if the lab wants the same tree in the cloud.</p>
+          <div class="row" style="margin-top:8px; flex-wrap:wrap; gap:6px">
+            <button type="button" id="btn-runs-campaign" class="btn ghost">This campaign</button>
+            <button type="button" id="btn-runs-part" class="btn ghost">This SKU (all operators)</button>
+            <button type="button" id="btn-runs-all" class="btn ghost">All campaigns</button>
+            <button type="button" id="btn-runs-reload" class="btn">Reload</button>
+          </div>
+          <p class="hint" id="run-ledger-hint">Open Results after Apply campaign.</p>
+          <table id="run-ledger"><thead><tr><th>When</th><th>Who</th><th>Part</th><th>Ver</th><th>P/F</th><th></th></tr></thead><tbody></tbody></table>
+        </div>
         <div class="glass panel wide">
           <h2>Last results</h2>
-          <table id="results-table"><thead><tr><th>DUT</th><th>Test</th><th>OK</th><th>Summary</th></tr></thead><tbody></tbody></table>
-          <p class="hint" id="results-db-hint">Lab report + session JSON under the selected Version_N.</p>
+          <table id="results-table"><thead><tr><th>DUT</th><th>Test</th><th>Param</th><th>Min</th><th>Max</th><th>Typ</th><th>Value</th><th>Result</th><th>Summary</th></tr></thead><tbody></tbody></table>
+          <div class="row" style="margin-top:8px; flex-wrap:wrap; gap:6px">
+            <button type="button" id="btn-export-datalog" class="btn accent">Export STS datalog</button>
+            <button type="button" id="btn-fill-excel" class="btn">Fill Excel numbers</button>
+            <button type="button" id="btn-fetch-datasheet" class="btn ghost">Fetch limits (local PDF first)</button>
+          </div>
+          <p class="hint" id="results-db-hint">Limits: ate/config/limits/&lt;part&gt;.yaml from local Reference PDFs first. Each test checkbox shows datasheet min/max/typ when stamped. Fill Excel uses sheet_map paste.values. Photos go in paste.photos cells (RS622 TTSOP = 8 boxes per sheet, ORT = 16). Export writes sessions/datalog.md|.html|.pdf with PASS/FAIL. Never dump the RUN-IC catalog into #Test_Database.</p>
         </div>
         <div class="glass panel wide" id="panel-layout">
           <h2>Waveform layout</h2>
@@ -309,16 +385,20 @@
         <div class="grid">
           <div class="glass panel wide">
             <h2>Campaign tags</h2>
-            <p class="hint">Stored in <code>_manifest/tags.yaml</code> and campaign-root <code>TAGS.txt</code> (one token per line -- Explorer search and grep). Board revisions are family/package-specific. No new folder axis.</p>
+            <p class="hint">Stored in <code>_manifest/tags.yaml</code>, campaign-root <code>TAGS.txt</code>, and the lab xlsx Tags cell when the workbook is closed. Scope = this campaign, this class (all OpAmp / Logic / ...), or all products (every label we have ever saved). Chip x removes from this campaign only. Board revisions are family/package-specific. No new folder axis. Space or Enter adds a tag.</p>
             <div class="db-grid">
               <label>Board revision
-                <select id="tag-board-select"></select>
+                <div class="combo">
+                  <input id="tag-board-select" class="combo-input" type="text" autocomplete="off" spellcheck="false" />
+                  <button type="button" class="combo-clear hidden" tabindex="-1" aria-label="Clear">x</button>
+                  <button type="button" class="combo-caret" tabindex="-1" aria-label="Open list"></button>
+                </div>
               </label>
               <div class="row" style="align-items:flex-end; gap:6px">
                 <button type="button" id="btn-tag-add-board" class="btn ghost">Add board</button>
               </div>
               <label>Free-text tag
-                <input id="tag-free" type="text" placeholder="project:RS622-char" />
+                <input id="tag-free" type="text" placeholder="project:RS622-char" autocomplete="off" spellcheck="false" />
               </label>
               <div class="row" style="align-items:flex-end; gap:6px">
                 <button type="button" id="btn-tag-add-free" class="btn ghost">Add tag</button>
@@ -328,6 +408,7 @@
             <div class="row" style="margin-top:10px">
               <button type="button" id="btn-tags-save" class="btn accent">Save tags</button>
               <button type="button" id="btn-tags-reload" class="btn ghost">Reload</button>
+              <button type="button" id="btn-tags-clear" class="btn ghost">Clear all tags</button>
             </div>
             <p class="hint" id="tags-path-hint">TAGS.txt: Apply campaign first.</p>
           </div>
@@ -366,6 +447,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20260908f23b"></script>
+  <script src="app.js?v=20260911photo1"></script>
 </body>
 </html>

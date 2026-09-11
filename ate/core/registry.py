@@ -58,9 +58,133 @@ FAMILY_PACKAGES: dict[str, str] = {
     "opamp": "ate.tests.opa",
     "logic": "ate.tests.logic",
     "level": "ate.tests.level",
+    "switch": "ate.tests.lim",  # analog switch (RS2323); package name is historical
+    "power": "ate.tests.power",
 }
 
+BUILTIN_FAMILY_PACKAGES: dict[str, str] = dict(FAMILY_PACKAGES)
 DEFAULT_FAMILY = "opamp"
+# Person names are not families. Old "lim" key = analog switch.
+FAMILY_ALIASES: dict[str, str] = {"lim": "switch"}
+# Level Shifters keep the Level rail/folder; tests are the dual-rail logic suite (RS0204).
+SUITE_ALIASES: dict[str, str] = {"level": "logic"}
+
+
+def _extra_families_path():
+    from pathlib import Path as _P
+    return _P(__file__).resolve().parents[1] / "config" / "extra_families.yaml"
+
+
+def _load_extra_families() -> dict[str, str]:
+    try:
+        import yaml
+    except Exception:
+        return {}
+    path = _extra_families_path()
+    if not path.is_file():
+        return {}
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    block = raw.get("families", raw)
+    if not isinstance(block, dict):
+        return {}
+    out: dict[str, str] = {}
+    for key, val in block.items():
+        fam = str(key or "").strip().lower()
+        if not fam or fam in ("opamp", "opa", "logic", "level", "lim", "switch", "power"):
+            continue
+        if isinstance(val, dict):
+            pkg = str(val.get("package") or f"ate.tests.{fam}").strip()
+        else:
+            pkg = str(val or f"ate.tests.{fam}").strip()
+        if pkg:
+            out[fam] = pkg
+    return out
+
+
+def _discover_test_packages() -> dict[str, str]:
+    import pkgutil
+    skip = {"opa", "logic", "level", "lim", "switch", "power"}
+    found: dict[str, str] = {}
+    try:
+        import ate.tests
+    except Exception:
+        return found
+    for info in pkgutil.iter_modules(getattr(ate.tests, "__path__", [])):
+        if not info.ispkg:
+            continue
+        name = info.name
+        if name.startswith("_") or name in skip:
+            continue
+        found[name] = f"ate.tests.{name}"
+    return found
+
+
+def refresh_family_table() -> dict[str, str]:
+    """Rebuild FAMILY_PACKAGES from builtins + ate.tests.* + extra_families.yaml."""
+    merged = dict(BUILTIN_FAMILY_PACKAGES)
+    merged.update(_discover_test_packages())
+    merged.update(_load_extra_families())
+    FAMILY_PACKAGES.clear()
+    FAMILY_PACKAGES.update(merged)
+    return dict(FAMILY_PACKAGES)
+
+
+def known_families() -> list[str]:
+    refresh_family_table()
+    return sorted(FAMILY_PACKAGES)
+
+
+def family_labels() -> dict[str, str]:
+    """Rail display names. extra_families.yaml `label:` overrides the key."""
+    refresh_family_table()
+    labels = {
+        "opamp": "OpAmp",
+        "logic": "Logic",
+        "level": "Level",
+        "switch": "Analog SW",
+        "lim": "Analog SW",
+        "power": "Power",
+    }
+    extras = _load_extra_family_labels()
+    for fam in FAMILY_PACKAGES:
+        if fam in extras:
+            labels[fam] = extras[fam]
+        elif fam not in labels:
+            labels[fam] = fam.replace("_", " ")
+    return labels
+
+
+def _load_extra_family_labels() -> dict[str, str]:
+    try:
+        import yaml
+    except Exception:
+        return {}
+    path = _extra_families_path()
+    if not path.is_file():
+        return {}
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    block = raw.get("families", raw)
+    if not isinstance(block, dict):
+        return {}
+    out: dict[str, str] = {}
+    for key, val in block.items():
+        fam = str(key or "").strip().lower()
+        if not fam or not isinstance(val, dict):
+            continue
+        lab = str(val.get("label") or "").strip()
+        if lab:
+            out[fam] = lab
+    return out
 
 
 def clear() -> None:
@@ -73,10 +197,21 @@ def active_family() -> str:
 
 
 def load_family(family: str | None = None) -> str:
-    """Clear registry and import the family's test package."""
+    """Clear registry and import the family's test package.
+
+    Empty string is an explicit stub (Power / Comparator): clear tests, do not
+    fall back to OpAmp. None still means DEFAULT_FAMILY.
+    """
     global _ACTIVE_FAMILY
+    refresh_family_table()
+    if family is not None and str(family).strip() == "":
+        clear()
+        _ACTIVE_FAMILY = ""
+        return ""
     key = (family or DEFAULT_FAMILY).strip().lower()
-    pkg = FAMILY_PACKAGES.get(key)
+    key = FAMILY_ALIASES.get(key, key)
+    suite_key = SUITE_ALIASES.get(key, key)
+    pkg = FAMILY_PACKAGES.get(suite_key) or FAMILY_PACKAGES.get(key)
     if pkg is None:
         known = ", ".join(sorted(FAMILY_PACKAGES))
         raise ValueError(f"Unknown family {family!r}; known: {known}")
@@ -85,12 +220,16 @@ def load_family(family: str | None = None) -> str:
     import sys
 
     mod = importlib.import_module(pkg)
+    # Reload package so runtime-added modules (ingest / F23 wrap) appear in __all__.
+    mod = importlib.reload(mod)
     subs = getattr(mod, "__all__", None) or []
     if subs:
         for name in subs:
             subname = f"{pkg}.{name}"
-            smod = sys.modules.get(subname) or importlib.import_module(subname)
-            importlib.reload(smod)
+            if subname in sys.modules:
+                importlib.reload(sys.modules[subname])
+            else:
+                importlib.import_module(subname)
     else:
         importlib.reload(mod)
     _ACTIVE_FAMILY = key

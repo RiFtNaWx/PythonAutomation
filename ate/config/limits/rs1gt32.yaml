@@ -1,0 +1,67 @@
+part: RS1GT32
+datasheet:
+  lang: en
+  source: local-reference
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1GT32_(RevA.2.1).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1gt32.txt
+specs:
+- id: ICC_uA
+  unit: uA
+  max: 1.0
+  test: supply_current
+  source: local:RS1GT32_(RevA.2.1).pdf
+- id: VCC_V
+  unit: V
+  min: 2.0
+  max: 5.5
+  source: local:RS1GT32_(RevA.2.1).pdf
+- id: VOH_2p0V
+  unit: V
+  min: 1.6
+  test: voh_load
+  source: parts/rs1gt32.yaml voh_table
+- id: VOH_3p3V
+  unit: V
+  min: 2.5
+  test: voh_load
+  source: parts/rs1gt32.yaml voh_table
+- id: VOH_4p5V
+  unit: V
+  min: 3.8
+  test: voh_load
+  source: parts/rs1gt32.yaml voh_table
+- id: VOH_5p0V
+  unit: V
+  min: 4.2
+  test: voh_load
+  source: parts/rs1gt32.yaml voh_table
+- id: VOH_5p5V
+  unit: V
+  min: 4.8
+  test: voh_load
+  source: parts/rs1gt32.yaml voh_table
+- id: VOL_2p0V
+  unit: V
+  max: 0.45
+  test: vol_load
+  source: parts/rs1gt32.yaml vol_table
+- id: VOL_3p3V
+  unit: V
+  max: 0.55
+  test: vol_load
+  source: parts/rs1gt32.yaml vol_table
+- id: VOL_4p5V
+  unit: V
+  max: 0.55
+  test: vol_load
+  source: parts/rs1gt32.yaml vol_table
+- id: VOL_5p0V
+  unit: V
+  max: 0.5
+  test: vol_load
+  source: parts/rs1gt32.yaml vol_table
+- id: VOL_5p5V
+  unit: V
+  max: 0.45
+  test: vol_load
+  source: parts/rs1gt32.yaml vol_table

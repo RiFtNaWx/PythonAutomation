@@ -1,0 +1,26 @@
+# RS1G123 monostable -- Qualification Main VSSOP8. Add tests via Setup Wrap.
+
+part: RS1G123
+model: RS1G123XVS8
+component: Logic
+package: VSSOP8
+version: Version_1
+sample_size: 4
+year: "2026"
+part_key: rs1g123
+product_class: logic
+vcc: 5.0
+current_limit: 0.10
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+enabled_tests:
+  - tp
+  - supply_current
+fixture_modes:
+  LOGIC:
+    label: "Logic board (RS1G123)"
+    board_class: general
+    checklist:
+      - "RS1G123 is a monostable. Timing recipe is part-specific -- Wrap a golden if needed."
+    tests: [tp, supply_current]

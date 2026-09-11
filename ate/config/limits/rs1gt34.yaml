@@ -1,0 +1,17 @@
+part: RS1GT34
+datasheet:
+  lang: en
+  source: local-reference
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1GT34_(RevA.1.1).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1gt34.txt
+specs:
+- id: ICC_uA
+  unit: uA
+  max: 1.0
+  test: supply_current
+  source: local:RS1GT34_(RevA.1.1).pdf
+- id: VCC_V
+  unit: V
+  min: 2.0
+  max: 5.5
+  source: local:RS1GT34_(RevA.1.1).pdf

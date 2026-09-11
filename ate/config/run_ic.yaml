@@ -1,0 +1,72 @@
+# RUN-IC Product Center -> ATE family + #Test_Database component folder.
+# Source: https://en.run-ic.com/
+# Do not scrape the website catalog into Test_Database. Add a SKU only when
+# we start testing it (Setup -> New product).
+#
+# Tracking-sheet classes (separate):
+#   Logic Series     -> logic
+#   Level Shifters   -> level  (translators; RS0204 suite may still use ate_suite: logic)
+#   Linear Regulator -> power  (LDO)
+
+source: https://en.run-ic.com/
+categories:
+  - id: opamp
+    run_ic: Operational amplifier
+    component: OpAmp
+    family: opamp
+    live: true
+    sheet_aliases:
+      - Low Noise Op-Amp
+      - General Op-Amp
+      - Precision Op-Amp
+      - High-speed operational amplifier
+      - low Vos operational amplifier
+  - id: comparator
+    run_ic: comparator
+    component: Comparator
+    family: ""
+    live: false
+  - id: analog_switch
+    run_ic: Analog switch
+    component: AnalogSwitch
+    family: switch
+    live: true
+    sheet_aliases: [Analog Switch]
+  - id: interface
+    run_ic: Interface
+    component: Interface
+    family: ""
+    live: false
+  - id: logic
+    run_ic: Logic
+    component: Logic
+    family: logic
+    live: true
+    sheet_aliases: [Logic Series]
+  - id: level
+    run_ic: Level Translator
+    component: Level
+    family: level
+    live: true
+    sheet_aliases: [Level Shifters, Level Translator, Level Shifter]
+  - id: vref
+    run_ic: Voltage reference source
+    component: VoltageRef
+    family: ""
+    live: false
+  - id: power
+    run_ic: Power products
+    component: Power
+    family: power
+    live: true
+    sheet_aliases: [Linear Regulator, LDO, LDOs]
+  - id: data_conv
+    run_ic: Data conversion
+    component: DataConversion
+    family: ""
+    live: false
+  - id: clock
+    run_ic: Clock & Timing
+    component: ClockTiming
+    family: ""
+    live: false

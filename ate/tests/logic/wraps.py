@@ -1,12 +1,37 @@
 """Thin TestSpec wraps for repo-root logic_tests.py (A02-T01)."""
 from __future__ import annotations
 
+import inspect
 from typing import Any, Callable
 
 from ate.core.registry import TestSpec, register
 from ate.core.runner import RunParams
 
 _LOGIC_FIXTURE = "LOGIC"
+
+
+def _invoke_legacy(fn: Callable[..., dict[str, Any]], instr, params: RunParams):
+    """Downloads/logic_tests.py IDD takes (vcca, vccb); repo-root takes (vcc)."""
+    names = [
+        p.name
+        for p in inspect.signature(fn).parameters.values()
+        if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        and p.name != "instr"
+        and p.default is inspect.Parameter.empty
+    ]
+    if "vccb" in names:
+        vccb = params.vcc
+        try:
+            from ate.core.paths import PARTS_DIR
+            import yaml
+
+            raw = yaml.safe_load((PARTS_DIR / f"{params.part}.yaml").read_text(encoding="utf-8")) or {}
+            if isinstance(raw, dict) and raw.get("vccb") is not None:
+                vccb = float(raw["vccb"])
+        except Exception:
+            pass
+        return fn(instr, params.vcc, vccb)
+    return fn(instr, params.vcc)
 
 
 def _register_vcc_test(
@@ -18,8 +43,8 @@ def _register_vcc_test(
     legacy_fn: Callable[..., dict[str, Any]],
 ) -> None:
     def _run(instr, params: RunParams):
-        data = legacy_fn(instr, params.vcc)
-        keys = [k for k in data if k != "VCC"]
+        data = _invoke_legacy(legacy_fn, instr, params)
+        keys = [k for k in data if k not in ("VCC", "VCCA", "VCCB")]
         summary = " ".join(f"{k}={data[k]}" for k in keys) if keys else f"VCC={data.get('VCC', params.vcc)}"
         return {"summary": summary, "data": data}
 

@@ -36,18 +36,21 @@ async function rpc(method, params = {}) {
 
 function $(id) { return document.getElementById(id); }
 
-let knownFamilies = ["opamp", "logic", "level", "switch"];
-let familyLabels = { opamp: "OpAmp", logic: "Logic", level: "Level", switch: "Analog SW" };
+let knownFamilies = ["opamp", "logic", "level", "switch", "power"];
+let familyLabels = { opamp: "OpAmp", logic: "Logic", level: "Level", switch: "Analog SW", power: "Power" };
+let railType = "opamp";
 
 const FAMILY_UI = {
   opamp: { brand: "OpAmp ATE", kicker: "Operator console" },
   logic: { brand: "Logic ATE", kicker: "Operator console" },
   switch: { brand: "Analog Switch ATE", kicker: "Operator console" },
   lim: { brand: "Analog Switch ATE", kicker: "Operator console" },
-  level: { brand: "Level ATE", kicker: "Stub — no suite yet" },
+  level: { brand: "Level ATE", kicker: "Level Shifters" },
+  power: { brand: "Power ATE", kicker: "LDO / Linear Regulator" },
 };
 
 function familyMeta(family) {
+  if (!family) return { brand: "ATE", kicker: "Stub — no suite yet" };
   if (FAMILY_UI[family]) return FAMILY_UI[family];
   const nice = (familyLabels[family] || String(family || "ATE")).replace(/_/g, " ");
   return { brand: `${nice} ATE`, kicker: "Imported family" };
@@ -60,7 +63,7 @@ function renderFamilyRail(known, labels) {
   if (labels && typeof labels === "object") {
     familyLabels = { ...familyLabels, ...labels };
   }
-  const builtins = new Set(["opamp", "logic", "level", "switch"]);
+  const builtins = new Set(["opamp", "logic", "level", "switch", "power"]);
   rail.querySelectorAll(".family-btn[data-extra='1']").forEach((el) => el.remove());
   (known || []).forEach((fam) => {
     if (fam === "lim") return;
@@ -71,13 +74,9 @@ function renderFamilyRail(known, labels) {
     btn.dataset.family = fam;
     btn.dataset.extra = "1";
     btn.textContent = familyLabels[fam] || fam;
-    if (fam === "level") {
-      btn.classList.add("family-stub");
-      btn.title = "Stub slot — no Level suite yet";
-    }
     if (builtins.has(fam)) {
-      const levelBtn = rail.querySelector('.family-btn[data-family="level"]');
-      if (levelBtn) rail.insertBefore(btn, levelBtn);
+      const powerBtn = rail.querySelector('.family-btn[data-family="power"]');
+      if (powerBtn) rail.insertBefore(btn, powerBtn);
       else rail.appendChild(btn);
     } else {
       rail.appendChild(btn);
@@ -97,8 +96,14 @@ function paintBrand(family) {
 }
 
 function updateFamilyChrome(family) {
-  activeFamily = family || "opamp";
-  paintBrand(activeFamily);
+  activeFamily = family == null ? "opamp" : family;
+  if (activeFamily && activeFamily !== "lim") railType = activeFamily;
+  paintBrand(railType);
+  paintInventory(railType);
+  if ($("np-category")) {
+    const catId = typeForFamily(railType);
+    if (catId) $("np-category").value = catId;
+  }
   const gainPanel = $("panel-gain-boards");
   if (gainPanel) gainPanel.classList.toggle("hidden", activeFamily !== "opamp");
 }
@@ -127,37 +132,88 @@ function familyFromComponent(component) {
   if (c === "level") return "level";
   if (c === "opamp") return "opamp";
   if (c === "switch" || c === "analogswitch" || c === "analogsw" || c === "lim") return "switch";
+  if (c === "power" || c === "ldo" || c === "linearregulator") return "power";
   const hit = knownFamilies.find((f) => String(f).toLowerCase().replace(/[\s_]/g, "") === c);
   if (hit) return hit;
-  return c || "opamp";
+  if (!c) return "opamp";
+  return "";
 }
 
 function componentFromFamily(family) {
-  const labels = { opamp: "OpAmp", logic: "Logic", switch: "AnalogSwitch", lim: "AnalogSwitch", level: "Level" };
+  const labels = { opamp: "OpAmp", logic: "Logic", switch: "AnalogSwitch", lim: "AnalogSwitch", level: "Level", power: "Power" };
   if (labels[family]) return labels[family];
   const comps = Object.keys(dbTree.components || {});
   return comps.find((c) => c.toLowerCase() === family) || "";
 }
 
+function pickLatestVersion(vers) {
+  const live = (vers || []).filter(Boolean);
+  if (!live.length) return "Version_1";
+  let best = live[0];
+  let bestN = -1;
+  for (const v of live) {
+    const m = String(v).match(/Version_(\d+)/i);
+    const n = m ? Number(m[1]) : 0;
+    if (n >= bestN) {
+      bestN = n;
+      best = v;
+    }
+  }
+  return best;
+}
+
+function syncOwnerSelectFromFolder(label) {
+  const el = $("owner-select");
+  if (!el || !label) return;
+  const want = String(label).trim();
+  const row = ownersList.find((o) => {
+    if (!o || o.id === "all") return false;
+    return (o.label || "") === want || String(o.id || "").toLowerCase() === want.toLowerCase();
+  });
+  if (!row) return;
+  if (el.value !== row.id) {
+    el.value = row.id;
+    saveOwner(row.id);
+  }
+}
+
+function campaignKnown(sel) {
+  const partsObj = ((dbTree.components || {})[sel.component] || {}).parts || {};
+  if (!sel.part || !partsObj[sel.part]) return false;
+  const pkgs = (partsObj[sel.part].packages || {});
+  if (!sel.package || !pkgs[sel.package]) return false;
+  const ops = (pkgs[sel.package].operators || {});
+  if (!sel.operator || sel.operator === "_unassigned" || !ops[sel.operator]) return false;
+  return !!(sel.version && (ops[sel.operator].versions || []).includes(sel.version));
+}
+
+function pickLiveOperator(operators, prefer) {
+  const list = Array.isArray(operators) ? operators.filter(Boolean) : [];
+  const live = list.filter((o) => o !== "_unassigned");
+  if (prefer && live.includes(prefer)) return prefer;
+  if (live.length) return live[0];
+  return list[0] || prefer || "Eugene";
+}
+
 function firstCampaignInComponent(component) {
   const partsObj = ((dbTree.components || {})[component] || {}).parts || {};
-  const parts = Object.keys(partsObj);
+  const parts = liveKeys(partsObj);
   if (!parts.length) return null;
   const part = parts[0];
   const pkgsObj = (partsObj[part] || {}).packages || {};
-  const packages = Object.keys(pkgsObj);
+  const packages = liveKeys(pkgsObj);
   const pkg = packages[0] || "";
   const opsObj = (pkgsObj[pkg] || {}).operators || {};
-  const operators = Object.keys(opsObj);
+  const operators = Object.keys(opsObj).filter((k) => k && !k.startsWith(".") && k !== "_unassigned");
   const prefer = writeOperatorLabel();
-  const op = operators.includes(prefer) ? prefer : (operators[0] || prefer || "Eugene");
+  const op = pickLiveOperator(operators, prefer);
   const versions = (opsObj[op] || {}).versions || [];
   return {
     component,
     part,
     package: pkg,
     operator: op,
-    version: versions[0] || "Version_1",
+    version: pickLatestVersion(versions),
     model: "",
     year: ($("db-year") && $("db-year").value) || "2026",
   };
@@ -168,9 +224,9 @@ let ownersList = [];
 
 function readSavedOwner() {
   try {
-    return localStorage.getItem(OWNER_KEY) || "all";
+    return localStorage.getItem(OWNER_KEY) || "eugene";
   } catch (_) {
-    return "all";
+    return "eugene";
   }
 }
 
@@ -210,17 +266,39 @@ async function applyOwner(id) {
   if (!row || id === "all") return;
   const part = String(row.default_part || "").toUpperCase();
   const label = row.label || id;
+  let folder = label;
+  let pkg = row.default_package || "";
+  const inv = (inventoryRows || []).find((r) => String(r.part || "").toUpperCase() === part);
+  const picFolder = inv ? operatorFromPic(inv.pic) : "";
+  if (picFolder) folder = picFolder;
+  const partsObj = ((dbTree.components || {})[row.default_component] || {}).parts || {};
+  const pkgsObj = (partsObj[part] || {}).packages || {};
+  const diskPkgs = liveKeys(pkgsObj).filter((p) => {
+    const ops = (pkgsObj[p] || {}).operators || {};
+    return ops[folder];
+  });
+  if (diskPkgs.length) {
+    if (!diskPkgs.includes(pkg)) pkg = diskPkgs[0];
+  } else if (inv && inv.package) {
+    pkg = inv.package;
+  }
+  const vers = versionsForSel({
+    component: row.default_component,
+    part,
+    package: pkg,
+    operator: folder,
+  });
   paintCampaign({
     component: row.default_component,
     part,
-    package: row.default_package || "",
-    operator: label,
-    version: "Version_1",
+    package: pkg,
+    operator: folder,
+    version: pickLatestVersion(vers),
     model: part,
     year: ($("db-year") && $("db-year").value) || "2026",
   });
   await applyDb();
-  log(`Operator ${label}: ${row.default_component} / ${part} / ${label}\n`);
+  log(`Operator ${label}: ${row.default_component} / ${part} / ${folder}\n`);
 }
 
 function writeOperatorLabel() {
@@ -231,6 +309,10 @@ function writeOperatorLabel() {
 }
 
 function requireWriteOperator() {
+  const header = ($("owner-select") && $("owner-select").value) || "";
+  if (header === "all") {
+    throw new Error("Pick a person operator (not All) before writing folders / DEMO / START");
+  }
   const label = ($("db-operator") && $("db-operator").value) || writeOperatorLabel();
   if (!label || label === "All" || label === "all" || label === "_unassigned") {
     throw new Error("Pick a person operator (not All) before writing folders / DEMO / START");
@@ -240,6 +322,44 @@ function requireWriteOperator() {
 
 let inventoryRows = [];
 let categoryRows = [];
+let campaignLabels = [];
+let labelKindVocab = [];
+let labelValueVocab = {};
+
+function typeForFamily(family) {
+  if (family === "switch" || family === "lim") return "analog_switch";
+  return family || "";
+}
+
+function suiteForRow(row) {
+  const suite = String((row && row.ate_suite) || "").trim();
+  if (suite) return suite;
+  const cat = categoryRows.find((c) => c.id === ((row && row.category) || ""));
+  if (cat && cat.live && cat.family) return cat.family;
+  return "";
+}
+
+function paintInventory(type) {
+  const el = $("inv-select");
+  if (!el) return;
+  const want = typeForFamily(type || railType);
+  const rows = inventoryRows.map((r, i) => ({ r, i })).filter(({ r }) => {
+    if (!want) return true;
+    return String(r.category || "") === want;
+  });
+  const nice = familyLabels[type || railType] || type || railType || "SKU";
+  el.innerHTML = `<option value="">-- pick a ${nice} --</option>` + rows.map(({ r, i }) => {
+    const st = r.status || "";
+    const lot = r.lot || "";
+    const klass = r.sheet_class || r.category || "";
+    const bits = [r.part, klass, r.model || "", r.package || "", lot, st].filter(Boolean);
+    return `<option value="${i}">${bits.join(" · ")}</option>`;
+  }).join("");
+  const hint = $("inv-type-hint");
+  if (hint) {
+    hint.textContent = `${rows.length} ${nice} SKU(s) on the tracking sheet.`;
+  }
+}
 
 async function loadCategories() {
   const el = $("np-category");
@@ -264,6 +384,8 @@ async function loadCategories() {
     }
     if (row.live && row.family) {
       try {
+        railType = row.family === "switch" ? "switch" : (row.id === "analog_switch" ? "switch" : (row.family || railType));
+        paintInventory(railType);
         await switchFamily(row.family);
       } catch (e) {
         log(`Category family: ${e.message}\n`);
@@ -283,21 +405,31 @@ async function loadInventory() {
   } catch (_) {
     inventoryRows = [];
   }
-  el.innerHTML = `<option value="">-- pick a row --</option>` + inventoryRows.map((r, i) => {
-    const st = r.status || "";
-    const cls = r.category || "";
-    return `<option value="${i}">${r.part} · ${cls} · ${st} · ${r.package || ""}</option>`;
-  }).join("");
+  paintInventory(railType);
   el.onchange = () => {
     const row = inventoryRows[Number(el.value)];
     if (!row) return;
     if ($("np-category")) {
-      // Tracking class vs live suite: Level Shifter RS0204 uses ate_suite=logic
-      $("np-category").value = row.ate_suite || row.category || "opamp";
+      // Tracking-sheet class only. ate_suite must not steal Level Shifters -> Logic.
+      $("np-category").value = row.category || "opamp";
     }
     if ($("np-part")) $("np-part").value = row.part || "";
     if ($("np-package")) $("np-package").value = row.package || "";
     if ($("np-model")) $("np-model").value = row.model || row.part || "";
+    const qty = Number(row.qty);
+    if ($("np-sample") && Number.isFinite(qty) && qty >= 1) {
+      $("np-sample").value = String(Math.trunc(qty));
+    }
+    const suite = String(row.ate_suite || "").trim();
+    const cat = categoryRows.find((c) => c.id === (row.category || ""));
+    if (suite) {
+      log(`Tracking class: ${row.sheet_class || row.category}. Live suite: ${suite}.\n`);
+      switchFamily(suite).catch((e) => log(`ate_suite: ${e.message}\n`));
+    } else if (cat && cat.live && cat.family) {
+      switchFamily(cat.family).catch((e) => log(`Category family: ${e.message}\n`));
+    } else if (cat) {
+      log(`RUN-IC class ${cat.run_ic || cat.id} is stub -- folders only, no suite.\n`);
+    }
   };
 }
 
@@ -328,7 +460,9 @@ async function loadMappedCoverage() {
     const dmm = c.dmm ? "DMM found" : "DMM not in Discover (VOL / Logic IDD need it at run)";
     el.textContent = miss.length
       ? `Map coverage FAIL: ${miss.join(", ")}`
-      : `Map coverage OK: ${c.n_map} sheet_map tests registered. ${dmm}`;
+      : (!c.n_map
+        ? `Map coverage empty: no sheet_map tests at ${c.sheet_map || "this campaign"}. ${dmm}`
+        : `Map coverage OK: ${c.n_map} sheet_map tests registered. ${dmm}`);
   } catch (e) {
     el.textContent = `Map coverage: ${e.message}`;
   }
@@ -372,7 +506,10 @@ function switchPage(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
   $(`page-${name}`).classList.add("active");
   document.querySelector(`.tab[data-page="${name}"]`).classList.add("active");
-  if (name === "results") loadLayoutPreview().catch(() => {});
+  if (name === "results") {
+    loadLayoutPreview().catch(() => {});
+    loadRunLedger().catch(() => {});
+  }
 }
 
 function selectedDuts() {
@@ -402,16 +539,35 @@ function condNum(id, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function catalogControlValues() {
+  const extra = {};
+  for (const c of paramCatalog.controls || []) {
+    const id = c && c.id;
+    if (!id) continue;
+    const el = $(`cond-${id}`);
+    if (!el) continue;
+    const raw = el.value;
+    if (raw === "" || raw == null) continue;
+    const n = Number(raw);
+    extra[id] = Number.isFinite(n) && String(raw).trim() !== "" && !/^[a-zA-Z]/.test(String(raw))
+      ? n
+      : raw;
+  }
+  return extra;
+}
+
 function benchValues() {
   const d = mergeTestDefaults(selectedTests());
+  const extra = catalogControlValues();
   if (activeFamily !== "opamp") {
     const out = {
       vcc: condNum("vcc", d.vcc),
       freq_hz: d.freq_hz,
       amp_vpp: d.amp_vpp,
       n_repeats: d.n_repeats,
+      ...extra,
     };
-    const vccb = condNum("vccb", d.vccb);
+    const vccb = extra.vccb != null ? extra.vccb : condNum("vccb", d.vccb);
     if (vccb != null && Number.isFinite(Number(vccb))) out.vccb = Number(vccb);
     if (isManualMode() && $("freq")) {
       out.freq_hz = Number($("freq").value);
@@ -493,6 +649,8 @@ function mergeTestDefaults(ids) {
 
 function applyTestDefaults(force) {
   const ids = selectedTests();
+  const manual = isManualMode();
+  if ($("param-advanced")) $("param-advanced").classList.toggle("hidden", !manual);
   if (!ids.length) {
     if ($("param-active-hint")) $("param-active-hint").textContent = "Select tests — standard defaults apply.";
     renderRunPlans();
@@ -511,7 +669,6 @@ function applyTestDefaults(force) {
     syncGainProfileHint(force);
   }
   const chans = selectedChannels().join("+");
-  const manual = isManualMode();
   if ($("param-advanced")) $("param-advanced").classList.toggle("hidden", !manual);
   if ($("param-active-hint")) {
     $("param-active-hint").textContent = manual
@@ -675,6 +832,12 @@ async function loadParamDefaults() {
     const part = (dbContext && dbContext.part_key) || "rs622";
     paramCatalog = await rpc("list_param_defaults", { part, family: activeFamily });
     if (!paramCatalog.controls) paramCatalog.controls = [];
+    const ilim = Number((paramCatalog.psu_golden || {}).current_limit_a);
+    const ma = Number.isFinite(ilim) ? Math.round(ilim * 1000) : 100;
+    if ($("psu-golden-hint")) {
+      $("psu-golden-hint").textContent =
+        `PSU: Iset=${ma} mA, OVP=Vset+0.3 V, OCP=Iset+0.1 A. Photo anchors: Results → Waveform layout (sheet_map.yaml).`;
+    }
     renderConditions();
     renderDutPicks();
     applyTestDefaults(false);
@@ -979,6 +1142,417 @@ function fillSelect(el, values, selected) {
   }).join("");
 }
 
+function escapeAttr(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;");
+}
+
+function liveKeys(obj) {
+  return Object.keys(obj || {}).filter((k) => k && !k.startsWith("_") && !k.startsWith("."));
+}
+
+const comboStore = {};
+const COMBO_REMOVABLE = new Set(["setup-label-value", "db-tag-input", "tag-board-select"]);
+let comboMenu = null;
+let comboOpenId = "";
+let comboHi = -1;
+let comboPicks = [];
+let combosReady = false;
+let comboDirty = false;
+
+function comboMenuEl() {
+  if (comboMenu) return comboMenu;
+  comboMenu = document.createElement("div");
+  comboMenu.id = "ate-combo-menu";
+  comboMenu.className = "combo-menu hidden";
+  comboMenu.setAttribute("role", "listbox");
+  document.body.appendChild(comboMenu);
+  return comboMenu;
+}
+
+function syncComboChrome(el) {
+  if (!el) return;
+  const wrap = el.closest(".combo");
+  const clear = wrap && wrap.querySelector(".combo-clear");
+  if (clear) clear.classList.toggle("hidden", !String(el.value || "").trim());
+}
+
+function fillCombo(el, values, selected) {
+  if (!el) return;
+  const uniq = [];
+  const seen = new Set();
+  for (const v of values || []) {
+    const s = String(v || "").trim();
+    if (!s || seen.has(s)) continue;
+    seen.add(s);
+    uniq.push(s);
+  }
+  const keep = (selected != null && String(selected).trim())
+    ? String(selected).trim()
+    : String(el.value || "").trim();
+  if (keep && !seen.has(keep)) uniq.unshift(keep);
+  if (el.id) comboStore[el.id] = uniq;
+  if (keep) el.value = keep;
+  syncComboChrome(el);
+  if (comboOpenId && el.id === comboOpenId) renderComboMenu();
+}
+
+function closeComboMenu() {
+  comboOpenId = "";
+  comboHi = -1;
+  comboPicks = [];
+  if (comboMenu) comboMenu.classList.add("hidden");
+}
+
+function comboFiltered(input) {
+  const q = String(input.value || "").trim().toLowerCase();
+  const all = comboStore[input.id] || [];
+  if (!comboDirty || !q) return all.slice();
+  return all.filter((v) => String(v).toLowerCase().includes(q));
+}
+
+function renderComboMenu() {
+  const input = comboOpenId ? $(comboOpenId) : null;
+  const menu = comboMenuEl();
+  if (!input) {
+    closeComboMenu();
+    return;
+  }
+  const wrap = input.closest(".combo") || input;
+  const rect = wrap.getBoundingClientRect();
+  const q = String(input.value || "").trim();
+  const rows = comboFiltered(input);
+  const exact = (comboStore[input.id] || []).some((v) => String(v).toLowerCase() === q.toLowerCase());
+  comboPicks = [];
+  if (q && !exact) comboPicks.push({ add: true, value: q });
+  rows.forEach((v) => comboPicks.push({ add: false, value: v }));
+  if (comboHi >= comboPicks.length) comboHi = comboPicks.length - 1;
+  menu.innerHTML = "";
+  if (!comboPicks.length) {
+    const empty = document.createElement("div");
+    empty.className = "combo-empty";
+    empty.textContent = "type to add";
+    menu.appendChild(empty);
+  } else {
+    comboPicks.forEach((pick, i) => {
+      const row = document.createElement("div");
+      row.className = "combo-opt" + (i === comboHi ? " hi" : "");
+      const lab = document.createElement("button");
+      lab.type = "button";
+      lab.className = pick.add ? "combo-add" : "combo-opt-lab";
+      lab.textContent = pick.add ? ("Add " + pick.value) : pick.value;
+      lab.onmousedown = (ev) => {
+        ev.preventDefault();
+        applyComboPick(input, pick.value);
+      };
+      row.appendChild(lab);
+      if (!pick.add && COMBO_REMOVABLE.has(input.id)) {
+        const x = document.createElement("button");
+        x.type = "button";
+        x.className = "combo-opt-x";
+        x.textContent = "x";
+        x.title = "Remove";
+        x.onmousedown = (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          removeComboOption(input, pick.value);
+        };
+        row.appendChild(x);
+      }
+      menu.appendChild(row);
+    });
+  }
+  const need = Math.min(240, Math.max(36, comboPicks.length * 28 + 12));
+  let top = rect.bottom + 2;
+  if (top + need > window.innerHeight - 8 && rect.top > need + 8) {
+    top = Math.max(4, rect.top - need - 2);
+  }
+  menu.style.left = Math.max(4, rect.left) + "px";
+  menu.style.top = top + "px";
+  menu.style.width = Math.max(rect.width, 160) + "px";
+  menu.classList.remove("hidden");
+}
+
+function openCombo(input) {
+  if (!input || !input.id) return;
+  comboOpenId = input.id;
+  comboHi = -1;
+  comboDirty = false;
+  renderComboMenu();
+}
+
+function toggleCombo(input) {
+  if (comboOpenId === input.id) closeComboMenu();
+  else openCombo(input);
+}
+
+function applyComboPick(input, value) {
+  if (!input) return;
+  if (input.id === "db-tag-input") {
+    addCampaignTagFromText(value);
+    input.value = "";
+    syncComboChrome(input);
+    closeComboMenu();
+    return;
+  }
+  if (input.id === "tag-board-select") {
+    input.value = value;
+    syncComboChrome(input);
+    closeComboMenu();
+    return;
+  }
+  input.value = value;
+  syncComboChrome(input);
+  closeComboMenu();
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function removeComboOption(input, value) {
+  const v = String(value || "");
+  comboStore[input.id] = (comboStore[input.id] || []).filter((x) => x !== v);
+  if (input.value === v) input.value = "";
+  syncComboChrome(input);
+  if (input.id === "db-tag-input" || input.id === "tag-board-select") {
+    const tok = input.id === "tag-board-select" && !v.includes(":") ? `board:${v}` : v;
+    campaignTags = (campaignTags || []).filter((t) => t !== tok && t !== v);
+    campaignLabels = (campaignLabels || []).filter((lab) => labelToken(lab) !== tok && labelToken(lab) !== v);
+    if (tok.startsWith("board:") || input.id === "tag-board-select") {
+      const b = tok.startsWith("board:") ? tok.slice(6) : v;
+      campaignBoards = (campaignBoards || []).filter((x) => x !== b);
+      boardVocab = (boardVocab || []).filter((x) => x !== b);
+    }
+    if (tok.includes(":")) {
+      const i = tok.indexOf(":");
+      const kind = tok.slice(0, i);
+      const val = tok.slice(i + 1);
+      if (labelValueVocab[kind]) {
+        labelValueVocab[kind] = labelValueVocab[kind].filter((x) => x !== val);
+      }
+    }
+    paintTagsEditor();
+    saveCampaignLabels().catch((e) => log(`Labels: ${e.message}\n`));
+  }
+  if (input.id === "setup-label-value") {
+    const kind = (($("setup-label-kind") && $("setup-label-kind").value) || "tag").trim();
+    if (labelValueVocab[kind]) {
+      labelValueVocab[kind] = labelValueVocab[kind].filter((x) => x !== v);
+    }
+    campaignLabels = (campaignLabels || []).filter((lab) => !(lab.kind === kind && lab.value === v));
+    campaignTags = (campaignTags || []).filter((t) => t !== labelToken({ kind, value: v }));
+    paintTagsEditor();
+    saveCampaignLabels().catch((e) => log(`Labels: ${e.message}\n`));
+  }
+  renderComboMenu();
+}
+
+function onComboKey(input, ev) {
+  const tagger = input.id === "db-tag-input";
+  if (ev.key === "Escape") {
+    closeComboMenu();
+    return;
+  }
+  if (ev.key === "ArrowDown") {
+    ev.preventDefault();
+    if (comboOpenId !== input.id) openCombo(input);
+    else {
+      comboHi = Math.min(comboPicks.length - 1, comboHi + 1);
+      renderComboMenu();
+    }
+    return;
+  }
+  if (ev.key === "ArrowUp") {
+    ev.preventDefault();
+    if (comboOpenId !== input.id) openCombo(input);
+    else {
+      comboHi = Math.max(0, comboHi - 1);
+      renderComboMenu();
+    }
+    return;
+  }
+  if (tagger && (ev.key === " " || ev.key === ",") && String(input.value).trim()) {
+    ev.preventDefault();
+    addCampaignTagFromText(input.value);
+    input.value = "";
+    syncComboChrome(input);
+    closeComboMenu();
+    return;
+  }
+  if (ev.key === "Enter") {
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    if (input.id === "setup-label-value") {
+      if (comboOpenId === input.id && comboHi >= 0 && comboPicks[comboHi]) {
+        applyComboPick(input, comboPicks[comboHi].value);
+      }
+      if ($("btn-setup-add-label")) $("btn-setup-add-label").click();
+      return;
+    }
+    if (comboOpenId === input.id && comboHi >= 0 && comboPicks[comboHi]) {
+      applyComboPick(input, comboPicks[comboHi].value);
+      return;
+    }
+    const typed = String(input.value || "").trim();
+    if (tagger && typed) {
+      addCampaignTagFromText(typed);
+      input.value = "";
+      syncComboChrome(input);
+      closeComboMenu();
+      return;
+    }
+    if (typed) applyComboPick(input, typed);
+  }
+}
+
+function bindCombo(wrap) {
+  if (!wrap || wrap.dataset.comboBound) return;
+  wrap.dataset.comboBound = "1";
+  const input = wrap.querySelector("input");
+  const caret = wrap.querySelector(".combo-caret");
+  const clear = wrap.querySelector(".combo-clear");
+  if (!input) return;
+  if (!input.id) input.id = "combo-" + Math.random().toString(36).slice(2, 8);
+  if (caret) {
+    caret.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      toggleCombo(input);
+      input.focus();
+    });
+  }
+  if (clear) {
+    clear.innerHTML = '<span aria-hidden="true">x</span>';
+    clear.setAttribute("aria-label", "Clear");
+    clear.addEventListener("mousedown", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      input.value = "";
+      syncComboChrome(input);
+      closeComboMenu();
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      input.focus();
+    });
+  }
+  input.addEventListener("mousedown", () => {
+    if (comboOpenId !== input.id) openCombo(input);
+  });
+  input.addEventListener("input", () => {
+    comboDirty = true;
+    syncComboChrome(input);
+    if (comboOpenId === input.id) renderComboMenu();
+    else openCombo(input);
+  });
+  input.addEventListener("keydown", (ev) => onComboKey(input, ev));
+}
+
+function initCombos() {
+  document.querySelectorAll(".combo").forEach(bindCombo);
+  if (combosReady) return;
+  combosReady = true;
+  document.addEventListener("mousedown", (ev) => {
+    if (!comboOpenId) return;
+    const t = ev.target;
+    if (t && t.closest && t.closest("#ate-combo-menu")) return;
+    const wrap = t && t.closest && t.closest(".combo");
+    const input = wrap && wrap.querySelector("input");
+    if (input && input.id === comboOpenId) return;
+    closeComboMenu();
+  });
+  window.addEventListener("resize", closeComboMenu);
+}
+
+function addCampaignTagFromText(raw) {
+  const t = String(raw || "").trim();
+  if (!t || t.startsWith("(")) return false;
+  let kind = "tag";
+  let value = t;
+  if (t.includes(":")) {
+    const i = t.indexOf(":");
+    kind = t.slice(0, i).trim() || "tag";
+    value = t.slice(i + 1).trim();
+  }
+  if (!value) return false;
+  addSetupLabel(kind, value);
+  return true;
+}
+
+function tagComboValues() {
+  const out = [];
+  const seen = new Set((campaignTags || []).map((t) => String(t).toLowerCase()));
+  const add = (tok) => {
+    const s = String(tok || "").trim();
+    if (!s || seen.has(s.toLowerCase())) return;
+    seen.add(s.toLowerCase());
+    out.push(s);
+  };
+  for (const [kind, vals] of Object.entries(labelValueVocab || {})) {
+    for (const v of vals || []) {
+      add(kind === "tag" ? v : `${kind}:${v}`);
+    }
+  }
+  for (const b of boardVocab || []) add(`board:${b}`);
+  return out;
+}
+
+function operatorFromPic(pic) {
+  const raw = String(pic || "").trim();
+  if (!raw || raw.toLowerCase() === "rs") return "";
+  const row = (ownersList || []).find((o) => {
+    const id = String(o.id || "").toLowerCase();
+    const lab = String(o.label || "").toLowerCase();
+    return id === raw.toLowerCase() || lab === raw.toLowerCase();
+  });
+  if (!row || row.id === "all") return "";
+  return row.label || row.id || "";
+}
+
+function componentForCategory(catId) {
+  const row = (categoryRows || []).find((c) => c.id === catId);
+  if (row && row.component) return row.component;
+  return componentFromFamily(catId) || "";
+}
+
+function mergeInventoryIntoTree() {
+  for (const row of inventoryRows || []) {
+    const component = componentForCategory(row.category) || "";
+    const part = String(row.part || "").trim().toUpperCase();
+    if (!component || !part) continue;
+    const op = operatorFromPic(row.pic) || writeOperatorLabel() || "Eugene";
+    ensureTreeHasCampaign({
+      component,
+      part,
+      package: row.package || "SOT23",
+      operator: op,
+      version: "Version_1",
+      model: row.model || part,
+    });
+  }
+}
+
+function campaignFromInventory(family) {
+  const want = typeForFamily(family);
+  const rows = (inventoryRows || []).filter((r) => String(r.category || "") === want);
+  const row = rows.find((r) => suiteForRow(r)) || rows[0];
+  if (!row) return null;
+  return {
+    component: componentForCategory(row.category) || componentFromFamily(family),
+    part: String(row.part || "").toUpperCase(),
+    package: row.package || "SOT23",
+    operator: operatorFromPic(row.pic) || writeOperatorLabel() || "Eugene",
+    version: "Version_1",
+    model: row.model || row.part || "",
+    year: ($("db-year") && $("db-year").value) || "2026",
+  };
+}
+
+function versionsForSel(sel) {
+  const partsObj = ((dbTree.components || {})[sel.component] || {}).parts || {};
+  const pkgsObj = (partsObj[sel.part] || {}).packages || {};
+  const opsObj = (pkgsObj[sel.package] || {}).operators || {};
+  return ((opsObj[sel.operator] || {}).versions || []).filter(Boolean);
+}
+
 const CAMPAIGN_KEY = "ate_last_campaign";
 const CAMPAIGN_BY_FAMILY_KEY = "ate_last_campaign_by_family";
 const DEFAULT_CAMPAIGN = {
@@ -1062,6 +1636,7 @@ function paintCampaign(sel) {
       `${sel.component} / ${sel.part} / ${sel.package} / ${sel.operator || "?"} / ${sel.version}` +
       (sel.model ? ` · ${sel.model}` : "");
   }
+  if (sel.operator) syncOwnerSelectFromFolder(sel.operator);
 }
 
 function currentDbSelection() {
@@ -1076,35 +1651,54 @@ function currentDbSelection() {
   };
 }
 
-function refreshDbCascades(preserve) {
-  const comps = Object.keys(dbTree.components || {});
+function refreshDbCascades(preserve, changedId) {
+  mergeInventoryIntoTree();
+  const comps = liveKeys(dbTree.components);
   const sel = preserve || currentDbSelection();
-  const component = comps.includes(sel.component) ? sel.component : comps[0];
-  fillSelect($("db-component"), comps, component);
+  const component = sel.component || comps[0] || "";
+  fillCombo($("db-component"), comps, component);
 
-  const partsObj = (dbTree.components[component] || {}).parts || {};
-  const parts = Object.keys(partsObj);
-  const part = parts.includes(sel.part) ? sel.part : parts[0];
-  fillSelect($("db-part"), parts, part);
+  const partsObj = ((dbTree.components || {})[component] || {}).parts || {};
+  const parts = liveKeys(partsObj);
+  let part = sel.part || parts[0] || "";
+  if (changedId === "db-component" && parts.length && !parts.includes(part)) part = parts[0];
+  fillCombo($("db-part"), parts, part);
 
   const pkgsObj = (partsObj[part] || {}).packages || {};
-  const packages = Object.keys(pkgsObj);
-  const pkg = packages.includes(sel.package) ? sel.package : packages[0];
-  fillSelect($("db-package"), packages, pkg);
+  const packages = liveKeys(pkgsObj);
+  let pkg = sel.package || packages[0] || "";
+  if ((changedId === "db-component" || changedId === "db-part") && packages.length && !packages.includes(pkg)) {
+    pkg = packages[0];
+  }
+  fillCombo($("db-package"), packages, pkg);
 
   const opsObj = (pkgsObj[pkg] || {}).operators || {};
-  let operators = Object.keys(opsObj);
-  // Prefer person labels from owners when tree empty
-  if (!operators.length) {
-    operators = ownersList.filter((o) => o.id !== "all").map((o) => o.label || o.id);
+  const diskOps = Object.keys(opsObj).filter((k) => k && !k.startsWith(".") && k !== "_unassigned");
+  const yamlOps = ownersList.filter((o) => o && o.id !== "all").map((o) => o.label || o.id);
+  const operators = [];
+  const seenOps = new Set();
+  diskOps.concat(yamlOps).forEach((name) => {
+    if (!name || seenOps.has(name)) return;
+    seenOps.add(name);
+    operators.push(name);
+  });
+  const preferOp = sel.operator && sel.operator !== "_unassigned"
+    ? sel.operator
+    : writeOperatorLabel();
+  let operator = pickLiveOperator(operators, preferOp) || sel.operator || "";
+  if ((changedId === "db-component" || changedId === "db-part" || changedId === "db-package")
+      && operators.length && !operators.includes(operator)) {
+    operator = pickLiveOperator(operators, writeOperatorLabel());
   }
-  const preferOp = sel.operator || writeOperatorLabel();
-  const operator = operators.includes(preferOp) ? preferOp : operators[0];
-  if ($("db-operator")) fillSelect($("db-operator"), operators, operator);
+  fillCombo($("db-operator"), operators, operator);
 
-  const versions = (opsObj[operator] || {}).versions || ["Version_1"];
-  const version = versions.includes(sel.version) ? sel.version : versions[0];
-  fillSelect($("db-version"), versions, version);
+  const versions = versionsForSel({ component, part, package: pkg, operator }) || ["Version_1"];
+  const versionList = versions.length ? versions : ["Version_1"];
+  let version = sel.version || versionList[0];
+  if (changedId && changedId !== "db-version" && versionList.length && !versionList.includes(version)) {
+    version = pickLatestVersion(versionList);
+  }
+  fillCombo($("db-version"), versionList, version);
 }
 
 function renderDbHints(ctx) {
@@ -1114,10 +1708,18 @@ function renderDbHints(ctx) {
     `${ctx.component} / ${ctx.part} / ${ctx.package} / ${ctx.operator || "?"} / ${ctx.version} · ${ctx.model}`;
   $("db-model").value = ctx.model || "";
   if (!$("db-year").value && ctx.year) $("db-year").value = ctx.year;
-  $("db-path-hint").textContent = `Photos: ${ctx.photo_example}`;
+  let photo = ctx.photo_example || "";
+  if (/\/ORT\//i.test(photo) && railType && railType !== "opamp") {
+    photo += " (OpAmp default -- Apply campaign)";
+  }
+  $("db-path-hint").textContent = `Photos: ${photo}`;
   $("db-excel-hint").textContent = `Lab report: ${ctx.lab_report}`;
   $("results-db-hint").textContent =
     `Lab report: ${ctx.lab_report} · sessions: ${ctx.sessions}`;
+  if ($("central-db-hint") && ctx.test_database_root) {
+    $("central-db-hint").textContent =
+      `Central DB (${ctx.cloud_kind || "local"}): ${ctx.test_database_root}`;
+  }
   const n = ctx.sample_size || 4;
   $("unit").max = n;
   document.querySelectorAll(".dut-cb").forEach((cb) => {
@@ -1242,32 +1844,63 @@ let campaignTags = [];
 let campaignBoards = [];
 let boardVocab = [];
 
-function renderTagChips(el, tags, { removable = false } = {}) {
+function renderTagChips(el, tags, { removable = false, compact = false } = {}) {
   if (!el) return;
   el.innerHTML = "";
-  for (const t of tags || []) {
+  const list = tags || [];
+  const expanded = el.dataset.expanded === "1";
+  const showAll = !compact || expanded || list.length <= 1;
+  const visible = showAll ? list : list.slice(-1);
+  for (const t of visible) {
     const chip = document.createElement("span");
     chip.className = "tag-chip";
     chip.textContent = t;
+    chip.setAttribute("aria-label", t);
     if (removable) {
       const x = document.createElement("button");
       x.type = "button";
       x.className = "tag-chip-x";
-      x.textContent = "x";
+      x.innerHTML = '<span aria-hidden="true">x</span>';
+      x.setAttribute("aria-label", `Remove ${t}`);
       x.title = "Remove";
       x.onclick = () => {
         campaignTags = campaignTags.filter((v) => v !== t);
+        campaignLabels = (campaignLabels || []).filter((lab) => labelToken(lab) !== t);
         if (t.startsWith("board:")) {
           const b = t.slice(6);
           campaignBoards = campaignBoards.filter((v) => v !== b);
         }
         paintTagsEditor();
+        saveCampaignLabels().catch((e) => log(`Labels: ${e.message}\n`));
       };
       chip.appendChild(x);
     }
     el.appendChild(chip);
   }
-  if (!(tags || []).length) {
+  if (compact && list.length > 1 && !expanded) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "tag-chip tag-chip-more";
+    more.textContent = `+${list.length - 1} more`;
+    more.title = "Show all tags";
+    more.onclick = () => {
+      el.dataset.expanded = "1";
+      paintTagsEditor();
+    };
+    el.appendChild(more);
+  }
+  if (compact && expanded && list.length > 1) {
+    const hide = document.createElement("button");
+    hide.type = "button";
+    hide.className = "tag-chip tag-chip-more";
+    hide.textContent = "hide";
+    hide.onclick = () => {
+      el.dataset.expanded = "0";
+      paintTagsEditor();
+    };
+    el.appendChild(hide);
+  }
+  if (!list.length) {
     const empty = document.createElement("span");
     empty.className = "hint";
     empty.textContent = "none";
@@ -1275,9 +1908,59 @@ function renderTagChips(el, tags, { removable = false } = {}) {
   }
 }
 
+function labelToken(lab) {
+  const k = String((lab && lab.kind) || "tag");
+  const v = String((lab && lab.value) || "");
+  return k === "tag" ? v : `${k}:${v}`;
+}
+
+function fillLabelValueSelect() {
+  const kindEl = $("setup-label-kind");
+  const valEl = $("setup-label-value");
+  if (!valEl) return;
+  const kind = (kindEl && kindEl.value) || "board";
+  const vals = (labelValueVocab[kind] || []).slice();
+  fillCombo(valEl, vals, valEl.value || "");
+}
+
+function fillLabelKindSelect() {
+  const el = $("setup-label-kind");
+  if (!el) return;
+  const kinds = labelKindVocab.length ? labelKindVocab : [
+    { id: "board", label: "Board" },
+    { id: "board_type", label: "Board type" },
+    { id: "tag", label: "Tag" },
+    { id: "task", label: "Task" },
+  ];
+  const ids = kinds.map((k) => k.id || k);
+  fillCombo(el, ids, el.value || ids[0] || "board");
+  fillLabelValueSelect();
+  fillLabelScopeSelect();
+}
+
+function fillLabelScopeSelect() {
+  const el = $("label-scope");
+  if (!el) return;
+  const opts = ["this campaign", "this class", "all products"];
+  const cur = el.value && opts.includes(el.value) ? el.value : (el.value || "this campaign");
+  fillCombo(el, opts, cur);
+}
+
+function labelRememberScope() {
+  const raw = String(($("label-scope") && $("label-scope").value) || "campaign").trim().toLowerCase();
+  if (raw.includes("class") || raw === "family") return "family";
+  if (raw.includes("all")) return "all";
+  return "campaign";
+}
+
 function paintTagsEditor() {
-  renderTagChips($("db-tag-chips"), campaignTags, { removable: false });
-  renderTagChips($("tags-editor-chips"), campaignTags, { removable: true });
+  renderTagChips($("db-tag-chips"), campaignTags, { removable: true, compact: true });
+  renderTagChips($("tags-editor-chips"), campaignTags, { removable: true, compact: false });
+  const setup = $("setup-label-chips");
+  if (setup) {
+    setup.innerHTML = "";
+    setup.classList.add("hidden");
+  }
 }
 
 async function refreshTagsUI() {
@@ -1285,13 +1968,28 @@ async function refreshTagsUI() {
     const data = await rpc("list_tags");
     campaignTags = Array.isArray(data.tags) ? data.tags.slice() : [];
     campaignBoards = Array.isArray(data.boards) ? data.boards.slice() : [];
+    campaignLabels = Array.isArray(data.labels) ? data.labels.slice() : [];
     boardVocab = Array.isArray(data.boards_vocab) ? data.boards_vocab.slice() : [];
+    labelKindVocab = Array.isArray(data.kinds) ? data.kinds.slice() : [];
+    labelValueVocab = (data.label_values && typeof data.label_values === "object") ? data.label_values : {};
     const sel = $("tag-board-select");
-    if (sel) fillSelect(sel, boardVocab.length ? boardVocab : ["(no boards.yaml)"], boardVocab[0] || "");
+    if (sel) fillCombo(sel, boardVocab.length ? boardVocab : [], sel.value || "");
+    const tagIn = $("db-tag-input");
+    if (tagIn) {
+      if (document.activeElement === tagIn) {
+        comboStore["db-tag-input"] = tagComboValues();
+        if (comboOpenId === "db-tag-input") renderComboMenu();
+      } else {
+        fillCombo(tagIn, tagComboValues(), "");
+        tagIn.value = "";
+        syncComboChrome(tagIn);
+      }
+    }
+    fillLabelKindSelect();
     paintTagsEditor();
     if ($("tags-path-hint")) {
       $("tags-path-hint").textContent =
-        `TAGS.txt: ${data.tags_txt || "—"} · yaml: ${data.tags_yaml || "—"}`;
+        `TAGS.txt: ${data.tags_txt || "—"} · yaml: ${data.tags_yaml || "—"} · ${railType || "family"} labels`;
     }
   } catch (e) {
     if ($("tags-path-hint")) $("tags-path-hint").textContent = `Tags: ${e.message}`;
@@ -1301,6 +1999,27 @@ async function refreshTagsUI() {
 async function applyDb() {
   const sel = currentDbSelection();
   const operator = sel.operator || requireWriteOperator();
+  const existing = versionsForSel({ ...sel, operator });
+  if (sel.version && !existing.includes(sel.version)) {
+    try {
+      await rpc("ensure_version", {
+        component: sel.component,
+        part: sel.part,
+        package: sel.package,
+        operator,
+        version: sel.version,
+        copy_from_version: (dbContext && dbContext.version) || existing[existing.length - 1] || "",
+        sample_size: Number((dbContext && dbContext.sample_size) || 4),
+        open_folder: false,
+        apply: false,
+      });
+      dbTree = await rpc("list_db_tree");
+      mergeInventoryIntoTree();
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      if (!/already exists/i.test(msg)) log(`Version: ${msg}\n`);
+    }
+  }
   const res = await rpc("set_db_context", {
     component: sel.component,
     part: sel.part,
@@ -1317,23 +2036,28 @@ async function applyDb() {
     log(`Created ${res.created.length} folder(s) under DUT tree\n`);
   }
   if (res.family_error) {
-    log(`Family not switched: ${res.family_error}\n`);
+    log(`${res.family_error}\n`);
   }
-  if (res.family) updateFamilyChrome(res.family);
+  if ("family" in res) updateFamilyChrome(res.family);
+  await loadOwners();
   await loadParamDefaults();
   await loadFixtureCatalog();
   await loadTests();
   await loadMappedCoverage();
   await refreshDetectedPanel();
   await refreshTagsUI();
+  syncOwnerSelectFromFolder(operator);
 }
 
-function fillDetectFamilySelect() {
+function fillDetectFamilySelect(preserveUser) {
   const el = $("detect-family");
   if (!el) return;
   const fams = (knownFamilies || []).filter((f) => f !== "lim");
-  const cur = activeFamily || "logic";
-  fillSelect(el, fams.length ? fams : ["opamp", "logic", "switch"], cur);
+  const fallback = fams.length ? fams : ["opamp", "logic", "switch"];
+  const keep = el.value;
+  let cur = (activeFamily && fallback.includes(activeFamily)) ? activeFamily : (fallback[0] || "logic");
+  if (preserveUser && keep && fallback.includes(keep)) cur = keep;
+  fillSelect(el, fallback, cur);
 }
 
 function fillDetectCopyFrom() {
@@ -1352,11 +2076,11 @@ function fillDetectCopyFrom() {
   });
 }
 
-async function refreshDetectedPanel() {
+async function refreshDetectedPanel(opts) {
   const box = $("detected-tests");
   const hint = $("detect-hint");
   if (!box) return;
-  fillDetectFamilySelect();
+  fillDetectFamilySelect(!!(opts && opts.preserveWrap));
   fillDetectCopyFrom();
   try {
     const res = await rpc("list_detected_tests", { family: activeFamily });
@@ -1402,11 +2126,13 @@ async function loadTests() {
   if (!tests.length) {
     const stub =
       activeFamily === "level"
-        ? "Level family is a stub slot — no characterization suite yet."
+        ? "No enabled tests for this Level part. Pick RS0204 for the dual-rail suite."
           : activeFamily === "logic"
-          ? "Logic family loaded — no enabled tests for this part/campaign."
+          ? "Logic family loaded -- no enabled tests for this part/campaign."
           : (activeFamily === "lim" || activeFamily === "switch")
-            ? "Analog Switch family loaded — no enabled tests for this part/campaign."
+            ? "Analog Switch family loaded -- no enabled tests for this part/campaign."
+            : activeFamily === "power"
+              ? "Power / LDO family loaded -- no enabled tests for this part/campaign."
             : "No tests registered for this family.";
     box.innerHTML = `<p class="hint">${stub}</p>`;
     renderRunPlans();
@@ -1429,7 +2155,7 @@ async function loadTests() {
   ];
 
   for (const mode of modes) {
-    const items = groups.get(mode) || [];
+    const items = sortTestsForPlan(groups.get(mode) || []);
     const cat = fixtureCatalog.find((m) => m.mode === mode);
     const isResearch = (cat?.board_class || (mode === "G201" || mode === "G1001" ? "research" : "general")) === "research";
     const gainTxt = cat && cat.gain != null ? ` · gain ${formatGain(cat.gain)}` : "";
@@ -1445,10 +2171,20 @@ async function loadTests() {
       const checked = !isResearch && preferred.has(t.id) ? "checked" : "";
       const tag = t.short_tag || t.id;
       const instr = (t.required_instruments || []).join("+") || "MSO+PSU+AWG";
+      const specBits = (t.specs || []).map((s) => {
+        const bits = [s.id || ""];
+        if (s.min != null) bits.push(`min ${s.min}`);
+        if (s.max != null) bits.push(`max ${s.max}`);
+        if (s.typ != null) bits.push(`typ ${s.typ} ${s.unit || ""}`.trim());
+        return bits.join(" ");
+      }).join("; ");
+      const info = (t.info && (t.info.description || t.info.title)) || t.notes || "";
+      const specLine = specBits || "datasheet unspec -- Results: Fetch limits";
+      const extra = [info, specLine].filter(Boolean).join(" · ");
       grid.innerHTML += `
-        <label class="test-item" for="${id}">
+        <label class="test-item" for="${id}" title="${extra.replace(/"/g, "&quot;")}">
           <input id="${id}" type="checkbox" value="${t.id}" ${checked} />
-          <span><strong>${tag}</strong> — ${t.label}<br/><span class="mode-tag">${t.fixture_mode} · ${instr}${isResearch ? " · research" : ""}</span></span>
+          <span><strong>${tag}</strong> — ${t.label}<br/><span class="mode-tag">${specLine}</span><br/><span class="mode-tag">${t.fixture_mode} · ${instr}${isResearch ? " · research" : ""}</span>${info ? `<br/><span class="hint">${info}</span>` : ""}</span>
         </label>`;
     }
     wrap.appendChild(grid);
@@ -1491,21 +2227,46 @@ if (familyRail) {
     if (!btn) return;
     const family = btn.dataset.family;
     if (!family) return;
-    const dirFam = familyFromComponent(($("db-component") && $("db-component").value) || "");
-    if (family === activeFamily && dirFam === family) return;
+    const sameRail = family === railType;
+    railType = family;
+    if (!(inventoryRows || []).length) {
+      await loadInventory();
+    } else {
+      paintInventory(family);
+    }
+    if ($("np-category")) {
+      const catId = typeForFamily(family);
+      if (catId) $("np-category").value = catId;
+    }
     try {
+      mergeInventoryIntoTree();
       const component = componentFromFamily(family);
-      const hasDir = !!(component && (dbTree.components || {})[component]);
-      if (hasDir) {
-        const last = readSavedByFamily(family);
-        const sel = (last && (dbTree.components || {})[last.component])
-          ? last
-          : firstCampaignInComponent(component);
-        if (sel) paintCampaign(sel);
+      const fromInv = campaignFromInventory(family);
+      const last = readSavedByFamily(family);
+      const lastOk = !!(last && last.component === component && liveKeys(
+        (((dbTree.components || {})[last.component] || {}).parts) || {}
+      ).includes(last.part));
+      const sel = lastOk
+        ? last
+        : (fromInv || firstCampaignInComponent(component));
+      const wantComp = (sel && sel.component) || component;
+      if (sameRail && $("db-component") && $("db-component").value === wantComp && sel && $("db-part") && $("db-part").value === sel.part) {
+        paintBrand(railType);
+        return;
+      }
+      if (sel) {
+        if ($("np-part")) $("np-part").value = sel.part || "";
+        if ($("np-package")) $("np-package").value = sel.package || "";
+        if ($("np-model")) $("np-model").value = sel.model || sel.part || "";
+        paintCampaign(sel);
         await applyDb();
       } else {
-        await switchFamily(family);
+        const firstInv = (inventoryRows || []).find((r) => String(r.category || "") === typeForFamily(family));
+        const suite = suiteForRow(firstInv) || family;
+        await switchFamily(suite);
       }
+      paintBrand(railType);
+      await refreshTagsUI();
     } catch (e) {
       alert(e.message);
     }
@@ -1516,13 +2277,20 @@ if (familyRail) {
   const el = $(id);
   if (!el) return;
   el.addEventListener("change", async () => {
-    refreshDbCascades();
+    if (!String(($("db-component") && $("db-component").value) || "").trim()) return;
+    if (!String(($("db-part") && $("db-part").value) || "").trim()) return;
+    refreshDbCascades(currentDbSelection(), id);
     if ((id === "db-component" || id === "db-part") && $("db-model")) {
       $("db-model").value = "";
     }
     // Component change also switches family suite in the same click
     if (id === "db-component") {
       const fam = familyFromComponent(($("db-component") && $("db-component").value) || "");
+      if (fam) {
+        railType = fam;
+        paintInventory(fam);
+        paintBrand(fam);
+      }
       if (fam && fam !== activeFamily) {
         try {
           await switchFamily(fam);
@@ -1531,11 +2299,18 @@ if (familyRail) {
         }
       }
     }
-    try {
-      await applyDb();
-    } catch (e) {
-      alert(e.message);
+    const sel = currentDbSelection();
+    if (sel.operator) syncOwnerSelectFromFolder(sel.operator);
+    if ($("db-breadcrumb") && sel.component) {
+      $("db-breadcrumb").textContent =
+        `${sel.component} / ${sel.part} / ${sel.package} / ${sel.operator || "?"} / ${sel.version}` +
+        (sel.model ? ` · ${sel.model}` : "");
     }
+    if (!campaignKnown(sel)) {
+      log("Typed new campaign path -- click Apply campaign to create folders\n");
+      return;
+    }
+    log("Campaign path updated -- click Apply campaign to load tests / folders\n");
   });
 });
 
@@ -1547,34 +2322,156 @@ $("btn-apply-db").onclick = async () => {
   }
 };
 
+async function savePersonFromSetup() {
+  const label = requireWriteOperator();
+  const sel = currentDbSelection();
+  const res = await rpc("upsert_owner", {
+    label,
+    component: sel.component,
+    part: sel.part,
+    package: sel.package,
+    family: railType || "",
+    task: sel.part,
+    update_defaults: true,
+  });
+  ownersList = res.owners || ownersList;
+  if (res.owner && res.owner.id) saveOwner(res.owner.id);
+  await loadOwners();
+  syncOwnerSelectFromFolder(label);
+  const row = (res.owner || {});
+  if ($("person-hint")) {
+    $("person-hint").textContent =
+      `${res.action || "saved"} ${row.label || label}` +
+      (row.task ? ` · task ${row.task}` : "") +
+      " (owners.yaml). Apply campaign to create folders.";
+  }
+  log(`Person ${res.action || "saved"}: ${row.label || label}\n`);
+}
+
+if ($("btn-save-person")) {
+  $("btn-save-person").onclick = async () => {
+    try {
+      await savePersonFromSetup();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
+if ($("btn-forget-person")) {
+  $("btn-forget-person").onclick = async () => {
+    try {
+      const label = (($("db-operator") && $("db-operator").value) || "").trim();
+      if (!label || label.toLowerCase() === "all") {
+        throw new Error("Pick a person (not All) to forget");
+      }
+      if (!confirm(`Forget ${label} from owners.yaml? Version folders on disk stay.`)) return;
+      const res = await rpc("remove_owner", { owner: label });
+      ownersList = res.owners || [];
+      await loadOwners();
+      const fallback = ownersList.find((o) => o.id === "eugene") || ownersList.find((o) => o.id !== "all");
+      if ($("owner-select") && fallback) {
+        $("owner-select").value = fallback.id;
+        saveOwner(fallback.id);
+      }
+      if ($("person-hint")) {
+        $("person-hint").textContent = `Forgot ${label} in yaml. Folders under ${label} were not deleted.`;
+      }
+      log(`Forgot person ${label} (yaml only)\n`);
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
+
+async function saveCampaignLabels() {
+  const payload = (campaignLabels && campaignLabels.length)
+    ? { labels: campaignLabels, remember_scope: labelRememberScope() }
+    : { tags: campaignTags, boards: campaignBoards, remember_scope: labelRememberScope() };
+  const res = await rpc("save_tags", payload);
+  campaignTags = res.tags || campaignTags;
+  campaignBoards = res.boards || campaignBoards;
+  campaignLabels = Array.isArray(res.labels) ? res.labels : campaignLabels;
+  paintTagsEditor();
+  if (res.excel_status === "ok") {
+    log(`Tags in Excel ${res.excel_cell || res.excel}\n`);
+  } else if (res.excel_status === "locked") {
+    log("Excel locked - close the lab workbook to stamp tags\n");
+  }
+  return res;
+}
+
+function addSetupLabel(kind, value) {
+  const k = String(kind || "tag").trim();
+  const v = String(value || "").trim();
+  if (!k || !v || v.startsWith("(")) return;
+  const lab = { kind: k, value: v };
+  const tok = labelToken(lab);
+  if ((campaignLabels || []).some((x) => labelToken(x) === tok)) return;
+  campaignLabels = (campaignLabels || []).concat([lab]);
+  if (!campaignTags.includes(tok)) campaignTags.push(tok);
+  if (k === "board" && !campaignBoards.includes(v)) campaignBoards.push(v);
+  paintTagsEditor();
+  saveCampaignLabels().catch((e) => alert(e.message));
+}
+
+if ($("setup-label-kind")) {
+  $("setup-label-kind").onchange = () => fillLabelValueSelect();
+}
+if ($("btn-setup-add-label")) {
+  $("btn-setup-add-label").onclick = () => {
+    let kind = (($("setup-label-kind") && $("setup-label-kind").value) || "board").trim();
+    let value = (($("setup-label-value") && $("setup-label-value").value) || "").trim();
+    if (value.includes(":")) {
+      const i = value.indexOf(":");
+      kind = value.slice(0, i).trim() || kind;
+      value = value.slice(i + 1).trim();
+    }
+    addSetupLabel(kind, value);
+    if ($("setup-label-value")) $("setup-label-value").value = "";
+  };
+}
 if ($("btn-tag-add-board")) {
   $("btn-tag-add-board").onclick = () => {
     const b = ($("tag-board-select") && $("tag-board-select").value) || "";
     if (!b || b.startsWith("(")) return;
-    if (!campaignBoards.includes(b)) campaignBoards.push(b);
-    const tok = `board:${b}`;
-    if (!campaignTags.includes(tok)) campaignTags.push(tok);
-    paintTagsEditor();
+    addSetupLabel("board", b);
   };
 }
 if ($("btn-tag-add-free")) {
   $("btn-tag-add-free").onclick = () => {
     const t = (($("tag-free") && $("tag-free").value) || "").trim();
     if (!t) return;
-    if (!campaignTags.includes(t)) campaignTags.push(t);
+    addCampaignTagFromText(t);
     if ($("tag-free")) $("tag-free").value = "";
-    paintTagsEditor();
   };
+}
+if ($("tag-free")) {
+  $("tag-free").addEventListener("keydown", (ev) => {
+    if ((ev.key === " " || ev.key === "," || ev.key === "Enter") && String($("tag-free").value || "").trim()) {
+      ev.preventDefault();
+      addCampaignTagFromText($("tag-free").value);
+      $("tag-free").value = "";
+    }
+  });
 }
 if ($("btn-tags-save")) {
   $("btn-tags-save").onclick = async () => {
     try {
-      const res = await rpc("save_tags", { tags: campaignTags, boards: campaignBoards });
+      const res = await rpc("save_tags", {
+        tags: campaignTags,
+        boards: campaignBoards,
+        labels: campaignLabels,
+        remember_scope: labelRememberScope(),
+      });
       campaignTags = res.tags || campaignTags;
       campaignBoards = res.boards || campaignBoards;
+      campaignLabels = Array.isArray(res.labels) ? res.labels : campaignLabels;
       paintTagsEditor();
       if ($("tags-path-hint")) {
-        $("tags-path-hint").textContent = `Saved TAGS.txt: ${res.tags_txt}`;
+        $("tags-path-hint").textContent =
+          res.excel_status === "ok"
+            ? `Saved TAGS.txt: ${res.tags_txt} · Excel ${res.excel_cell}`
+            : `Saved TAGS.txt: ${res.tags_txt}`;
       }
       log(`Tags saved (${(res.tags || []).length})\n`);
     } catch (e) {
@@ -1584,6 +2481,20 @@ if ($("btn-tags-save")) {
 }
 if ($("btn-tags-reload")) {
   $("btn-tags-reload").onclick = () => refreshTagsUI().catch((e) => alert(e.message));
+}
+if ($("btn-tags-clear")) {
+  $("btn-tags-clear").onclick = async () => {
+    if (!confirm("Clear all tags on this campaign? TAGS.txt and yaml update. Excel stamps if the workbook is closed.")) return;
+    try {
+      campaignTags = [];
+      campaignBoards = [];
+      campaignLabels = [];
+      await saveCampaignLabels();
+      log("Tags cleared\n");
+    } catch (e) {
+      alert(e.message);
+    }
+  };
 }
 if ($("btn-tags-import")) {
   $("btn-tags-import").onclick = async () => {
@@ -1596,6 +2507,7 @@ if ($("btn-tags-import")) {
       const res = await rpc("import_tags", { from_root: src, merge: true });
       campaignTags = res.tags || [];
       campaignBoards = res.boards || [];
+      campaignLabels = Array.isArray(res.labels) ? res.labels : campaignLabels;
       paintTagsEditor();
       log(`Imported tags from ${src}\n`);
     } catch (e) {
@@ -1647,6 +2559,16 @@ $("btn-open-sessions").onclick = async () => {
     alert(e.message);
   }
 };
+
+if ($("btn-open-central")) {
+  $("btn-open-central").onclick = async () => {
+    try {
+      await rpc("open_central_db");
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+}
 
 $("btn-import-xlsx").onclick = async () => {
   try {
@@ -1729,9 +2651,44 @@ $("btn-open").onclick = async () => {
   }
 };
 
+function shotFolderKey() {
+  const ids = selectedTests();
+  if (ids.includes("slew")) return "SlewRate";
+  if (ids.includes("settling")) return "SettlingTime";
+  if (ids.includes("gbw")) return "GBW";
+  if (ids.includes("ort")) return "ORT";
+  const first = ids[0];
+  if (!first) return "ORT";
+  const row = (allTests || []).find((t) => t.id === first);
+  return (row && row.lab_sheet) || first;
+}
+
+function paintDemoTimeline(res) {
+  const steps = res.steps || [];
+  const n = steps.length;
+  const now = new Date().toISOString();
+  const entries = steps.map((s, i) => ({
+    id: `demo-${i}`,
+    kind: "test",
+    label: `${s.fixture_mode ? s.fixture_mode + " · " : ""}${s.label || s.test_id}`,
+    status: "done",
+    test_id: s.test_id,
+    finished_at: now,
+    message: `DEMO mock ${(s.instruments || []).join("+") || "none"}`,
+  }));
+  renderTimeline({
+    entries,
+    done_count: n,
+    total_count: n,
+    progress_pct: n ? 100 : 0,
+    finished_at: now,
+    session_id: String(res.session || "").split(/[\\/]/).pop() || "demo",
+  });
+}
+
 $("btn-shot").onclick = async () => {
   try {
-    const r = await rpc("screenshot", { test_key: "ORT" });
+    const r = await rpc("screenshot", { test_key: shotFolderKey() });
     log(`Screenshot: ${r.path}\n`);
     alert(`JPEG saved:\n${r.path}`);
   } catch (e) {
@@ -1742,16 +2699,8 @@ $("btn-shot").onclick = async () => {
 $("btn-folder").onclick = async () => {
   try {
     const duts = selectedDuts();
-    const ids = selectedTests();
-    const testKey = ids.includes("slew")
-      ? "SlewRate"
-      : ids.includes("settling")
-        ? "SettlingTime"
-        : ids.includes("gbw")
-          ? "GBW"
-          : "ORT";
     await rpc("open_screenshots", {
-      test_key: testKey,
+      test_key: shotFolderKey(),
       unit_index: duts[0],
     });
   } catch (e) {
@@ -1811,36 +2760,6 @@ if ($("btn-new-product")) {
   };
 }
 
-if ($("btn-add-version")) {
-  $("btn-add-version").onclick = async () => {
-    try {
-      const operator = requireWriteOperator();
-      const sel = currentDbSelection();
-      const res = await rpc("ensure_version", {
-        component: sel.component,
-        part: sel.part,
-        package: sel.package,
-        operator,
-        copy_from_version: sel.version,
-        sample_size: Number((dbContext && dbContext.sample_size) || 4),
-        open_folder: false,
-        apply: true,
-      });
-      log(`+ Version: ${res.version} → ${res.root}\n`);
-      dbTree = await rpc("list_db_tree");
-      paintCampaign({
-        ...sel,
-        operator: res.operator || operator,
-        version: res.version,
-        model: (dbContext && dbContext.model) || sel.model,
-      });
-      await applyDb();
-    } catch (e) {
-      alert(e.message);
-    }
-  };
-}
-
 if ($("btn-new-session")) {
   $("btn-new-session").onclick = async () => {
     try {
@@ -1862,7 +2781,7 @@ if ($("btn-new-session")) {
 if ($("btn-refresh-detected")) {
   $("btn-refresh-detected").onclick = async () => {
     try {
-      await refreshDetectedPanel();
+      await refreshDetectedPanel({ preserveWrap: true });
     } catch (e) {
       alert(e.message);
     }
@@ -1912,7 +2831,7 @@ async function wrapSelectedDetected() {
     if (res.loaded_family) updateFamilyChrome(res.loaded_family);
   }
   await loadTests();
-  await refreshDetectedPanel();
+  await refreshDetectedPanel({ preserveWrap: true });
 }
 
 // Click on detected panel: double-click row or use wrap via refresh button area
@@ -1939,23 +2858,25 @@ if ($("btn-demo")) {
   $("btn-demo").onclick = async () => {
     try {
       requireWriteOperator();
+      const ids = selectedTests();
+      if (!ids.length) return alert("Select at least one test");
       await applyDb();
-      const res = await rpc("run_demo", { test_ids: selectedTests(), params: params() });
+      const res = await rpc("run_demo", { test_ids: ids, params: params() });
       log(`DEMO: ${res.note || ""}\nSession: ${res.session || ""}\n`);
       (res.steps || []).forEach((s) => {
         const inst = (s.instruments || []).join("+") || "none";
-        log(`  ${s.test_id} -> ${inst} ${JSON.stringify(s.mock)}\n`);
+        log(`  ${s.fixture_mode || "-"} ${s.test_id} -> ${inst} ${JSON.stringify(s.mock)}\n`);
       });
-      const tb = $("results-table") && $("results-table").querySelector("tbody");
-      if (tb) {
-        tb.innerHTML = "";
-        for (const s of res.steps || []) {
-          const inst = (s.instruments || []).join("+") || "none";
-          tb.innerHTML += `<tr><td>demo</td><td>${s.test_id}</td><td>true</td><td>mock ${inst}</td></tr>`;
-        }
+      await paintSessionReport();
+      try {
+        const exp = await rpc("export_datalog");
+        log(`STS datalog: ${exp.pdf || exp.markdown || ""}\n`);
+      } catch (e) {
+        log(`STS export: ${e.message}\n`);
       }
       setRunPill("pass");
-      switchPage("results");
+      paintDemoTimeline(res);
+      switchPage("run");
     } catch (e) {
       alert(e.message);
     }
@@ -1997,14 +2918,15 @@ $("btn-start").onclick = async () => {
     await rpc("run_sequence_async", { test_ids: ids, params: params() });
     await waitForRunComplete();
     const results = await rpc("get_last_run_results");
-    const tb = $("results-table").querySelector("tbody");
-    tb.innerHTML = "";
+    await paintSessionReport();
     let allOk = true;
     for (const r of results || []) {
       allOk = allOk && r.success;
-      const ch = r.channel ? ` ${r.channel}` : "";
-      tb.innerHTML += `<tr><td>${r.dut ?? ""}${ch}</td><td>${r.test_id}</td><td>${r.success}</td><td>${r.summary || r.error || ""}</td></tr>`;
     }
+    try {
+      const exp = await rpc("export_datalog");
+      log(`STS datalog: ${exp.pdf || exp.html || ""}\n`);
+    } catch (_) { /* keep table even if export fails */ }
     try {
       const tl = await rpc("get_timeline");
       if (tl) renderTimeline(tl);
@@ -2079,6 +3001,146 @@ document.addEventListener("keydown", (e) => {
 });
 
 let layoutState = { test_key: "", cells: [] };
+let runLedgerScope = "part";
+let runLedgerBound = false;
+
+function runWhen(s) {
+  return String(s || "").replace("T", " ").slice(0, 19);
+}
+
+function fmtSpec(v) {
+  if (v === null || v === undefined || v === "") return "";
+  return String(v);
+}
+
+async function paintSessionReport() {
+  const tb = $("results-table") && $("results-table").querySelector("tbody");
+  if (!tb) return null;
+  const doc = await rpc("get_session_report");
+  tb.innerHTML = "";
+  const steps = doc.steps || [];
+  let n = 0;
+  for (const s of steps) {
+    const meas = Array.isArray(s.measurements) && s.measurements.length
+      ? s.measurements
+      : [{ id: "", result: s.success ? "pass" : "fail" }];
+    for (const m of meas) {
+      n += 1;
+      const res = String((m && m.result) || (s.success ? "pass" : "fail"));
+      tb.innerHTML += `<tr><td>${s.dut ?? ""}</td><td>${s.test_id || ""}</td><td>${(m && m.id) || ""}</td><td>${fmtSpec(m && m.min)}</td><td>${fmtSpec(m && m.max)}</td><td>${fmtSpec(m && m.typ)}</td><td>${fmtSpec(m && m.value)}</td><td>${res}</td><td>${s.summary || s.error || ""}</td></tr>`;
+    }
+  }
+  if (!n) {
+    tb.innerHTML = `<tr><td colspan="9">No session measurements yet -- START or DEMO</td></tr>`;
+  }
+  if ($("results-db-hint") && doc.identity) {
+    const fail = (doc.header && doc.header.fail) || 0;
+    $("results-db-hint").textContent =
+      `Lab report: ${(doc.identity && doc.identity.lab_report) || ""} · pass ${(doc.header && doc.header.pass) || 0} / fail ${fail}`;
+  }
+  return doc;
+}
+
+async function loadRunLedger(scope) {
+  const tb = $("run-ledger") && $("run-ledger").querySelector("tbody");
+  const hint = $("run-ledger-hint");
+  if (!tb) return;
+  if (scope) runLedgerScope = scope;
+  try {
+    const res = await rpc("list_runs", { scope: runLedgerScope, limit: 80 });
+    tb.innerHTML = "";
+    const runs = res.runs || [];
+    if (hint) {
+      hint.textContent =
+        `${res.count || 0} run(s) · ${res.cloud_kind || "local"} · ${res.root || ""}` +
+        (res.truncated ? " (truncated)" : "");
+    }
+    if (!runs.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 6;
+      td.textContent = "No session JSON yet -- START or DEMO writes sessions/";
+      tr.appendChild(td);
+      tb.appendChild(tr);
+      return;
+    }
+    for (const r of runs) {
+      const tr = document.createElement("tr");
+      for (const text of [
+        runWhen(r.started),
+        r.operator || "?",
+        r.part || "",
+        r.version || "",
+        `${r.pass || 0}/${r.fail || 0}`,
+      ]) {
+        const td = document.createElement("td");
+        td.textContent = text;
+        tr.appendChild(td);
+      }
+      const td = document.createElement("td");
+      const mk = (label, act) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "btn ghost";
+        b.textContent = label;
+        b.dataset.act = act;
+        b.dataset.path = r.path || "";
+        b.dataset.root = r.campaign_root || "";
+        b.dataset.component = r.component || "";
+        b.dataset.part = r.part || "";
+        b.dataset.package = r.package || "";
+        b.dataset.operator = r.operator || "";
+        b.dataset.version = r.version || "";
+        b.dataset.model = r.model || "";
+        return b;
+      };
+      td.appendChild(mk("Open", "open"));
+      td.appendChild(mk("Apply", "apply"));
+      td.appendChild(mk("Delete", "delete"));
+      tr.appendChild(td);
+      tb.appendChild(tr);
+    }
+    if (!runLedgerBound && tb) {
+      runLedgerBound = true;
+      tb.addEventListener("click", onRunLedgerClick);
+    }
+  } catch (e) {
+    if (hint) hint.textContent = `Runs: ${e.message}`;
+  }
+}
+
+async function onRunLedgerClick(ev) {
+  const b = ev.target && ev.target.closest && ev.target.closest("button[data-act]");
+  if (!b) return;
+  const act = b.dataset.act;
+  try {
+    if (act === "open") {
+      await rpc("open_path", { path: b.dataset.path });
+      return;
+    }
+    if (act === "apply") {
+      paintCampaign({
+        component: b.dataset.component,
+        part: b.dataset.part,
+        package: b.dataset.package,
+        operator: b.dataset.operator,
+        version: b.dataset.version,
+        model: b.dataset.model || b.dataset.part,
+        year: ($("db-year") && $("db-year").value) || "2026",
+      });
+      await applyDb();
+      switchPage("setup");
+      return;
+    }
+    if (act === "delete") {
+      if (!confirm("Delete this session JSON? Campaign folders and the lab xlsx stay.")) return;
+      await rpc("delete_run", { path: b.dataset.path });
+      await loadRunLedger();
+    }
+  } catch (e) {
+    alert(e.message);
+  }
+}
 
 function shotUrl(shot) {
   return shot && shot.url ? shot.url : "";
@@ -2093,6 +3155,10 @@ function fillLayoutSelect(preview) {
   const sel = $("layout-test");
   if (!sel) return;
   const tests = preview.tests || [];
+  if (!tests.length) {
+    sel.innerHTML = '<option value="">-- no mapped tests --</option>';
+    return;
+  }
   const current = preview.test_key || sel.value;
   sel.innerHTML = tests.map((t) => {
     const label = `${t.excel_sheet} (${t.test_key})`;
@@ -2187,6 +3253,7 @@ function pollLoop() {
 }
 
 (async function boot() {
+  initCombos();
   tick();
   setInterval(tick, 1000);
   pollLoop();
@@ -2220,6 +3287,59 @@ function pollLoop() {
   if ($("btn-layout-save")) {
     $("btn-layout-save").onclick = () => saveLayoutPreview().catch((e) => alert(e.message));
   }
+  const bindRuns = (id, scope) => {
+    const el = $(id);
+    if (!el) return;
+    el.onclick = () => loadRunLedger(scope).catch((e) => alert(e.message));
+  };
+  bindRuns("btn-runs-campaign", "campaign");
+  bindRuns("btn-runs-part", "part");
+  bindRuns("btn-runs-all", "all");
+  if ($("btn-runs-reload")) {
+    $("btn-runs-reload").onclick = () => loadRunLedger().catch((e) => alert(e.message));
+  }
+  if ($("btn-export-datalog")) {
+    $("btn-export-datalog").onclick = async () => {
+      try {
+        const exp = await rpc("export_datalog");
+        log(`STS datalog\n  ${exp.markdown || ""}\n  ${exp.html || ""}\n  ${exp.pdf || ""}\n`);
+        if (exp.html) {
+          try { await rpc("open_path", { path: exp.html }); } catch (_) { /* ignore */ }
+        }
+      } catch (e) {
+        alert(e.message);
+      }
+    };
+  }
+  if ($("btn-fill-excel")) {
+    $("btn-fill-excel").onclick = async () => {
+      try {
+        const res = await rpc("fill_workbook");
+        log(`Excel fill: ${res.status || ""} filled=${res.filled || 0} ${res.excel || ""}\n`);
+        if ($("results-db-hint")) {
+          $("results-db-hint").textContent = `Excel ${res.status}: ${res.excel || ""} (${res.filled || 0} cells)`;
+        }
+      } catch (e) {
+        alert(e.message);
+      }
+    };
+  }
+  if ($("btn-fetch-datasheet")) {
+    $("btn-fetch-datasheet").onclick = async () => {
+      try {
+        const part = (($("db-part") && $("db-part").value) || "").trim();
+        if (!part) throw new Error("Apply a campaign part first");
+        const res = await rpc("fetch_datasheet", { part });
+        log(`Limits ${res.part}: source=${res.source || ""} pdf=${res.pdf || ""} specs=${(res.specs || []).length}\n${res.note || ""}\n`);
+        if ($("results-db-hint")) {
+          $("results-db-hint").textContent = `Fetched ${res.part} limits -> ${res.yaml || ""}`;
+        }
+        await loadTests();
+      } catch (e) {
+        alert(e.message);
+      }
+    };
+  }
   if ($("layout-overlay")) {
     $("layout-overlay").addEventListener("change", () => {
       const pair = $("layout-compare-pair");
@@ -2234,14 +3354,9 @@ function pollLoop() {
       await loadOwners();
       await loadCategories();
       await loadInventory();
-      const ownerId = readSavedOwner();
-      if (ownerId && ownerId !== "all") {
-        try {
-          await applyOwner(ownerId);
-        } catch (e) {
-          log(`Operator default warn: ${e.message}\n`);
-        }
-      }
+      mergeInventoryIntoTree();
+      refreshDbCascades(currentDbSelection());
+      syncOwnerSelectFromFolder(($("db-operator") && $("db-operator").value) || "");
       await syncFamilyFromWorker();
       await loadFixtureCatalog();
       await loadParamDefaults();
@@ -2251,21 +3366,11 @@ function pollLoop() {
         runPollActive = true;
         switchPage("run");
         waitForRunComplete()
-          .then(() => rpc("get_last_run_results"))
-          .then((results) => {
-            runPollActive = false;
-            if (results && results.length) {
-              const tb = $("results-table").querySelector("tbody");
-              if (tb) {
-                tb.innerHTML = "";
-                for (const r of results) {
-                  const ch = r.channel ? ` ${r.channel}` : "";
-                  tb.innerHTML += `<tr><td>${r.dut ?? ""}${ch}</td><td>${r.test_id}</td><td>${r.success}</td><td>${r.summary || r.error || ""}</td></tr>`;
-                }
-              }
-            }
-          })
+          .then(() => paintSessionReport())
+          .then(() => { runPollActive = false; })
           .catch(() => { runPollActive = false; });
+      } else {
+        await paintSessionReport();
       }
       await loadTests();
       await refreshSession();

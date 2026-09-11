@@ -1,0 +1,9 @@
+# Extra ATE families (data-driven). Built-ins opamp/logic/level stay in registry.py.
+# Do not put secrets here. Restart worker if a new family does not appear.
+# Optional `label:` is the left-rail name (else the key with underscores as spaces).
+families:
+  demo_ingest:
+    package: ate.tests.demo_ingest
+    label: Demo
+    source: C:\Users\OoiJianHong\AppData\Local\Temp\ate_demo_family
+    imported_at: '2026-08-22T16:16:59+08:00'

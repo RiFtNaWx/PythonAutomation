@@ -1,0 +1,28 @@
+# RS1GT34 Logic buffer -- Qualification Main SOT-353. Fill enabled_tests / Wrap as needed.
+
+part: RS1GT34
+model: RS1GT34XC5
+component: Logic
+package: SOT-353
+version: Version_1
+sample_size: 4
+year: "2026"
+part_key: rs1gt34
+product_class: logic
+vcc: 5.0
+current_limit: 0.10
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+enabled_tests:
+  - tp
+  - ten
+  - tdis
+  - supply_current
+fixture_modes:
+  LOGIC:
+    label: "Logic board (RS1GT34)"
+    board_class: general
+    checklist:
+      - "RS1GT34 is a single non-inverting buffer."
+    tests: [tp, ten, tdis, supply_current]

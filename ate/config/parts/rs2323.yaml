@@ -1,0 +1,50 @@
+# RS2323 analog switch (dual SPDT) — RUN-IC Analog Switch class
+# Tree: #Test_Database/AnalogSwitch/RS2323/MSOP/Version_1
+# Owner: Lim (person). Family is Analog Switch, not "Lim".
+# Recipes: LabAutomation-1/Lim (reference only; do not import Lim.*)
+
+part: RS2323
+model: RS2323
+component: AnalogSwitch
+device: RS2323
+package: MSOP
+version: Version_1
+sample_size: 4
+year: "2026"
+owner: lim
+part_key: rs2323
+product_class: analog_switch
+
+vcc: 5.0
+current_limit: 0.10
+bias_current_limit: 0.05
+bias_low_v: 0.3
+# Short platform sweep (full LA-1 1.8..5.5 still reference)
+vcc_sweep: [1.8, 3.3, 5.0]
+dmm_readings: 3
+dmm_settle_s: 0.2
+display_limit_ua: 1.0
+
+timing:
+  timeout_s: 120.0
+  settle_s: 0.5
+
+enabled_tests:
+  - iplus
+  - leakage_off
+  - leakage_on
+  - input_leakage
+
+fixture_modes:
+  LIM_RS2323:
+    label: "RS2323 dual SPDT analog switch"
+    board_class: general
+    checklist:
+      - "RS2323 analog switch; PSU CH1 = V+; DMM in series per sub-condition"
+      - "Continue at each wiring prompt (safe: supplies off)"
+      - "DMM required for analog-switch current tests"
+    tests:
+      - iplus
+      - leakage_off
+      - leakage_on
+      - input_leakage

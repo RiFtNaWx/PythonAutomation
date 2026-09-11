@@ -9,7 +9,7 @@ from openpyxl import load_workbook
 from openpyxl.drawing.image import Image as XLImage
 
 from ate.core.paths import artifact_name, screenshot_dir
-from ate.reporting.sheet_layout import ort_photo_anchor_map
+from ate.reporting.photo_layout import photo_anchor
 
 MYT = timezone(timedelta(hours=8))
 
@@ -94,10 +94,7 @@ def update_summary_status(
 
 
 def _ort_anchor(unit: int, polarity: str, channel: str = "CHA") -> str:
-    pol = "pos" if polarity.upper().startswith("POS") else "neg"
-    ch = "chA" if "A" in channel.upper() else "chB"
-    key = f"{pol}_u{unit}_{ch}"
-    return ort_photo_anchor_map().get(key, "A46")
+    return photo_anchor("ORT", unit, channel, polarity=polarity)
 
 
 def place_ort_photos(
@@ -138,18 +135,8 @@ def place_ort_photos(
     return path
 
 
-# SettlingTime sheet: unit headers at A36/J36/S36/AB36 → body row 38 (header+channel+body).
-_SETTLING_UNIT_COLS = {1: 1, 2: 10, 3: 19, 4: 28}
-_SETTLING_BODY_ROW = 38
-
-
 def _settling_anchor(unit: int, channel: str = "CHA") -> str:
-    from openpyxl.utils import get_column_letter
-
-    u = max(1, min(4, int(unit)))
-    start = _SETTLING_UNIT_COLS[u]
-    col = start if "A" in channel.upper() else start + 4
-    return f"{get_column_letter(col)}{_SETTLING_BODY_ROW}"
+    return photo_anchor("SettlingTime", unit, channel)
 
 
 def place_settling_photos(
@@ -184,6 +171,104 @@ def place_settling_photos(
         path = fallback
     wb.close()
     return path
+
+
+def _place_mapped_photo(
+    workbook_path: Optional[Path],
+    *,
+    test_key: str,
+    photo_path: Path,
+    unit_index: int,
+    channel: str,
+    polarity: str | None = None,
+) -> Path:
+    entry = _ctx().test_entry(test_key)
+    sheet_name = str((entry or {}).get("excel_sheet") or test_key)
+    path = Path(workbook_path or default_lab_report_path())
+    if not path.is_file():
+        path = default_lab_report_path()
+    if not path.is_file():
+        raise FileNotFoundError(f"Lab report not found: {path}")
+
+    wb = load_workbook(path)
+    if sheet_name not in wb.sheetnames:
+        wb.close()
+        raise RuntimeError(f"Sheet {sheet_name!r} missing from lab report")
+    ws = wb[sheet_name]
+    embed_photo(
+        ws,
+        photo_path,
+        anchor_cell=photo_anchor(test_key, unit_index, channel, polarity),
+    )
+    try:
+        wb.save(path)
+    except PermissionError:
+        fallback = _ctx().lab_report_path()
+        fallback.parent.mkdir(parents=True, exist_ok=True)
+        wb.save(fallback)
+        path = fallback
+    wb.close()
+    return path
+
+
+def place_mapped_photos(
+    workbook_path: Optional[Path] = None,
+    *,
+    test_key: str,
+    photo_path: Path | None,
+    unit_index: int = 1,
+    channel: str = "CHA",
+    polarity: str | None = None,
+) -> Path:
+    """Paste one photo using sheet_map tests.<test_key>.paste.photos."""
+    if photo_path is None:
+        raise ValueError("photo_path required")
+    return _place_mapped_photo(
+        workbook_path,
+        test_key=test_key,
+        photo_path=photo_path,
+        unit_index=unit_index,
+        channel=channel,
+        polarity=polarity,
+    )
+
+
+def place_sssr_photos(
+    workbook_path: Optional[Path] = None,
+    *,
+    photo_path: Path | None,
+    unit_index: int = 1,
+    channel: str = "CHA",
+) -> Path:
+    """Paste one SSSR photo using sheet_map SmallSignalStep paste.photos."""
+    if photo_path is None:
+        raise ValueError("photo_path required")
+    return _place_mapped_photo(
+        workbook_path,
+        test_key="SmallSignalStep",
+        photo_path=photo_path,
+        unit_index=unit_index,
+        channel=channel,
+    )
+
+
+def place_lssr_photos(
+    workbook_path: Optional[Path] = None,
+    *,
+    photo_path: Path | None,
+    unit_index: int = 1,
+    channel: str = "CHA",
+) -> Path:
+    """Paste one LSSR photo using sheet_map LargeSignalStep paste.photos."""
+    if photo_path is None:
+        raise ValueError("photo_path required")
+    return _place_mapped_photo(
+        workbook_path,
+        test_key="LargeSignalStep",
+        photo_path=photo_path,
+        unit_index=unit_index,
+        channel=channel,
+    )
 
 
 def write_ort_result(

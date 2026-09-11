@@ -1,0 +1,14 @@
+# RS3235 LDO. Same as RS3213 -- do not use RS32X opamp PDF.
+
+part: RS3235
+datasheet:
+  lang: en
+  source: unfound
+  notes: No LDO PDF locally. VOUT typ from part yaml.
+
+specs:
+  - id: VOUT_V
+    test: iq
+    unit: V
+    typ: 3.3
+    source: parts/rs3235.yaml vout_nominal

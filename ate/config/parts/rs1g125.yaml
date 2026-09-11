@@ -1,0 +1,37 @@
+# RS1G125 Logic 3-state buffer — RUN-IC small logic.
+
+part: RS1G125
+model: RS1G125
+component: Logic
+device: RS1G125
+package: SOT23
+version: Version_1
+sample_size: 4
+year: "2026"
+owner: lim
+part_key: rs1g125
+product_class: logic
+
+vcc: 5.0
+current_limit: 0.10
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+
+enabled_tests:
+  - tp
+  - ten
+  - tdis
+  - supply_current
+
+fixture_modes:
+  LOGIC:
+    label: "Logic board (RS1G125)"
+    board_class: general
+    checklist:
+      - "RS1G125 is a 3-state bus buffer (small logic)."
+    tests:
+      - tp
+      - ten
+      - tdis
+      - supply_current

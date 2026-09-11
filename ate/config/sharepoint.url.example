@@ -1,0 +1,3 @@
+# Paste the SharePoint library URL on the next line, save as sharepoint.url
+# (same folder, drop .example). START.bat / Open central DB uses it when
+# the local OneDrive folder is missing. A13 Graph API stays parked.

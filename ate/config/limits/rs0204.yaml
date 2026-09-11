@@ -1,0 +1,65 @@
+# RS0204 dual-rail translator. Local RS0204_(RevA.5).pdf electrical table 8.4.
+# VCCA must stay <= VCCB. Not an OpAmp family PDF.
+
+part: RS0204
+datasheet:
+  lang: en
+  source: local-reference
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS0204_(RevA.5).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs0204.txt
+  notes: Hand-kept from extract table 8.3/8.4. Auto-guess has no dual-rail patterns.
+
+test_info:
+  icc:
+    title: Combined supply current
+    description: I_CCA + I_CCB Full max 10 uA (OE high, I_O=0).
+  il:
+    title: Partial power-down / Ioff
+    description: A or B port Ioff Full max 2 uA.
+  vol:
+    title: Output low
+    description: VOLA/VOLB Full max 0.4 V.
+  voh:
+    title: Output high
+    description: VOHA = VCCA-0.4 V (1.4V to 3.6V Full). Condition-dependent; drop max 0.4 V.
+  vih:
+    title: Input high
+    description: VIH min = 0.65 * VCCI (ratio, not a fixed volt).
+
+specs:
+  - id: VCCA_V
+    unit: V
+    min: 1.2
+    max: 3.6
+    source: local RS0204 RevA.5 table 8.3
+  - id: VCCB_V
+    unit: V
+    min: 1.65
+    max: 5.5
+    source: local RS0204 RevA.5 table 8.3
+  - id: ICC_uA
+    test: icc
+    unit: uA
+    typ: 3.5
+    max: 10
+    source: local RS0204 RevA.5 I_CCA+I_CCB Full
+  - id: IL_uA
+    test: il
+    unit: uA
+    max: 2
+    source: local RS0204 RevA.5 Ioff Full
+  - id: VOL_V
+    test: vol
+    unit: V
+    max: 0.4
+    source: local RS0204 RevA.5 VOLA/VOLB Full
+  - id: VOH_DROP_V
+    test: voh
+    unit: V
+    max: 0.4
+    source: local RS0204 RevA.5 VOHA/VOHB rail drop Full
+  - id: VIH_RATIO
+    test: vih
+    unit: ""
+    min: 0.65
+    source: local RS0204 RevA.5 VIH = 0.65 * VCCI

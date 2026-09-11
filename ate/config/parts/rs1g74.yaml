@@ -1,0 +1,26 @@
+# RS1G74 D flip-flop -- Qualification Main VSSOP8.
+
+part: RS1G74
+model: RS1G74XVS8
+component: Logic
+package: VSSOP8
+version: Version_1
+sample_size: 4
+year: "2026"
+part_key: rs1g74
+product_class: logic
+vcc: 5.0
+current_limit: 0.10
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+enabled_tests:
+  - tp
+  - supply_current
+fixture_modes:
+  LOGIC:
+    label: "Logic board (RS1G74)"
+    board_class: general
+    checklist:
+      - "RS1G74 is a DFF. Clock/Q slots via Wrap -- do not copy RS1G08 AND tables."
+    tests: [tp, supply_current]

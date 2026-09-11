@@ -1,0 +1,9 @@
+# Operator console only (no Github_Auto / pywin32).
+pyvisa>=1.13.0
+pyvisa-py>=0.7.0
+pyserial>=3.5
+openpyxl>=3.1.0
+Pillow>=10.0.0
+PyYAML>=6.0
+pandas>=2.0.0
+numpy>=1.24.0

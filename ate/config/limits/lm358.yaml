@@ -1,0 +1,31 @@
+part: LM358
+datasheet:
+  lang: en
+  source: local-reference
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS35X_(RevC.3).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\lm358.txt
+specs:
+- id: VOS_mV
+  unit: mV
+  typ: 0.8
+  test: vos_sweep
+  source: local:RS35X_(RevC.3).pdf
+- id: GBW_MHz
+  unit: MHz
+  typ: 1.1
+  test: gbw
+  source: local:RS35X_(RevC.3).pdf
+- id: SR_Vus
+  unit: V/us
+  typ: 0.5
+  test: slew
+  source: local:RS35X_(RevC.3).pdf
+- id: IQ_uA
+  unit: uA
+  typ: 80.0
+  source: local:RS35X_(RevC.3).pdf
+- id: VCC_V
+  unit: V
+  min: 0.2
+  max: 5.5
+  source: local:RS35X_(RevC.3).pdf

@@ -1,0 +1,49 @@
+# RS29511 Logic (Soo) — fixture / campaign binding
+# Tree: #Test_Database/Logic/RS29511/SOIC/Version_1
+# Owner recipes: LabAutomation-1/Soo (reference only; do not import)
+
+part: RS29511
+model: RS29511
+component: Logic
+device: RS29511
+package: SOIC
+version: Version_1
+sample_size: 4
+year: "2026"
+owner: soo
+part_key: rs29511
+
+# Bench defaults (team-editable)
+vcc: 5.0
+current_limit: 0.10
+htol_ns: 230
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+
+# Run list filter — Soo set only (no Ariff DC extras)
+enabled_tests:
+  - tp
+  - tidle
+  - tdis
+  - ten
+  - supply_current
+  - output_voltage
+  - cap_load
+
+fixture_modes:
+  LOGIC:
+    label: "Logic board (RS29511 / Soo)"
+    board_class: general
+    checklist:
+      - "Logic fixture for RS29511 (Soo)"
+      - "PSU CH1 = VCC; AWG/MSO per TP/TIDLE/TDIS/TEN"
+      - "DMM required for IDD / VOUT / CapLoad"
+    tests:
+      - tp
+      - tidle
+      - tdis
+      - ten
+      - supply_current
+      - output_voltage
+      - cap_load

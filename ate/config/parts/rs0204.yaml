@@ -1,0 +1,70 @@
+# RS0204 Level Shifter / dual-rail translator (tracking class: Level Shifters)
+# Campaign folders: #Test_Database/Level/RS0204/...
+# Live tests: ate_suite logic (dual-rail wraps). Level rail is not a stub.
+# Datasheet: VCCA <= VCCB; PSU CH1=VCCA, CH2=VCCB
+# Do not import Soo.logic_tests (single-VCC RS29511).
+
+part: RS0204
+model: RS0204
+component: Level
+device: RS0204
+product_class: level
+package: TSSOP14
+version: Version_1
+sample_size: 4
+year: "2026"
+owner: ate  # improved from Downloads/logic_test.py dispatcher
+part_key: rs0204
+
+vcca: 1.8
+vcc: 1.8
+vccb: 3.3
+current_limit: 0.05
+htol_ns: 230
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+
+enabled_tests:
+  - vih
+  - vil
+  - voh
+  - vol
+  - icc
+  - il
+  - tpd
+  - tp_rs0204
+  - tsu
+  - th
+  - fmax
+  - tr
+  - tf
+  - tsk
+  - cpd
+  - tw
+
+fixture_modes:
+  LOGIC:
+    label: "Logic board (RS0204 dual-rail translator)"
+    board_class: general
+    checklist:
+      - "PSU CH1 = VCCA, CH2 = VCCB. VCCA must be <= VCCB."
+      - "OE is AWG CH2 = VCCA (enable) except Tsk (tie OE to VCCA on the board)."
+      - "Tsu/Th are datasheet ten/tdis (OE). Cpd is pin Cio, not dynamic Cpd."
+    tests:
+      - vih
+      - vil
+      - voh
+      - vol
+      - icc
+      - il
+      - tpd
+      - tp_rs0204
+      - tsu
+      - th
+      - fmax
+      - tr
+      - tf
+      - tsk
+      - cpd
+      - tw

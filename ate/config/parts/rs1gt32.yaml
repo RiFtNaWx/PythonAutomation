@@ -1,0 +1,49 @@
+# RS1GT32 Logic OR -- not RS1GT32D. Copy/wrap extra tests as needed.
+
+part: RS1GT32
+model: RS1GT32XC5
+component: Logic
+package: SC70-5
+version: Version_1
+sample_size: 4
+year: "2026"
+part_key: rs1gt32
+product_class: logic
+vcc: 1.65
+current_limit: 0.05
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+# Same RS1G08-class DC corners already used by ariff_dc defaults.
+voh_table:
+  - {vcc: 2.0, vref: 0.080, spec_min: 1.6, ioh_a: 0.008}
+  - {vcc: 3.3, vref: 0.240, spec_min: 2.5, ioh_a: 0.024}
+  - {vcc: 4.5, vref: 0.320, spec_min: 3.8, ioh_a: 0.032}
+  - {vcc: 5.0, vref: 0.320, spec_min: 4.2, ioh_a: 0.032}
+  - {vcc: 5.5, vref: 0.320, spec_min: 4.8, ioh_a: 0.032}
+vol_table:
+  - {vcc: 2.0, vref: 4.92, spec_max: 0.45, iol_a: 0.008}
+  - {vcc: 3.3, vref: 4.76, spec_max: 0.55, iol_a: 0.024}
+  - {vcc: 4.5, vref: 4.68, spec_max: 0.55, iol_a: 0.032}
+  - {vcc: 5.0, vref: 4.68, spec_max: 0.50, iol_a: 0.032}
+  - {vcc: 5.5, vref: 4.68, spec_max: 0.45, iol_a: 0.032}
+enabled_tests:
+  - delta_supply_current
+  - off_current
+  - vih_vil
+  - voh_load
+  - vol_load
+  - supply_current_sweep
+fixture_modes:
+  LOGIC:
+    label: "Logic board (RS1GT32)"
+    board_class: general
+    checklist:
+      - "RS1GT32 is small logic OR. Not the RS1GT32D SOT23 campaign."
+    tests:
+      - delta_supply_current
+      - off_current
+      - vih_vil
+      - voh_load
+      - vol_load
+      - supply_current_sweep

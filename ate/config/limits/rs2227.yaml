@@ -1,0 +1,14 @@
+# RS2227 analog switch. Same class as RS2323. RS22X PDF is RS222 opamp -- unused.
+
+part: RS2227
+datasheet:
+  lang: en
+  source: unfound
+  notes: No analog-switch PDF in local Reference. Do not attach RS22X opamp.
+
+specs:
+  - id: IPLUS_uA
+    test: iplus
+    unit: uA
+    max: 1.0
+    source: parts/rs2227.yaml display_limit_ua (or rs2323 default)

@@ -1,0 +1,12 @@
+part: RS1G123
+datasheet:
+  lang: en
+  source: local-reference
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1G123_(RevA.1).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1g123.txt
+specs:
+- id: VCC_V
+  unit: V
+  min: 2.0
+  max: 5.5
+  source: local:RS1G123_(RevA.1).pdf

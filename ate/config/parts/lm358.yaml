@@ -1,0 +1,23 @@
+# LM358 OpAmp — same family as RS622. Report in Product Testing Report/LM358.
+
+part: LM358
+model: LM358
+component: OpAmp
+device: LM358
+package: DIP8
+version: Version_1
+sample_size: 4
+year: "2026"
+owner: eugene
+part_key: lm358
+product_class: opamp
+
+# Training DUT -- general testboard only. Do not enable VOS research slots.
+enabled_tests:
+  - slew
+  - settling
+  - sssr
+  - lssr
+  - no_phase_reversal
+  - gbw
+  - ort

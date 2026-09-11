@@ -1,0 +1,43 @@
+# RS2227 analog switch (DPDT USB) — RUN-IC Analog Switch. Owner Lim.
+# Codes not wrapped this wave; current slots reuse RS2323 ids until USB recipe lands.
+
+part: RS2227
+model: RS2227
+component: AnalogSwitch
+device: RS2227
+package: MSOP
+version: Version_1
+sample_size: 4
+year: "2026"
+owner: lim
+part_key: rs2227
+product_class: analog_switch
+
+vcc: 5.0
+current_limit: 0.10
+bias_current_limit: 0.05
+vcc_sweep: [1.8, 3.3, 5.0]
+dmm_readings: 3
+dmm_settle_s: 0.2
+display_limit_ua: 1.0
+timing:
+  timeout_s: 120.0
+  settle_s: 0.5
+
+enabled_tests:
+  - iplus
+  - leakage_off
+  - leakage_on
+  - input_leakage
+
+fixture_modes:
+  LIM_RS2323:
+    label: "RS2227 DPDT analog switch (current slots)"
+    board_class: general
+    checklist:
+      - "RS2227 is Analog Switch (USB DPDT), not Logic. Wiring differs from RS2323."
+    tests:
+      - iplus
+      - leakage_off
+      - leakage_on
+      - input_leakage

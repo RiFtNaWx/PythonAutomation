@@ -1,0 +1,72 @@
+# Products on the lab tracking sheet (what we are testing now).
+# One row per SKU (part + orderable + package + lot). Not the RUN-IC website
+# catalog (RS724-Q1 / RS722P-Q1 stay off until we test them).
+#
+# Sources:
+#   Qualification Product List-20260320.xlsx (Main sheet, 2026-03-20)
+#   Product Testing Report drop 2026-09-03
+#     C:\Users\OoiJianHong\Downloads\OneDrive_2026-09-03\Product Testing Report
+#
+# sheet_class = exact tracking-sheet category text (SoT for classification)
+# category    = RUN-IC id: opamp | analog_switch | logic | level | power
+# ate_suite   = optional live family when tracking class is stub (RS0204)
+# pic blank on the sheet -> omit (do not invent). Empty pic must not
+# clobber a later/earlier assigned PIC in migrate_operator_folders.
+# report = lab-report folder or xlsx under the Product Testing Report drop.
+
+source: Qualification Product List-20260320.xlsx + Product Testing Report 2026-09-03
+reports_root: "C:\\Users\\OoiJianHong\\Downloads\\OneDrive_2026-09-03\\Product Testing Report"
+qualification_xlsx: "C:\\Users\\OoiJianHong\\Downloads\\OneDrive_2026-09-03\\Product Testing Report\\Qualification Product List-20260320.xlsx"
+parts:
+  # --- Wave 1 Ongoing (in Wuxi) ---
+  - {part: RS622, sheet_class: "Low Noise Op-Amp", category: opamp, package: SOP8, model: RS622XK, lot: CQ844W.1, qty: 0, pic: eugene, status: Ongoing, priority: 1, date: "20/3/2026", remark: "in Wuxi", report: RS622/RS622XK_Lab_Report.xlsx}
+  - {part: RS2323, sheet_class: "Analog Switch", category: analog_switch, package: UQFN1.4X1.8-10, model: RS2323XUTQK10, pic: seelim, status: Ongoing, priority: 1, date: "20/3/2026", remark: "in Wuxi", report: RS2323}
+  - {part: RS0204, sheet_class: "Level Shifters", category: level, ate_suite: logic, package: TSSOP14, model: RS0204YQ, pic: changthong, status: Ongoing, priority: 1, date: "20/3/2026", remark: "in Wuxi; campaign under Level/; dual-rail suite still logic", report: RS0204/RS0204 Data Report.xlsx}
+
+  # --- Wave 1 TBD ---
+  - {part: RS1GT34, sheet_class: "Logic Series", category: logic, package: SOT-353, model: RS1GT34XC5, lot: CQ3H21.3, qty: 30, status: TBD, priority: 1}
+  - {part: RS1G125, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G125XC5, status: TBD, priority: 1, remark: "Wait Sample", report: RS1G125/RS1G125XC5_Lab_Report.xlsx}
+  - {part: RS1G07, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G07XC5, lot: CQ694T.3, qty: 30, status: TBD, priority: 1, report: RS1G07/RS1G07XC5_Lab_Report.xlsx}
+  - {part: RS1G08, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G08XC5, lot: CR5R94.1, qty: 30, status: TBD, priority: 1, report: RS1G08/RS1G08_Lab_Report.xlsx, remark: "Also Wong Chun Wei RS1G08 template 27 Aug 2026 (loose xlsx)"}
+
+  # --- Wave 2 TBD ---
+  - {part: RS1G32, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G32XC5, lot: CQ1L02.2, qty: 30, status: TBD, priority: 2, report: RS1G32/RS1G32_Lab_Report.xlsx}
+  - {part: RS1G14, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G14XC5, lot: CQAD1V.1, qty: 30, status: TBD, priority: 2, report: RS1G14/RS1G14XC5_Lab_Report.xlsx, remark: "Duplicate loose RS1G14XC5_Lab_Report.xlsx at drop root"}
+  - {part: RS1G97, sheet_class: "Logic Series", category: logic, package: SC70-6, model: RS1G97XC6, lot: CPA919.4, qty: 30, status: TBD, priority: 2, report: RS1G97/RS1G97.xlsx}
+  - {part: RS1GT08, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1GT08XC5, lot: CR1D4T.1, qty: 30, status: TBD, priority: 2}
+  - {part: RS1GT32, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1GT32XC5, lot: CR2U3R.1, qty: 30, status: TBD, priority: 2}
+  - {part: RS1G126, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G126XC5, lot: CR5Q1Q.1, qty: 30, status: TBD, priority: 2, report: RS1G126/RS1G126 Test Report.xlsx}
+  - {part: RS74AUP1G07, sheet_class: "Logic Series", category: logic, model: RS74AUP1G07, status: TBD, priority: 2, remark: "plan to MP, wait sample"}
+  - {part: RS358, sheet_class: "General Op-Amp", category: opamp, package: SOP8, model: RS358XK, lot: CR8P1Q.4, qty: 20, status: TBD, priority: 2}
+
+  # --- Wave 3 TBD ---
+  - {part: RS1G123, sheet_class: "Logic Series", category: logic, package: VSSOP8, model: RS1G123XVS8, lot: PQ2N1J.5, qty: 30, status: TBD, priority: 3}
+  - {part: RS164, sheet_class: "Logic Series", category: logic, package: SOP14, model: RS164XP, lot: PPDW18.4, qty: 100, status: TBD, priority: 3}
+  - {part: RS1G74, sheet_class: "Logic Series", category: logic, package: VSSOP8, model: RS1G74XVS8, lot: CQAM33.1, qty: 30, status: TBD, priority: 3}
+
+  # --- Wave 4 TBD (Level Shifters / Linear Regulator) ---
+  - {part: RS0204, sheet_class: "Level Shifters", category: level, ate_suite: logic, package: UQFN1.7X2-12, model: RS0204YUTQH12, lot: CR5U1S.1, qty: 30, status: TBD, priority: 4}
+  - {part: RS0302, sheet_class: "Level Shifters", category: level, package: XDFN1.4X1-8, model: RS0302YUTDS8, lot: CN8T14.1, qty: 30, status: TBD, priority: 4}
+  - {part: RS3213, sheet_class: "Linear Regulator", category: power, package: SOT23-5, model: "RS3213-3.3XF5", lot: A039729.0E, qty: 30, status: TBD, priority: 4, remark: "LDO"}
+  - {part: RS3213, sheet_class: "Linear Regulator", category: power, package: SOT23-5, model: "RS3213-2.8XF5", lot: B001000, qty: 30, status: TBD, priority: 4, remark: "LDO"}
+  - {part: RS3213, sheet_class: "Linear Regulator", category: power, package: SOT23-5, model: "RS3213-2.5XF5", lot: B001000, qty: 30, status: TBD, priority: 4, remark: "LDO"}
+  - {part: RS3213, sheet_class: "Linear Regulator", category: power, package: SOT23-5, model: "RS3213-1.8XF5", lot: A039729.0E, qty: 30, status: TBD, priority: 4, remark: "LDO"}
+  - {part: RS3235, sheet_class: "Linear Regulator", category: power, package: ESOP8, model: RS3235YEK, lot: CQCM0E.1, qty: 30, status: TBD, priority: 4, remark: "LDO / Linear Regulator"}
+
+  # --- PASS (RS AE / Wafer Fab DB) -- pic "RS" is not a lab operator ---
+  - {part: RS1G14, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G14XC5-D, status: PASS, priority: 9, date: "4/3/2026", remark: "From RS AE / Wafer Fab DB"}
+  - {part: RS1G97, sheet_class: "Logic Series", category: logic, package: SC70-6, model: RS1G97XC6-D, status: PASS, priority: 9, date: "4/3/2026", remark: "From RS AE / Wafer Fab DB"}
+  - {part: RS1GT08, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1GT08XC5-D, status: PASS, priority: 9, date: "4/3/2026", remark: "From RS AE / Wafer Fab DB"}
+  - {part: RS1GT32, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1GT32XC5-D, status: PASS, priority: 9, date: "22/12/2026", remark: "From RS AE / Wafer Fab DB"}
+
+  # --- Extra lots / packages on Qualification Main (no wave / status) ---
+  - {part: RS622, sheet_class: "Low Noise Op-Amp", category: opamp, package: TSSOP8, model: RS622XQ, lot: CL9314.1, qty: 20}
+  - {part: RS0204, sheet_class: "Level Shifters", category: level, ate_suite: logic, package: QFN3.5X3.5-14, model: RS0204YTQF14, lot: CN7V0U.1, qty: 20}
+  - {part: RS8551, sheet_class: "Precision Op-Amp", category: opamp, package: SOP8, model: RS8551XK, lot: CPDX4V.1, qty: 20}
+  - {part: RS622, sheet_class: "Low Noise Op-Amp", category: opamp, package: SOP8, model: RS622XK, lot: CQC81S.1, qty: 20}
+
+  # --- Product Testing Report folders not on Qualification Main (keep part yaml) ---
+  - {part: LM358, sheet_class: "General Op-Amp", category: opamp, package: DIP8, model: LM358, pic: eugene, remark: "training report; not on Qualification Main", report: LM358/Training_LM358测试报告.xlsx}
+  - {part: RS2227, sheet_class: "Analog Switch", category: analog_switch, package: MSOP, model: RS2227A, pic: lim, remark: "analog switch reference / prior-gen vs RS2323", report: RS2227/RS2227A Test Report.xlsx}
+  - {part: RS29511, sheet_class: "Logic Series", category: logic, package: SOIC, model: RS29511, pic: soo, remark: "Soo Logic suite; not on Qualification Main", report: RS29511/RS29511 Test Report.xlsx}
+  - {part: RS1GT32D, sheet_class: "Logic Series", category: logic, package: SOT23, model: RS1GT32D, pic: ariff, remark: "high-low temp 2025-12-22; not RS1GT32XC5", report: RS1GT32D/RS1GT32D高低温测试-20251222.xlsx}

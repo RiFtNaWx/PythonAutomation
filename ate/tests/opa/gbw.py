@@ -243,6 +243,18 @@ def _run(instr, params: RunParams):
     if shots:
         out["screenshot"] = shots[-1]
         out["screenshots"] = shots
+        try:
+            from ate.reporting.lab_report import place_mapped_photos
+
+            place_mapped_photos(
+                None,
+                test_key="GBW",
+                photo_path=Path(shots[-1]),
+                unit_index=unit,
+                channel=channel,
+            )
+        except Exception as exc:
+            out["summary"] = f"{out['summary']} (GBW paste skipped: {exc})"
     return out
 
 

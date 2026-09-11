@@ -35,13 +35,20 @@ from typing import Any, Optional
 
 import yaml
 
-from ate.core.paths import CONFIG_DIR, PARTS_DIR, TEST_DB_ROOT
+from ate.core.paths import CONFIG_DIR, PARTS_DIR, TEST_DB_ROOT, cloud_kind, expand_user_path
 
 MYT = timezone(timedelta(hours=8))
 
 _VERSION_RE = re.compile(r"^Version_(\d+)$", re.IGNORECASE)
+_OWNER_ID_RE = re.compile(r"^[a-z][a-z0-9]*$")
 UNASSIGNED_OPERATOR = "_unassigned"
 WRITE_BLOCKED_OPERATORS = frozenset({"", "all", "All", "ALL"})
+OWNERS_PATH = CONFIG_DIR / "owners.yaml"
+_OWNERS_PREAMBLE = (
+    "# Operators are people. Family rail is product class (RUN-IC).\n"
+    "# Picking an operator defaults their campaign; other families stay.\n"
+    "\n"
+)
 
 
 def is_version_name(name: str) -> bool:
@@ -58,6 +65,21 @@ def is_campaign_dir(path: Path) -> bool:
     return (path / "_manifest").is_dir() or (path / "workbook").is_dir()
 
 
+def _looks_like_person(raw: str) -> bool:
+    s = str(raw or "").strip()
+    if not s or s.lower() == "all" or s.startswith("_"):
+        return False
+    return bool(re.search(r"[A-Za-z]", s))
+
+
+def owner_id_from_label(label: str) -> str:
+    compact = re.sub(r"[^A-Za-z0-9]+", "", str(label or "").strip())
+    oid = compact.lower()
+    if not oid or not _OWNER_ID_RE.match(oid) or oid == "all":
+        raise ValueError("Person name must include letters (not All)")
+    return oid
+
+
 def operator_folder_label(owner_id_or_label: str | None) -> str:
     """Map owners.yaml id/label to a filesystem folder name. Never returns All."""
     raw = str(owner_id_or_label or "").strip()
@@ -72,6 +94,8 @@ def operator_folder_label(owner_id_or_label: str | None) -> str:
             return label
     if raw.startswith("_"):
         return raw
+    if _looks_like_person(raw):
+        return raw
     return UNASSIGNED_OPERATOR
 
 
@@ -81,6 +105,37 @@ def require_write_operator(operator: str | None) -> str:
     if raw in WRITE_BLOCKED_OPERATORS or raw.lower() == "all":
         raise ValueError("Operator=All is view-only; pick a person before writing campaigns")
     return operator_folder_label(raw)
+
+
+def prefer_live_operator(
+    package_dir: Path,
+    version: str,
+    part: str,
+    parsed: str,
+) -> str:
+    """Skip leftover _unassigned when a person campaign exists beside it."""
+    parsed = (parsed or "").strip() or UNASSIGNED_OPERATOR
+    if parsed != UNASSIGNED_OPERATOR and not parsed.startswith("_"):
+        return parsed
+    try:
+        from ate.core.migrate_operator_folders import _pic_label_map
+
+        pic = _pic_label_map().get(str(part).upper(), "")
+    except Exception:
+        pic = ""
+    if pic and pic != UNASSIGNED_OPERATOR and (package_dir / pic / version).is_dir():
+        return pic
+    if package_dir.is_dir():
+        for child in sorted(package_dir.iterdir()):
+            if not child.is_dir():
+                continue
+            if child.name.startswith("_") or child.name == UNASSIGNED_OPERATOR:
+                continue
+            if is_version_name(child.name):
+                continue
+            if (child / version).is_dir():
+                return child.name
+    return parsed
 
 
 @dataclass
@@ -148,18 +203,43 @@ class DbContext:
             return self.test_folder(test_key) / "graphs"
         return self.dut_folder(test_key, dut_index) / "graphs"
 
-    def photo_preview(self, test_key: str = "ORT", dut_index: int = 1) -> str:
-        return str(self.screenshot_dir(test_key, dut_index))
+    def _default_photo_test_key(self) -> str:
+        """First real test folder / sheet_map folder; ORT only as OpAmp fallback."""
+        skip = {"_manifest", "workbook", "sessions"}
+        sm = self.load_sheet_map()
+        tests = (sm.get("tests") or {}) if isinstance(sm, dict) else {}
+        for key, entry in tests.items() if isinstance(tests, dict) else []:
+            folder = ""
+            if isinstance(entry, dict):
+                folder = str(entry.get("folder") or "")
+            name = folder or str(key)
+            if name and (self.root() / name).is_dir():
+                return name
+        root = self.root()
+        if root.is_dir():
+            for child in sorted(root.iterdir()):
+                if child.is_dir() and child.name not in skip and not child.name.startswith("_"):
+                    return child.name
+        fam = family_for_component(self.component)
+        if fam == "opamp":
+            return "ORT"
+        return "Setup"
+
+    def photo_preview(self, test_key: str | None = None, dut_index: int = 1) -> str:
+        key = test_key or self._default_photo_test_key()
+        return str(self.screenshot_dir(key, dut_index))
 
     def identity(self) -> dict[str, Any]:
         tags: list[str] = []
         boards: list[str] = []
+        labels: list[dict[str, str]] = []
         try:
             from ate.core.tags import load_tags
 
             t = load_tags(self)
             tags = list(t.get("tags") or [])
             boards = list(t.get("boards") or [])
+            labels = list(t.get("labels") or [])
         except Exception:
             pass
         return {
@@ -174,11 +254,14 @@ class DbContext:
             "year": self.year,
             "tags": tags,
             "boards": boards,
+            "labels": labels,
             "root": str(self.root()),
             "lab_report": str(self.lab_report_path()),
             "sheet_map": str(self.sheet_map_path()),
             "sessions": str(self.sessions_dir()),
             "photo_example": self.photo_preview(),
+            "test_database_root": str(TEST_DB_ROOT),
+            "cloud_kind": cloud_kind(TEST_DB_ROOT),
         }
 
     def load_sheet_map(self) -> dict[str, Any]:
@@ -233,7 +316,15 @@ class DbContext:
                     elif isinstance(_k, str):
                         keys.append(_k)
         if not keys:
-            keys = ["ORT", "VOS", "SlewRate", "GBW"]
+            try:
+                from ate.fixture.modes import enabled_tests_for_part
+
+                keys = list(enabled_tests_for_part(self.part_key) or [])
+            except Exception:
+                keys = []
+        if not keys:
+            # Never grow OpAmp GBW/ORT on Level/Power/Logic stubs.
+            keys = ["Setup"]
 
         n = max(1, int(self.sample_size))
         for key in keys:
@@ -305,7 +396,7 @@ def default_context() -> DbContext:
     # Prefer parsing test_database path from bench.yaml
     td = bench.get("test_database")
     if td:
-        p = Path(str(td))
+        p = expand_user_path(str(td))
         # New: …/#Test_Database/OpAmp/RS622/TTSOP8/Eugene/Version_1
         # Legacy: …/#Test_Database/OpAmp/RS622/TTSOP8/Version_1
         try:
@@ -321,6 +412,8 @@ def default_context() -> DbContext:
             else:
                 operator = seg4
                 version = parts[idx + 5]
+            package_dir = Path(*parts[: idx + 4])
+            operator = prefer_live_operator(package_dir, version, part, operator)
             return DbContext(
                 component=component,
                 part=part,
@@ -351,9 +444,9 @@ def default_context() -> DbContext:
 def family_for_component(component: str) -> str:
     """Map #Test_Database component folder to ATE family key (product class)."""
     c = (component or "").strip().lower().replace(" ", "").replace("_", "")
-    if c in ("logic", "logictranslator", "logicseries", "levelshifters", "levelshifter"):
+    if c in ("logic", "logictranslator", "logicseries"):
         return "logic"
-    if c in ("level",):
+    if c in ("level", "levelshifters", "levelshifter", "leveltranslator"):
         return "level"
     if c in (
         "opamp",
@@ -367,6 +460,8 @@ def family_for_component(component: str) -> str:
         return "switch"
     if c in ("lim",):
         return "switch"
+    if c in ("power", "ldo", "linearregulator"):
+        return "power"
     try:
         from ate.core.new_product import load_categories
 
@@ -391,11 +486,12 @@ def family_for_component(component: str) -> str:
                 return FAMILY_ALIASES.get(fam, fam)
     except Exception:
         pass
-    return "opamp"
+    # Unknown / stub RUN-IC class: empty suite, never steal OpAmp.
+    return ""
 
 
 def load_owners() -> list[dict[str, Any]]:
-    path = CONFIG_DIR / "owners.yaml"
+    path = OWNERS_PATH
     if not path.is_file():
         return []
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -407,6 +503,138 @@ def load_owners() -> list[dict[str, Any]]:
         if isinstance(row, dict) and row.get("id"):
             out.append(row)
     return out
+
+
+def save_owners(rows: list[dict[str, Any]]) -> None:
+    """Write owners.yaml. Does not touch #Test_Database folders."""
+    payload = {"owners": list(rows)}
+    body = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
+    OWNERS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    OWNERS_PATH.write_text(_OWNERS_PREAMBLE + body, encoding="utf-8")
+
+
+def upsert_owner(
+    *,
+    label: str,
+    owner_id: str = "",
+    default_family: str = "",
+    default_part: str = "",
+    default_component: str = "",
+    default_package: str = "",
+    task: str = "",
+    parts: list[str] | None = None,
+    update_defaults: bool = False,
+) -> dict[str, Any]:
+    """Append or update a person in owners.yaml. Never id=all. Never deletes folders."""
+    name = str(label or "").strip()
+    if not name or name.lower() == "all" or name.startswith("_"):
+        raise ValueError("Person folder must be a real name (not All)")
+    oid = str(owner_id or "").strip().lower() or owner_id_from_label(name)
+    if oid == "all" or not _OWNER_ID_RE.match(oid):
+        raise ValueError("Person id must be lowercase ascii (not All)")
+    fam = str(default_family or "").strip().lower()
+    part_key = str(default_part or "").strip().lower()
+    component = str(default_component or "").strip()
+    package = str(default_package or "").strip()
+    job = str(task or "").strip()
+    extra_parts = [str(p).strip().lower() for p in (parts or []) if str(p).strip()]
+    if part_key and part_key not in extra_parts:
+        extra_parts.append(part_key)
+    rows = load_owners()
+    found: dict[str, Any] | None = None
+    for row in rows:
+        rid = str(row.get("id") or "").lower()
+        rlab = str(row.get("label") or "")
+        if rid == oid or rlab.lower() == name.lower():
+            found = row
+            break
+    if found is not None:
+        if str(found.get("id") or "").lower() == "all":
+            raise ValueError("All is view-only")
+        if update_defaults:
+            if fam:
+                found["default_family"] = fam
+            if part_key:
+                found["default_part"] = part_key
+            if component:
+                found["default_component"] = component
+            if package:
+                found["default_package"] = package
+            if job:
+                found["task"] = job
+            found["label"] = name
+            cur_parts = [str(p).strip().lower() for p in (found.get("parts") or []) if str(p).strip()]
+            for p in extra_parts:
+                if p and p not in cur_parts:
+                    cur_parts.append(p)
+            found["parts"] = cur_parts
+            save_owners(rows)
+            return {"owner": found, "action": "updated", "owners": rows}
+        return {"owner": found, "action": "exists", "owners": rows}
+    row = {
+        "id": oid,
+        "label": name,
+        "default_family": fam or "opamp",
+        "default_part": part_key or "rs622",
+        "default_component": component or "OpAmp",
+        "default_package": package or "TTSOP8",
+        "parts": extra_parts,
+    }
+    if job:
+        row["task"] = job
+    rows.append(row)
+    save_owners(rows)
+    return {"owner": row, "action": "created", "owners": rows}
+
+
+def remove_owner(owner_id_or_label: str) -> dict[str, Any]:
+    """Drop a person from owners.yaml only. Never deletes Version folders."""
+    raw = str(owner_id_or_label or "").strip()
+    if not raw or raw.lower() == "all":
+        raise ValueError("Cannot remove All")
+    rows = load_owners()
+    keep: list[dict[str, Any]] = []
+    removed: dict[str, Any] | None = None
+    for row in rows:
+        rid = str(row.get("id") or "").lower()
+        rlab = str(row.get("label") or "")
+        if rid == "all":
+            keep.append(row)
+            continue
+        if rid == raw.lower() or rlab.lower() == raw.lower():
+            removed = row
+            continue
+        keep.append(row)
+    if removed is None:
+        raise ValueError(f"No person {raw!r} in owners.yaml")
+    save_owners(keep)
+    return {"removed": removed, "owners": keep}
+
+
+def remember_operator(
+    operator: str,
+    *,
+    component: str = "",
+    part: str = "",
+    package: str = "",
+    family: str = "",
+    update_defaults: bool = False,
+) -> str:
+    """Create owners.yaml row for a new person, then return folder label."""
+    raw = str(operator or "").strip()
+    if not raw or raw.lower() == "all" or raw == UNASSIGNED_OPERATOR or raw.startswith("_"):
+        return require_write_operator(raw)
+    fam = str(family or "").strip() or family_for_component(component)
+    upsert_owner(
+        label=raw,
+        default_family=fam,
+        default_part=str(part or "").strip().lower(),
+        default_component=str(component or "").strip(),
+        default_package=str(package or "").strip(),
+        task=str(part or "").strip().upper(),
+        update_defaults=update_defaults,
+    )
+    return require_write_operator(raw)
 
 
 def get_context() -> DbContext:
@@ -483,13 +711,25 @@ def list_tree(root: Optional[Path] = None) -> dict[str, Any]:
     tree: dict[str, Any] = {"root": str(base), "components": {}}
     if not base.is_dir():
         return tree
-    for comp in sorted(p for p in base.iterdir() if p.is_dir() and not p.name.startswith(("_", "."))):
+    def _live_dirs(parent: Path, *, keep: frozenset[str] | None = None):
+        keep = keep or frozenset()
+        return sorted(
+            p
+            for p in parent.iterdir()
+            if p.is_dir()
+            and not p.name.startswith(".")
+            and (not p.name.startswith("_") or p.name in keep)
+        )
+
+    for comp in _live_dirs(base):
         parts: dict[str, Any] = {}
-        for part in sorted(p for p in comp.iterdir() if p.is_dir()):
+        for part in _live_dirs(comp):
+            if part.name.lower() == "stub":
+                continue
             packages: dict[str, Any] = {}
-            for pkg in sorted(p for p in part.iterdir() if p.is_dir()):
+            for pkg in _live_dirs(part):
                 operators: dict[str, Any] = {}
-                for child in sorted(p for p in pkg.iterdir() if p.is_dir()):
+                for child in _live_dirs(pkg, keep=frozenset({UNASSIGNED_OPERATOR})):
                     # Legacy: Package/Version_N
                     if is_campaign_dir(child) and is_version_name(child.name):
                         op_key = UNASSIGNED_OPERATOR
@@ -625,14 +865,29 @@ def record_step(
     artifacts: Optional[list[dict[str, Any]]] = None,
     measurements: Optional[list[dict[str, Any]]] = None,
     dut: int | None = None,
+    channel: str | None = None,
 ) -> None:
+    stamped: list[dict[str, Any]] | None = None
+    ok = bool(success)
+    if measurements:
+        from ate.core.specs import any_fail, enrich_measurement, load_part_specs
+
+        pk = str(get_context().part_key or "")
+        specs = load_part_specs(pk)
+        stamped = [
+            enrich_measurement(dict(m), specs=specs, test_id=test_id)
+            for m in measurements
+            if isinstance(m, dict)
+        ]
+        if any_fail(stamped):
+            ok = False
     with _lock:
         session = _current_session
         if session is None:
             return
         row: dict[str, Any] = {
             "test_id": test_id,
-            "success": success,
+            "success": ok,
             "summary": summary,
             "error": error,
             "fixture_mode": fixture_mode,
@@ -640,8 +895,10 @@ def record_step(
         }
         if dut is not None:
             row["dut"] = int(dut)
-        if measurements:
-            row["measurements"] = list(measurements)
+        if channel:
+            row["channel"] = str(channel).strip().upper()
+        if stamped:
+            row["measurements"] = stamped
         session.steps.append(row)
         if artifacts:
             session.artifacts.extend(artifacts)
@@ -677,6 +934,12 @@ def end_session(status: str = "completed") -> Optional[Path]:
         from ate.reporting.session_paste import paste_session_photos
 
         paste_session_photos(snap.to_dict())
+    except Exception:
+        pass
+    try:
+        from ate.reporting.session_values import fill_workbook_from_report
+
+        fill_workbook_from_report(ctx=get_context())
     except Exception:
         pass
     try:
@@ -745,5 +1008,7 @@ def how_to_use() -> dict[str, Any]:
             "5. Photos land under DUT_N/screenshots with parseable names",
             "6. ORT (and later other tests) paste into lab report via sheet_map anchors",
             "7. Session JSON records who/what/where for every run",
+            "8. Results -> Run ledger lists those JSON files for every operator on this SKU",
+            "9. Central tree is #Test_Database (SharePoint/OneDrive sync that folder; A13 MCP stays parked)",
         ],
     }

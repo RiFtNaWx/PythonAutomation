@@ -1,0 +1,21 @@
+part: RS8551
+datasheet:
+  lang: en
+  source: local-reference
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS855X_(RevC.2.1).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs8551.txt
+specs:
+- id: GBW_MHz
+  unit: MHz
+  typ: 4.5
+  test: gbw
+  source: local:RS855X_(RevC.2.1).pdf
+- id: SR_Vus
+  unit: V/us
+  typ: 2.7
+  test: slew
+  source: local:RS855X_(RevC.2.1).pdf
+- id: IQ_uA
+  unit: uA
+  typ: 870.0
+  source: local:RS855X_(RevC.2.1).pdf

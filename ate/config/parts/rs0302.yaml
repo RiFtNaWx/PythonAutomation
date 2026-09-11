@@ -1,0 +1,22 @@
+# RS0302 Level Shifter. No dual-rail recipe yet -- folders only.
+# Do not copy RS0204 ids until a wrap exists.
+
+part: RS0302
+model: RS0302YUTDS8
+component: Level
+device: RS0302
+product_class: level
+package: XDFN1.4X1-8
+version: Version_1
+sample_size: 4
+year: "2026"
+part_key: rs0302
+enabled_tests: []
+timing:
+  timeout_s: 4.0
+  settle_s: 0.3
+fixture_modes:
+  LOGIC:
+    label: "Level shifter board (RS0302) -- suite pending"
+    board_class: general
+    tests: []

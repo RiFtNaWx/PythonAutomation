@@ -1,0 +1,86 @@
+part: RS622
+datasheet:
+  url: https://en.run-ic.com/search.html?keyword=RS622
+  lang: en
+  source: local-reference
+  notes: Vos/GBW/Iq from RUN-IC English product copy. OS_/IDD_ from STS8200 RS622
+    datalog sheet.
+  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS62X_(RevC.3).pdf
+  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs622.txt
+test_info:
+  gbw:
+    title: Gain bandwidth
+    description: G11 board. Datasheet typical 7 MHz.
+  vos_sweep:
+    title: Input offset
+    description: Datasheet Vos typical 0.7 mV, max 3 mV.
+  slew:
+    title: Slew rate
+    description: BUFFER board. Fill SR min/max from the PDF electrical table.
+  noise:
+    title: 0.1-10 Hz voltage noise
+    description: High-gain DUT, AC-couple VOUT, 1 s/div (~10 s window), measure Vpp,
+      divide by |gain|. RS62X en is 11 nV/rtHz at 1 kHz and 7.5 nV/rtHz at 10 kHz
+      (spectrum / FFT). This slot does not stamp those density numbers. No 0.1-10
+      Hz min/max in the PDF, so VN_IN_PP_uV stays unspec until you type a limit.
+specs:
+- id: VOS_mV
+  test: vos_sweep
+  unit: mV
+  typ: 0.7
+  max: 3.0
+  source: en.run-ic.com
+- id: GBW_MHz
+  test: gbw
+  unit: MHz
+  typ: 7.0
+  source: en.run-ic.com
+- id: IQ_uA
+  unit: uA
+  typ: 600
+  source: en.run-ic.com
+- id: SR_Vus
+  test: slew
+  unit: V/us
+  typ: 3.7
+  source: RS62X RevC.3 banner (extract shows 3.7V/s = 3.7 V/us)
+- id: OS_VCC
+  unit: V
+  min: -0.9
+  max: -0.2
+  source: STS8200 RS622
+- id: OS_OUTA
+  unit: V
+  min: -0.9
+  max: -0.2
+  source: STS8200 RS622
+- id: IDD_5V
+  unit: mA
+  max: 6
+  source: STS8200 RS622
+- id: IEE_5V
+  unit: mA
+  min: -6
+  source: STS8200 RS622
+- id: IDD_36V
+  unit: mA
+  max: 10
+  source: STS8200 RS622
+- id: IEE_36V
+  unit: mA
+  min: -10
+  source: STS8200 RS622
+- id: EN_1kHz_nVrtHz
+  unit: nV/rtHz
+  typ: 11
+  source: RS62X RevC.3 table 7.4
+  notes: Spot density at 1 kHz. Not measured by the 0.1-10 Hz Vpp slot.
+- id: EN_10kHz_nVrtHz
+  unit: nV/rtHz
+  typ: 7.5
+  source: RS62X RevC.3 table 7.4
+  notes: Spot density at 10 kHz. Spectrum / FFT, not this capture.
+- id: VN_IN_PP_uV
+  test: noise
+  unit: uV
+  source: 0.1-10 Hz input-referred Vpp (lab Noise sheet). PDF has no 0.1-10 Hz limit.
