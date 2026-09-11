@@ -143,8 +143,13 @@ def _merge_photos(entry: dict[str, Any], photos: dict[str, str]) -> None:
             cur[key] = cell
 
 
-def attach_known_photos(tests: dict[str, Any], sheets: list[str]) -> None:
-    """TTSOP8 8-box photo cells from the Eugene RS622 golden workbook."""
+def attach_known_photos(tests: dict[str, Any], sheets: list[str], *, ttsop: bool) -> None:
+    """TTSOP8 8-box photo cells from the Eugene RS622 golden workbook.
+
+    SOP8 C21 layout does not get these cells -- that would invent a grid.
+    """
+    if not ttsop:
+        return
     sheet_set = {str(s) for s in sheets}
     for sheet, photos in _PHOTO_TTSOP.items():
         if sheet not in sheet_set:
@@ -334,6 +339,7 @@ def attach_known_values(tests: dict[str, Any], sheets: list[str], xlsx: Path | N
         return
     from openpyxl import load_workbook
 
+    ttsop = False
     wb = load_workbook(xlsx, data_only=False)
     try:
         if "GBW" in sheet_set and "GBW" in wb.sheetnames:
@@ -341,6 +347,7 @@ def attach_known_values(tests: dict[str, Any], sheets: list[str], xlsx: Path | N
             if gbw is not None:
                 ws = wb["GBW"]
                 if _cell_ok(ws, "R20"):
+                    ttsop = True
                     _merge_values(gbw, _GBW_TTSOP)
                 elif _cell_ok(ws, "C21"):
                     _merge_values(gbw, _GBW_SOP8)
@@ -349,11 +356,15 @@ def attach_known_values(tests: dict[str, Any], sheets: list[str], xlsx: Path | N
             if vos is not None:
                 ws = wb["VOS"]
                 if _cell_ok(ws, "R16"):
+                    ttsop = True
                     _merge_values(vos, _VOS_TTSOP)
                 elif _cell_ok(ws, "B16"):
                     _merge_values(vos, _VOS_SOP8)
+        if not ttsop and "GBW" in wb.sheetnames:
+            ttsop = _cell_ok(wb["GBW"], "R20")
     finally:
         wb.close()
+    attach_known_photos(tests, sheets, ttsop=ttsop)
 
 
 def _ensure_iplus_label(xlsx: Path) -> None:
@@ -445,7 +456,6 @@ def outline_from_workbook(
     )
     data["tests"] = tests_from_sheets(sheets, family=fam, sample=int(sample_size or 4))
     attach_known_values(data["tests"], sheets, xlsx)
-    attach_known_photos(data["tests"], sheets)
     return data
 
 
@@ -457,7 +467,7 @@ def upgrade_sheet_map(
     sheets: list[str] | None = None,
     xlsx: Path | None = None,
 ) -> dict[str, Any]:
-    out = dict(data)
+    out = deepcopy(data)
     fam = family or _family_from_component(str(out.get("component") or ""))
     out.setdefault("sample_size", max(1, int(sample or 4)))
     out.setdefault("naming", dict(_NAMING))
@@ -477,18 +487,24 @@ def upgrade_sheet_map(
     sample_n = int(out.get("sample_size") or sample or 4)
     for key, entry in list(tests.items()):
         if not isinstance(entry, dict):
+            tests.pop(key, None)
+            continue
+        sheet = str(entry.get("excel_sheet") or "")
+        folder = str(entry.get("folder") or key)
+        if sheet in _SKIP_SHEETS or folder in _SKIP_SHEETS or key in _SKIP_SHEETS:
+            tests.pop(key, None)
             continue
         entry.setdefault("folder", key)
         entry.setdefault("excel_sheet", str(entry.get("folder") or key))
         mode = str(entry.get("fixture_mode") or "")
-        if not mode or mode.upper() in _FILL:
+        was_fill = (not mode) or mode.upper() in _FILL
+        if was_fill:
             entry["fixture_mode"] = _infer_mode(str(entry.get("folder") or key), fam)
-        if "automated" not in entry:
+        if "automated" not in entry or was_fill:
             entry["automated"] = True
         entry.setdefault("dut_iterations", sample_n)
         _clean_paste(entry)
     attach_known_values(tests, list(sheets or []), xlsx)
-    attach_known_photos(tests, list(sheets or []))
     return out
 
 
@@ -552,13 +568,17 @@ def apply_campaign_map(path: Path) -> dict[str, Any]:
     if xlsx is not None:
         from openpyxl import load_workbook
 
-        wb = load_workbook(xlsx, read_only=True)
         try:
-            sheets = list(wb.sheetnames)
-        finally:
-            wb.close()
+            wb = load_workbook(xlsx, read_only=True)
+            try:
+                sheets = list(wb.sheetnames)
+            finally:
+                wb.close()
+        except Exception:
+            sheets = []
+            xlsx = None
     try:
-        fam = _family_from_component(str(raw.get("component") or path.parents[4].name))
+        fam = _family_from_component(str(raw.get("component") or path.parents[5].name))
     except IndexError:
         fam = _family_from_component(str(raw.get("component") or ""))
     sample = int(raw.get("sample_size") or 4)
