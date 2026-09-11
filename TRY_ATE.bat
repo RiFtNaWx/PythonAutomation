@@ -61,6 +61,7 @@ exit /b 2
 call "%~dp0run_ate_app.bat"
 echo.
 echo Console: http://127.0.0.1:5174
-echo Everyone uses the same SharePoint-synced #Test_Database.
+echo Everyone uses the same SharePoint-synced #Test_Database. Results land there; OneDrive uploads.
 echo Pick a person (not All). Setup -^> Create folders + open. Then DEMO (no instruments).
+echo DUT pin-1: Continue only if orientation is correct. Wrong = Abort, rotate, Continue.
 pause

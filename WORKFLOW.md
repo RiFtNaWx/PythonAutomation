@@ -7,6 +7,12 @@ A shared Python codebase for lab hardware test automation.
 Each engineer owns their own module file.
 All changes go through a Pull Request reviewed by Eugene (RiFtNaWx).
 
+**Also read:**
+- [AGENTS.md](AGENTS.md) -- operator console: add user / version / test without breaking the tree
+- [README.md](README.md) -- console quick start (not `main.py` first)
+- [TEST_DESIGN.md](TEST_DESIGN.md) -- legacy `main.py` test anatomy (wrap into `ate/tests/` for the UI)
+- [PYVISA_OPA_DEEP_DIVE.md](PYVISA_OPA_DEEP_DIVE.md) -- precise PyVISA layer + OPA deep dive (architecture, SCPI APIs, pitfalls)
+
 ---
 
 ## First time setup — do this once on a new machine
@@ -25,11 +31,13 @@ git config --global user.name "Your Full Name"
 git config --global user.email "your@email.com"
 ```
 
-**Step 3 — Clone the repo**
+**Step 3 — Clone the repo (console branch)**
 ```
-git clone https://github.com/RiFtNaWx/PythonAutomation.git
+git clone -b eugene-console https://github.com/RiFtNaWx/PythonAutomation.git
 cd PythonAutomation
 ```
+
+Default `main` on this GitHub is the older lab tree. Day-to-day console work is `eugene-console`. Opening the folder in Cursor/VS Code (or `run_ate_app.bat`) runs `python -m ate.core.sync_repo`: fetch + fast-forward only, skipped if you have uncommitted files. It will not `reset --hard` your edits.
 
 **Step 4 — Run the installer**
 ```
@@ -113,6 +121,26 @@ Click **Push now** to send your work, or **Skip** to close without pushing.
 | main.py | Eugene (team lead) |
 | Github_Auto/ | Do not edit unless adding features |
 
+Instrument helpers (`instruments.py`, `*_setup.py`, `datalog.py`, `utils.py`) are shared — coordinate before large refactors.
+
+---
+
+## Where to change code (short map)
+
+Operator console (people, versions, families, START): **[AGENTS.md](AGENTS.md)**. Do not add a user or a product by editing `main.py`.
+
+| Need | File | Notes |
+|------|------|--------|
+| New person / version / campaign | `ate/config/owners.yaml` + Setup | See AGENTS.md |
+| New console test | `ate/tests/<family>/` `register(TestSpec)` | Restart worker |
+| Legacy one-shot / golden body | Your root `*_tests.py` | Wrap into ate/ for the UI |
+| Enable a test in legacy `main.py` | `main.py` | Ask Eugene; does not feed the console |
+| Change VCC corners / current limit (legacy) | `configurations.py` | Ask Eugene |
+| Add pass/fail limits for a new param (legacy) | `limits.py` | Required before `logger.log_test` |
+| New SCPI helper | matching `*_setup.py` | Prefer reuse first |
+
+Full legacy tutorials (including **Voffset** and **DC sweep**): [TEST_DESIGN.md](TEST_DESIGN.md).
+
 ---
 
 ## Rules
@@ -121,6 +149,20 @@ Click **Push now** to send your work, or **Skip** to close without pushing.
 - Do not share or commit env.local
 - Always use the push tool — do not run raw git commands to push
 - If push fails, screenshot the terminal and send to Eugene
+
+---
+
+## Run a lab test (after setup)
+
+1. Connect MSO / DP832 / DG8xx (and DMM if your test needs it)
+2. From the repo folder:
+
+```
+.\venv\Scripts\python.exe main.py
+```
+
+3. Check the Excel datalog written at the end of the run
+4. For OPA SCPI debug: `$env:OPA_DEBUG="1"` then re-run
 
 ---
 
@@ -134,6 +176,8 @@ Click **Push now** to send your work, or **Skip** to close without pushing.
 | AI timeout | Popup opens anyway — type your description manually |
 | Push button disappeared | Type `.\push_button` in terminal |
 | PR not on GitHub | Check terminal for red error text, send to Eugene |
+| Instrument not found | See [README.md](README.md) troubleshooting; confirm `*IDN?` prints your gear |
+| `TEST_SPECS` ValueError | Add the parameter in `limits.py` before logging |
 
 ---
 
@@ -148,10 +192,18 @@ PythonAutomation/
 ├── venv/                   Python environment (auto-created)
 ├── main.py                 run this for lab tests
 ├── opa_tests.py            OPA module
-├── configurations.py       test parameters
+├── logic_tests.py          Logic module
+├── configurations.py       VCC_LIST, current_limit, capture helpers
+├── limits.py               datasheet pass/fail specs
+├── instruments.py          PyVISA discovery + sessions
+├── *_setup.py              PSU / AWG / scope / DMM SCPI wrappers
+├── datalog.py              Excel results
 ├── install.py              run once per machine
 ├── push.bat                terminal push command
 ├── push_button.bat         relaunch floating button
+├── README.md               project overview
+├── TEST_DESIGN.md          how to design / add tests
+├── PYVISA_OPA_DEEP_DIVE.md PyVISA + OPA architecture deep dive
 └── WORKFLOW.md             this file
 ```
 

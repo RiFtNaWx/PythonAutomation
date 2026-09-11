@@ -13,7 +13,8 @@ AI and humans must keep the console shape stable.
 7. Tags: `#db-tag-input` Space/Enter adds; chips compact with `+N more` then expand. `#btn-tags-clear` empties campaign tags. `#label-scope` is this campaign / this class / all products.
 8. Results `#run-ledger` lists session JSON from the central `#Test_Database`. No extra tab.
 9. Setup `#btn-open-central` opens the SharePoint-synced folder, or the `sharepoint.url` https if that folder is missing. It must not mkdir a private `#Test_Database`.
-10. Results `#btn-export-datalog` writes STS `sessions/datalog.md|.html|.pdf`. `#btn-fetch-datasheet` fills `ate/config/limits/<part>.yaml` from local Reference PDFs first (en.run-ic.com only if unfound). `#btn-fill-excel` writes `paste.values` numbers from living `report.json` (DUT list or CHA/CHB grid).
+10. Setup `#pin1-hint` is the DUT orientation gate reminder (Abort if pin-1 is wrong).
+11. Results `#btn-export-datalog` writes STS `sessions/datalog.md|.html|.pdf`. `#btn-fetch-datasheet` fills `ate/config/limits/<part>.yaml` from local Reference PDFs first (en.run-ic.com only if unfound). `#btn-fill-excel` writes `paste.values` numbers from living `report.json` (DUT list or CHA/CHB grid).
 
 ## Forbidden
 

@@ -55,6 +55,7 @@ REQUIRED = [
     "ate/config/owners.yaml",
     "ate/config/inventory.yaml",
     "ate/config/cloud_db.example.txt",
+    "ate/config/sharepoint.url",
     "TRY_ATE.bat",
     "run_ate_app.bat",
     "requirements-console.txt",
@@ -68,7 +69,7 @@ jsonrpc:
   host: "127.0.0.1"
   port: 8766
 
-sharepoint_url: ""
+sharepoint_url: "SHAREPOINT_URL_HERE"
 reference_root: "%USERPROFILE%/Downloads/Reference/Reference"
 
 default_vcc: 5.0
@@ -79,6 +80,22 @@ year: "2026"
 stm_bridge_enabled: false
 """
 
+def _sharepoint_line() -> str:
+    p = REPO / "ate" / "config" / "sharepoint.url"
+    if not p.is_file():
+        return ""
+    for line in p.read_text(encoding="utf-8").splitlines():
+        s = line.strip()
+        if s and not s.startswith("#"):
+            return s
+    return ""
+
+
+def packet_bench_text() -> str:
+    url = _sharepoint_line()
+    return PACKET_BENCH.replace("SHAREPOINT_URL_HERE", url)
+
+
 TRY_TXT = """ATE operator app
 ================
 
@@ -87,16 +104,21 @@ This zip is for running tests. It is not the git repo.
 Need: Windows + Python 3.11+ (tick Add python.exe to PATH).
 
 1. Unzip this folder.
-2. Sync the lab SharePoint library with OneDrive (Jian Hong sends the link).
+2. OneDrive: Add shortcut / sync the RD SharePoint library (link in ate\\config\\sharepoint.url).
 3. Put that local folder path (the #Test_Database tree) in ate\\config\\cloud_db.txt -- one line, not https://
 4. Double-click START.bat. First run installs packages (2 to 5 minutes).
 5. Browser opens http://127.0.0.1:5174
 6. Pick a person (not All) -> Setup -> Create folders + open.
 7. DEMO needs no instruments. START needs the Rigol bench.
+8. DUT pin-1: Continue only if orientation is correct. Wrong = Abort, rotate, Continue.
 
-Everyone writes to the same cloud folder. Do not keep a private database in this unzip.
+Sessions, Excel paste, and photos write into that same #Test_Database. OneDrive uploads. Do not keep a private database in this unzip.
 
-Vibe-code / add tests: clone the git repo and read AGENTS.md. Rebuild this zip with pack_ate_console.py
+Change the product (add a test / person): clone instead of this zip.
+
+  git clone -b eugene-console https://github.com/RiFtNaWx/PythonAutomation.git
+
+Then read AGENTS.md. Cursor/VS Code folder-open and run_ate_app.bat auto-pull ff-only once a day; uncommitted files are never replaced.
 """
 
 
@@ -156,7 +178,7 @@ def build(dest: Path) -> Path:
         for src, arc in files:
             zf.write(src, arc)
         zf.writestr("ATE_Console_Try/TRY.txt", TRY_TXT.replace("\n", "\r\n"))
-        zf.writestr("ATE_Console_Try/ate/config/bench.yaml", PACKET_BENCH)
+        zf.writestr("ATE_Console_Try/ate/config/bench.yaml", packet_bench_text())
     return dest
 
 
@@ -170,6 +192,17 @@ def main() -> int:
         return 1
     names = {arc.replace("\\", "/") for _, arc in iter_packet_files()}
     names.add("ATE_Console_Try/ate/config/bench.yaml")
+    bench = packet_bench_text()
+    if "jumptechwin.sharepoint.com" not in bench:
+        print("FAIL pack_ate_console: packet bench missing SharePoint url")
+        return 1
+    if "SHAREPOINT_URL_HERE" in bench:
+        print("FAIL pack_ate_console: packet bench url placeholder left in")
+        return 1
+    bat = (REPO / "TRY_ATE.bat").read_text(encoding="utf-8")
+    if "pin-1" not in bat.lower():
+        print("FAIL pack_ate_console: START must mention pin-1 orientation")
+        return 1
     for rel in REQUIRED:
         want = "ATE_Console_Try/START.bat" if rel == "TRY_ATE.bat" else f"ATE_Console_Try/{rel}"
         if want not in names:

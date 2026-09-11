@@ -55,19 +55,19 @@
       "problemMatcher": []
     },
     {
-      "label": "Auto-fetch on open",
+      "label": "Auto-pull on open (ff-only, skip if dirty)",
       "type": "shell",
       "windows": {
-        "command": "git fetch origin; $n=(git log HEAD..origin/main --oneline 2>$null); if($n){Write-Host ''; Write-Host '  NEW on main:' -ForegroundColor Yellow; Write-Host $n; Write-Host '  Pull before editing shared files.' -ForegroundColor Yellow; Write-Host ''}"
+        "command": "if (Test-Path venv\\Scripts\\python.exe) { venv\\Scripts\\python.exe -m ate.core.sync_repo } else { python -m ate.core.sync_repo }"
       },
       "osx": {
-        "command": "git fetch origin 2>/dev/null; N=$(git log HEAD..origin/main --oneline 2>/dev/null); [ -n \"$N\" ] && echo '' && echo 'NEW on main:' && echo \"$N\" && echo 'Pull before editing shared files.' && echo ''"
+        "command": "if [ -x venv/bin/python ]; then venv/bin/python -m ate.core.sync_repo; else python3 -m ate.core.sync_repo; fi"
       },
       "runOptions": {
         "runOn": "folderOpen"
       },
       "presentation": {
-        "reveal": "never",
+        "reveal": "silent",
         "close": true,
         "showReuseMessage": false
       },

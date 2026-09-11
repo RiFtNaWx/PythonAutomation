@@ -12,3 +12,4 @@ datalog_output/
 *.csv
 dist/
 ate/config/cloud_db.txt
+.ate_last_sync

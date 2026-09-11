@@ -6,6 +6,7 @@ if not exist "venv\Scripts\python.exe" (
   pause
   exit /b 1
 )
+start "ATE repo sync" /MIN "venv\Scripts\python.exe" -m ate.core.sync_repo
 start "ATE Worker" /MIN "venv\Scripts\python.exe" -m ate.worker.server
 set /a _wait=0
 :wait_worker

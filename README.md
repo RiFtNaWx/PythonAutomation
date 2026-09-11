@@ -8,10 +8,14 @@ If you are about to vibe-code: **read [AGENTS.md](AGENTS.md) first.** That file 
 
 | Who | Start here | Do not |
 |-----|------------|--------|
-| **Run tests only** | Unzip `ATE_Console_Try_*.zip`, sync SharePoint `#Test_Database`, `START.bat` | Edit Python, keep a private database in the unzip |
-| **Change the product** | `git clone`, [AGENTS.md](AGENTS.md), `run_ate_app.bat` | Ship operators a git clone; they get the zip |
+| **Run tests only** | Unzip `ATE_Console_Try_*.zip` (or GitHub Release on `eugene-console`), sync SharePoint `#Test_Database`, `START.bat` | Edit Python, keep a private database in the unzip |
+| **Change the product** | `git clone -b eugene-console https://github.com/RiFtNaWx/PythonAutomation.git`, [AGENTS.md](AGENTS.md), `run_ate_app.bat` | Ship operators a git clone; they get the zip |
 
-Rebuild the operator zip: `venv\Scripts\python.exe pack_ate_console.py` (lands on Desktop). When you have the SharePoint library URL, put it in `ate/config/sharepoint.url` (one https line) and rebuild.
+Clone auto-update: opening the folder in Cursor/VS Code, or `run_ate_app.bat`, runs `python -m ate.core.sync_repo` at most once a day. That is `git fetch` + `git pull --ff-only`. Uncommitted files are never replaced. If you have local commits that diverged, it fetches only and leaves your work.
+
+Results always go to the OneDrive-synced `#Test_Database` (path in `ate/config/cloud_db.txt`). There is no second upload API. OneDrive is the upload.
+
+Rebuild the operator zip: `venv\Scripts\python.exe pack_ate_console.py` (Desktop + `dist/`). SharePoint https lives in `ate/config/sharepoint.url`.
 
 ## Two stacks (pick the live one)
 

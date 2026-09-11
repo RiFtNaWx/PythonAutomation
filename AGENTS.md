@@ -9,9 +9,11 @@ Two ways to get the console:
 | Who | What they get | Database |
 |-----|---------------|----------|
 | **App user** | Zip from `pack_ate_console.py`, double-click `START.bat` | Same SharePoint-synced `#Test_Database` (path in `ate/config/cloud_db.txt`) |
-| **Vibe-coder** | `git clone` this repo, read this file | Same folder. Do not invent a private unzip copy |
+| **Vibe-coder** | `git clone -b eugene-console` this repo, read this file | Same folder. Do not invent a private unzip copy |
 
-Paste the SharePoint *https* link into `ate/config/sharepoint.url` when you have it. Each PC still needs the *local OneDrive path* in `cloud_db.txt` (Windows cannot treat the https URL as a folder). A13 Graph stays parked.
+Paste the SharePoint *https* link into `ate/config/sharepoint.url` when you have it. Each PC still needs the *local OneDrive path* in `cloud_db.txt` (Windows cannot treat the https URL as a folder). A13 Graph stays parked. START/DEMO write `sessions/` + Excel paste into that folder; OneDrive uploads. No second cloud writer.
+
+Daily clone update: `python -m ate.core.sync_repo` (Cursor folder-open + `run_ate_app.bat`). `git pull --ff-only` only when the tree is clean. Dirty tree = fetch only. Never `reset --hard`.
 
 Longer plug-in detail: `docs/ATE_PLUGIN.md`. UI chrome: `ate/ui/web/UI_CONTRACT.md`. Human landing: `README.md`.
 
@@ -54,7 +56,7 @@ Each person gets their own `_manifest/`, `workbook/`, `sessions/`. Do not overwr
 | New **family** | Setup Import family, or `ate/tests/<family>/` + `ate/config/extra_families.yaml` | Editing `FAMILY_PACKAGES` in `registry.py` (built-ins only). Never ingest into `opamp`/`logic`/`level` |
 | RUN-IC class / stub suite | `ate/config/run_ic.yaml` (`live: false` until a suite exists) | Pointing Power/Comparator at OpAmp |
 | Photo cell in Excel | Campaign `_manifest/sheet_map.yaml` `tests.<key>.paste.photos` | Hardcoded A91 in Python; a second Excel writer |
-| Numeric cell in Excel | Campaign `sheet_map.yaml` `tests.<key>.paste.values` (id -> cell, DUT list, or CHA/CHB grid). Results -> Fill Excel numbers | Inventing cells; OpAmp golden on Logic |
+| Numeric cell in Excel | Campaign `sheet_map.yaml` `tests.<key>.paste.values` (id -> cell, DUT list, or CHA/CHB grid). Known cells live in `ate/core/campaign_outline.py` (RS622 keys; VOX G16 / ICC D10 / Iplus B2 / GBW R20 or C21). Results -> Fill Excel numbers | Inventing cells; FILL_ME stubs; OpAmp golden on Logic |
 | Datasheet min/max | Local `Downloads/Reference/Reference` via `ate/core/lookup.py` + `ate/config/limits/<key>.yaml`. Website only if PDF missing | Catalog scrape into `#Test_Database` |
 | Paste / golden layout | `ate/reporting/lab_report.py` + `session_paste.py` / `golden_layout.py` | Unparking A13 OneDrive MCP |
 | Operator UI page / tab | `ate/ui/web/index.html` + `app.js` + `styles.css` per `UI_CONTRACT.md`. Bump `?v=` | Second nav, fourth webfont, new CSS framework |
@@ -65,6 +67,7 @@ Each person gets their own `_manifest/`, `workbook/`, `sessions/`. Do not overwr
 | Per-test history records | `{test_key}/DUT_n/records/{test_id}_{timestamp}.json` via `write_step_record` | Tags/Users path axis; overwriting history files |
 | See who ran what / delete a session JSON | Results -> Run ledger (`list_runs`). Chip `x` or Tags -> Clear all tags | Deleting Version folders; unparking A13 SharePoint MCP |
 | Point the lab at a shared cloud folder | `ate/config/sharepoint.url` (https) + each PC `ate/config/cloud_db.txt` (OneDrive path). `bench.yaml` `test_database_root` still works on this bench | A second Excel writer / Graph API / A13 / a private `#Test_Database` inside the app zip |
+| Daily git update (clone PCs) | `ate/core/sync_repo.py` -- ff-only, skip if dirty | `git reset --hard`; stash-on-open; merge that can clobber edits |
 
 Worker JSON-RPC surface: `ate/worker/server.py`. Add a method only when Setup/Run already cannot do the job via yaml + existing RPC (`ensure_product`, `ensure_version`, `list_owners`, `import_family`, ...).
 
@@ -154,6 +157,7 @@ python -m ate.core.check_test_detect
 python -m ate.core.check_tags_datalog
 python -m ate.core.check_lookup
 python -m ate.core.check_cloud_db
+python -m ate.core.check_sync_repo
 python -m ate.core.check_campaign_outline
 python -m ate.core.check_session_values
 python -m ate.core.check_specs_datalog

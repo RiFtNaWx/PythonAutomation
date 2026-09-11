@@ -65,6 +65,8 @@ def main() -> int:
         errors.append("Run ledger / Open central DB missing")
     if "sharepoint" not in html.lower():
         errors.append("Setup central-db hint must mention SharePoint")
+    if 'id="pin1-hint"' not in html:
+        errors.append("pin-1 orientation hint missing")
     if 'id="btn-tags-clear"' not in html:
         errors.append("Clear all tags control missing")
     if 'id="label-scope"' not in html:
