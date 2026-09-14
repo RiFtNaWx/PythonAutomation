@@ -2,7 +2,7 @@
 
 Lab characterization on a Rigol bench (MSO, DP832, DG8xx, optional DMM) plus an **operator console** that already knows multiple people, product families, and campaign folders.
 
-If you are about to vibe-code: **read [AGENTS.md](AGENTS.md) first.** That file is the precise map of which file to touch so you do not break everyone else's campaign.
+If you are about to vibe-code: **read [AGENTS.md](AGENTS.md) then [docs/VIBE_CODE.md](docs/VIBE_CODE.md).** AGENTS.md is which file. VIBE_CODE.md is how to edit, check, debug, and add a test (Path A customize / Path B realize / Path C wrap-then-fill).
 
 ## Who gets what
 
@@ -46,7 +46,7 @@ Do not add a Users path segment and do not add a SQL user table. Detail and a ya
 
 ### Add a version
 
-Setup, person selected, campaign applied -> **+ Version**. That creates `Version_N` under *that* person only. It does not clone the xlsx and does not touch another operator's tree.
+Setup, person selected, type `Version_N` in the Version box, then Apply. That creates `Version_N` under *that* person only. It does not clone the xlsx and does not touch another operator's tree. There is no extra + Version button.
 
 ### Add a product we are actually testing
 
@@ -62,7 +62,7 @@ One SKU row in `ate/config/inventory.yaml` (tracking sheet). Then Create folders
 run_ate_app.bat
 ```
 
-4. UI: pick a **person**, Apply campaign, Discover, Open Session, tick tests, START. Or DEMO (mock, no PASS stamp).
+4. UI: pick a **person** (not All), Apply campaign. USB: Discover then Open Session, tick tests, START. No USB: **DEMO (SIM)** -- fake PyVISA, same START path, STS PDF in `sessions/`. Lab walk: [docs/DEMO.md](docs/DEMO.md). OneNote pack: [docs/tutorial/ATE_ONENOTE.md](docs/tutorial/ATE_ONENOTE.md).
 5. After worker-loaded code changes: `restart_ate_worker.bat` (not mid-run). After UI-only: Ctrl+F5.
 
 Ports: **8766** worker, **5174** UI. Never 8765 / 3000 / 3001 / 5000.
@@ -76,7 +76,7 @@ Full table: [AGENTS.md](AGENTS.md). Cheat sheet:
 | New person | `ate/config/owners.yaml` |
 | Tracking SKU | `ate/config/inventory.yaml` |
 | Part recipe / enabled tests | `ate/config/parts/<key>.yaml` |
-| New measurement | `ate/tests/<family>/` + `register(TestSpec)` |
+| New measurement | `ate/tests/<family>/` + `register(TestSpec)` + `__init__.py` import + `measurements` ([VIBE_CODE.md](docs/VIBE_CODE.md) Path B) |
 | New family | Setup Import family or `extra_families.yaml` |
 | Photo cells | campaign `_manifest/sheet_map.yaml` |
 | Console UI | `ate/ui/web/` + UI_CONTRACT |
@@ -91,6 +91,8 @@ python -m ate.core.check_new_product
 python -m ate.core.check_operator_tree
 python -m ate.core.check_ui_contract
 python -m ate.core.check_family_load
+python -m ate.core.check_add_test
+python -m ate.core.check_demo_families
 ```
 
 Run the check that matches the layer you changed. More commands in AGENTS.md.
@@ -99,8 +101,14 @@ Run the check that matches the layer you changed. More commands in AGENTS.md.
 
 | Doc | Use it for |
 |-----|------------|
+| [docs/handover/2026-09-11_jianhong_checklist.md](docs/handover/2026-09-11_jianhong_checklist.md) | Jian Hong leaving: cloud DB, software/Excel, VoS, agent prompts |
 | [STATUS.md](STATUS.md) | Boss / stakeholder: Done, Ongoing, Not complete |
-| [docs/SHIP_NEXT.md](docs/SHIP_NEXT.md) | Printable next waves: A19 Excel, A20 limits/PDF, A21 UX, how to ship |
+| [docs/tutorial/ATE_TUTORIAL.html](docs/tutorial/ATE_TUTORIAL.html) | Full browser tutorial: every tab, spec, workflow, screenshots |
+| [docs/tutorial/ATE_ONENOTE.md](docs/tutorial/ATE_ONENOTE.md) | 4 OneNote pages: get the console, run START/DEMO, vibe-code, add/customize a test |
+| [docs/VIBE_CODE.md](docs/VIBE_CODE.md) | Edit / check / debug / add a test (Path A/B/C) |
+| [docs/DEMO.md](docs/DEMO.md) | USB START + SIM backup + extra family acts + add-test rehearsal |
+| [docs/tickets/INDEX.md](docs/tickets/INDEX.md) | All tickets: closed / leftover / parked |
+| [docs/SHIP_NEXT.md](docs/SHIP_NEXT.md) | Printable next waves: leftovers, V07, how to ship |
 | [AGENTS.md](AGENTS.md) | Vibe-code / agent: where to edit, add user/version, do-not list |
 | [docs/ATE_PLUGIN.md](docs/ATE_PLUGIN.md) | Family ingest, TestSpec slots, Logic/Switch/RS0204 notes |
 | [ate/ui/web/UI_CONTRACT.md](ate/ui/web/UI_CONTRACT.md) | Tabs, fonts, `check_ui_contract` |

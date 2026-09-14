@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ATE Operator Console -- Full Tutorial</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0f14;
+      --panel: rgba(18, 24, 34, 0.92);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e8edf5;
+      --muted: #9aa8bc;
+      --accent: #3d8bfd;
+      --accent2: #f0a04b;
+      --ok: #3ecf8e;
+      --bad: #ff5c6c;
+      --mono: "JetBrains Mono", ui-monospace, monospace;
+      --sans: "Barlow", system-ui, sans-serif;
+      --display: "Space Grotesk", system-ui, sans-serif;
+      --sidebar-w: 280px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(61, 139, 253, 0.12), transparent),
+        radial-gradient(ellipse 60% 40% at 90% 10%, rgba(240, 160, 75, 0.08), transparent);
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre { font-family: var(--mono); font-size: 0.9em; }
+    pre {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+    }
+    h1, h2, h3, h4 { font-family: var(--display); line-height: 1.25; }
+    h1 { font-size: 2rem; margin: 0 0 0.5rem; }
+    h2 { font-size: 1.45rem; margin: 2.5rem 0 1rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.15rem; margin: 1.5rem 0 0.75rem; color: var(--accent2); }
+    h4 { font-size: 1rem; margin: 1rem 0 0.5rem; }
+    p { margin: 0.6rem 0; }
+    .kicker { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.75rem; color: var(--muted); margin: 0; }
+    .layout { display: flex; min-height: 100vh; }
+    nav.toc {
+      position: sticky;
+      top: 0;
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      height: 100vh;
+      overflow-y: auto;
+      padding: 20px 16px 40px;
+      border-right: 1px solid var(--border);
+      background: rgba(10, 12, 18, 0.95);
+      font-size: 0.82rem;
+    }
+    nav.toc .brand { margin-bottom: 18px; }
+    nav.toc ul { list-style: none; padding: 0; margin: 0; }
+    nav.toc li { margin: 2px 0; }
+    nav.toc a {
+      display: block;
+      padding: 5px 8px;
+      border-radius: 6px;
+      color: var(--muted);
+    }
+    nav.toc a:hover { background: rgba(255,255,255,0.05); color: var(--text); text-decoration: none; }
+    nav.toc .section-label {
+      margin: 14px 0 4px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent2);
+    }
+    main {
+      flex: 1;
+      max-width: 920px;
+      padding: 32px 40px 80px;
+    }
+    .hero {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 32px;
+      margin-bottom: 32px;
+    }
+    .hero .meta { color: var(--muted); font-size: 0.9rem; margin-top: 12px; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 22px;
+      margin: 16px 0;
+    }
+    .hint { color: var(--muted); font-size: 0.92rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+      margin: 12px 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: rgba(255,255,255,0.04); font-weight: 600; }
+    .badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-right: 6px;
+    }
+    .badge.setup { background: rgba(61,139,253,0.2); color: #7eb8ff; }
+    .badge.tests { background: rgba(240,160,75,0.2); color: #ffc98a; }
+    .badge.run { background: rgba(62,207,142,0.2); color: #7ee8b8; }
+    .badge.results { background: rgba(180,120,255,0.2); color: #d4b0ff; }
+    .badge.spec { background: rgba(255,255,255,0.08); color: var(--muted); }
+    figure {
+      margin: 20px 0;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(0,0,0,0.25);
+    }
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    figcaption {
+      padding: 10px 14px;
+      font-size: 0.88rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+    .shot-missing {
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      border: 2px dashed rgba(240,160,75,0.35);
+      border-radius: 12px;
+      margin: 16px 0;
+      background: rgba(240,160,75,0.04);
+    }
+    .shot-missing strong { color: var(--accent2); }
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 1100px) {
+      .layout { flex-direction: column; }
+      nav.toc {
+        position: relative;
+        width: 100%;
+        height: auto;
+        max-height: 220px;
+      }
+      main { padding: 20px 16px 60px; }
+      .two-col { grid-template-columns: 1fr; }
+    }
+    .step {
+      counter-increment: step;
+      position: relative;
+      padding-left: 36px;
+      margin: 12px 0;
+    }
+    .steps { counter-reset: step; }
+    .step::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 2px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .warn {
+      border-left: 3px solid var(--bad);
+      padding: 10px 14px;
+      background: rgba(255,92,108,0.08);
+      margin: 12px 0;
+      border-radius: 0 8px 8px 0;
+    }
+    .ok-box {
+      border-left: 3px solid var(--ok);
+      padding: 10px 14px;
+      background: rgba(62,207,142,0.08);
+      margin: 12px 0;
+      border-radius: 0 8px 8px 0;
+    }
+    dl { margin: 12px 0; }
+    dt { font-weight: 600; margin-top: 10px; }
+    dd { margin: 4px 0 0 0; color: var(--muted); }
+    .toc-top { margin-bottom: 8px; font-size: 0.75rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav class="toc" aria-label="Table of contents">
+      <div class="brand">
+        <p class="kicker">ATE tutorial</p>
+        <strong>Operator console</strong>
+      </div>
+      <ul>
+        <li class="section-label">Start</li>
+        <li><a href="#intro">Introduction</a></li>
+        <li><a href="#install">Install and launch</a></li>
+        <li><a href="#mental-model">Mental model</a></li>
+        <li class="section-label">Chrome</li>
+        <li><a href="#boot-splash">Boot splash</a></li>
+        <li><a href="#header">Header bar</a></li>
+        <li><a href="#family-rail">Family rail</a></li>
+        <li><a href="#tabs">Main tabs</a></li>
+        <li class="section-label">Pages</li>
+        <li><a href="#setup">Setup tab</a></li>
+        <li><a href="#setup-more">Setup: More</a></li>
+        <li><a href="#tests-page">Tests tab</a></li>
+        <li><a href="#run-page">Run tab</a></li>
+        <li><a href="#results-page">Results tab</a></li>
+        <li class="section-label">Workflows</li>
+        <li><a href="#demo-sim">DEMO (SIM)</a></li>
+        <li><a href="#usb-live">USB live START</a></li>
+        <li><a href="#gates">Continue gates</a></li>
+        <li><a href="#reports">Reports and files</a></li>
+        <li><a href="#add-test">Add / customize tests</a></li>
+        <li><a href="#eugene-cin-cpd">Eugene cin + cpd</a></li>
+        <li class="section-label">Reference</li>
+        <li><a href="#specs">Full specs</a></li>
+        <li><a href="#troubleshoot">Troubleshooting</a></li>
+        <li><a href="#checks">Proof checks</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <header class="hero" id="intro">
+        <p class="kicker">PythonAutomation / ATE</p>
+        <h1>Operator console -- full tutorial</h1>
+        <p>Deep guide to every section of the live ATE operator console: worker <strong>8766</strong>, UI <strong>5174</strong>, SharePoint-synced <code>#Test_Database</code>. This page matches the product in <code>ate/ui/web/</code> as of 2026-09.</p>
+        <p class="meta">Repo docs: <code>AGENTS.md</code>, <code>docs/VIBE_CODE.md</code>, <code>ate/ui/web/UI_CONTRACT.md</code>. OneNote paste pack: <code>docs/tutorial/ATE_ONENOTE.md</code>.</p>
+      </header>
+
+      <!-- INSTALL -->
+      <section id="install">
+        <h2>1. Install and launch</h2>
+        <p>Two audiences. Pick one track. Both write into the same cloud folder.</p>
+        <table>
+          <thead><tr><th>Who</th><th>How</th><th>Database</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Run tests only</strong></td><td>Unzip <code>ATE_Console_Try_*.zip</code>, double-click <code>START.bat</code></td><td>Shared <code>#Test_Database</code> via OneDrive</td></tr>
+            <tr><td><strong>Vibe-coder</strong></td><td><code>git clone -b eugene-console</code>, <code>python install.py</code>, <code>run_ate_app.bat</code></td><td>Same folder. Never a private copy inside the zip.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Point this PC at the lab folder</h3>
+        <div class="steps">
+          <div class="step">Sync SharePoint <code>#Test_Database</code> in OneDrive until the folder exists on disk.</div>
+          <div class="step">Edit <code>ate/config/cloud_db.txt</code> -- one line, local path only (not https):<br><pre>C:\Users\YOURNAME\#Test_Database</pre></div>
+          <div class="step">Optional: paste SharePoint https into <code>ate/config/sharepoint.url</code> for <strong>Open central DB</strong> when the folder is missing.</div>
+          <div class="step">Launch: <code>START.bat</code> (zip) or <code>run_ate_app.bat</code> (git). Browser: <code>http://127.0.0.1:5174</code>. Stale UI: <strong>Ctrl+F5</strong>.</div>
+        </div>
+
+        <div class="two-col">
+          <figure>
+            <img src="images/04-test-database-folder.png" alt="#Test_Database folder in Explorer" />
+            <figcaption>Figure B -- Shared <code>#Test_Database</code> root (OneDrive-synced).</figcaption>
+          </figure>
+          <figure>
+            <img src="images/06-cloud-db-txt.png" alt="cloud_db.txt one-line local path" />
+            <figcaption>Figure C -- <code>ate/config/cloud_db.txt</code> (local path only, not https).</figcaption>
+          </figure>
+        </div>
+
+        <div class="panel">
+          <h4>Ports (do not use others)</h4>
+          <table>
+            <tr><th>Port</th><th>Service</th></tr>
+            <tr><td><strong>8766</strong></td><td>ATE worker JSON-RPC (<code>ate.worker.server</code>)</td></tr>
+            <tr><td><strong>5174</strong></td><td>Operator UI static server</td></tr>
+            <tr><td>8765</td><td>clipdrop -- leave it</td></tr>
+            <tr><td>3000 / 3001 / 5000</td><td>Founder reserved -- leave them</td></tr>
+          </table>
+        </div>
+      </section>
+
+      <!-- MENTAL MODEL -->
+      <section id="mental-model">
+        <h2>2. Mental model (four axes, not five)</h2>
+        <p>The console is organized around these words. Do not invent a Users table or Tags folder in the database path.</p>
+        <table>
+          <thead><tr><th>Word</th><th>What it is</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Family</strong></td><td>Left rail: OpAmp, Logic, Analog SW, Level, Power (<code>lim</code> = analog switch alias)</td></tr>
+            <tr><td><strong>Operator</strong></td><td>Person folder under the campaign (Eugene, Ariff, ...). Top-right dropdown picks who you are.</td></tr>
+            <tr><td><strong>Campaign</strong></td><td>One Version tree: workbook + sessions + manifests under <code>#Test_Database</code></td></tr>
+            <tr><td><strong>Tracking row</strong></td><td>One SKU line in <code>ate/config/inventory.yaml</code> (part we are testing now)</td></tr>
+          </tbody>
+        </table>
+        <pre>#Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/
+
+Example (same part, two people):
+  Logic/RS1G08/SC70-5/Ariff/Version_1
+  Logic/RS1G08/SC70-5/ChangThong/Version_1</pre>
+        <div class="warn"><strong>All</strong> and <strong>Kevin</strong> cannot Create folders, DEMO, or START. Kevin is observer on the lab progress board.</div>
+      </section>
+
+      <!-- BOOT -->
+      <section id="boot-splash">
+        <h2>3. Boot splash</h2>
+        <p><span class="badge spec">#boot-splash</span> Covers the app until the worker answers ping and daily <code>sync_repo</code> finishes. Not a fifth tab.</p>
+        <ul>
+          <li>Shows "Operator console / Starting..." with a progress bar.</li>
+          <li>If it never clears: worker on port 8766 is down -- run <code>run_ate_app.bat</code> or <code>restart_ate_worker.bat</code>.</li>
+        </ul>
+        <div class="shot-missing">
+          <strong>IMAGE E (capture)</strong>
+          <p class="hint">Boot splash then Setup page with family rail visible.</p>
+        </div>
+      </section>
+
+      <!-- HEADER -->
+      <section id="header">
+        <h2>4. Header bar</h2>
+        <table>
+          <tr><th>Element</th><th>ID / class</th><th>Purpose</th></tr>
+          <tr><td>Brand title</td><td><code>#brand-title</code></td><td>Changes with family (e.g. "OpAmp ATE", "Logic ATE").</td></tr>
+          <tr><td>Breadcrumb</td><td><code>#db-breadcrumb</code></td><td>Live campaign path under <code>#Test_Database</code>.</td></tr>
+          <tr><td>Gate dock</td><td><code>#gate-dock</code></td><td>Pending Continue / Abort actions during START. Badge count on <code>#gate-dock-btn</code>.</td></tr>
+          <tr><td>Operator</td><td><code>#owner-select</code></td><td>Loads defaults from <code>owners.yaml</code>. Must be a real person to run.</td></tr>
+          <tr><td>Instrument tiles</td><td><code>#tiles</code> MSO PSU AWG DMM</td><td>Green when discovered / session open.</td></tr>
+          <tr><td>Run pill</td><td><code>#header-bin</code></td><td>READY / BUSY / etc.</td></tr>
+          <tr><td>STOP</td><td><code>#btn-stop</code></td><td>Abort an in-flight run (danger).</td></tr>
+          <tr><td>Clock</td><td><code>#clock</code></td><td>Local time.</td></tr>
+        </table>
+      </section>
+
+      <!-- FAMILY RAIL -->
+      <section id="family-rail">
+        <h2>5. Family rail (left)</h2>
+        <p><span class="badge spec">.family-rail</span> Selects which <code>TestSpec</code> package loads. Switching family reloads the test list and fixture catalog.</p>
+        <table>
+          <tr><th>Button</th><th><code>data-family</code></th><th>Typical parts</th></tr>
+          <tr><td>OpAmp</td><td>opamp</td><td>RS622, RS1G32, buffer / gain boards</td></tr>
+          <tr><td>Logic</td><td>logic</td><td>RS1G07, RS1G08, DC timing</td></tr>
+          <tr><td>Analog SW</td><td>switch</td><td>RS2323, RS2227 (lim alias)</td></tr>
+          <tr><td>Level</td><td>level</td><td>RS0204 dual-rail (logic suite)</td></tr>
+          <tr><td>Power</td><td>power</td><td>RS3213 stub-capable LDO</td></tr>
+        </table>
+        <div class="ok-box">OpAmp shows gain boards (G11, G_NEG100, ...). Logic does <strong>not</strong> show OPA gain chips. That is the platform contract (PRD-001).</div>
+      </section>
+
+      <!-- TABS -->
+      <section id="tabs">
+        <h2>6. Main navigation tabs</h2>
+        <p>Single <code>nav.tabs</code> -- never add a second nav (UI contract).</p>
+        <table>
+          <tr><th>Tab</th><th><code>data-page</code></th><th>Section id</th><th>Role</th></tr>
+          <tr><td><span class="badge setup">Setup</span></td><td>setup</td><td><code>#page-setup</code></td><td>Campaign, session, DUT, test program, START / DEMO</td></tr>
+          <tr><td><span class="badge tests">Tests</span></td><td>detect</td><td><code>#page-detect</code></td><td>Path A catalog, version gaps, Path C wrap</td></tr>
+          <tr><td><span class="badge run">Run</span></td><td>run</td><td><code>#page-run</code></td><td>Live progress, timeline, log during START</td></tr>
+          <tr><td><span class="badge results">Results</span></td><td>results</td><td><code>#page-results</code></td><td>STS table, export, ledger, layout, lab board</td></tr>
+        </table>
+        <p class="hint">Tags are <strong>not</strong> a tab. They live under Setup &gt; More.</p>
+      </section>
+
+      <!-- SETUP -->
+      <section id="setup">
+        <h2>7. Setup tab -- daily operator surface</h2>
+        <figure>
+          <img src="images/01-setup-campaign-session.png" alt="Setup tab: campaign, session, DUT, test program" />
+          <figcaption>Figure 1 -- Setup: campaign grid, Session panel, DUT/channel picks, test program with START and DEMO (SIM). Screenshot: <code>01-setup-campaign-session.png</code></figcaption>
+        </figure>
+
+        <h3>7.1 Test Database panel</h3>
+        <p>Five combo fields (Component, Part, Package, Operator folder, Version). All use <code>.combo</code> with caret menu -- no datalist.</p>
+        <table>
+          <tr><th>Control</th><th>ID</th><th>Behavior</th></tr>
+          <tr><td>Apply campaign</td><td><code>#btn-apply-db</code></td><td>Loads or creates the Version tree. Required before START.</td></tr>
+          <tr><td>Open DB folder</td><td><code>#btn-open-db</code></td><td>Opens this campaign root in Explorer.</td></tr>
+          <tr><td>Open sessions</td><td><code>#btn-open-sessions</code></td><td>Opens <code>sessions/</code> for this Version.</td></tr>
+          <tr><td>Open central DB</td><td><code>#btn-open-central</code></td><td>SharePoint-synced folder or https fallback. Does not mkdir a private DB.</td></tr>
+          <tr><td>Pin-1 hint</td><td><code>#pin1-hint</code></td><td>DUT orientation gate -- Abort if wrong, rotate, Continue.</td></tr>
+        </table>
+
+        <h3>7.2 Session panel</h3>
+        <table>
+          <tr><th>Button</th><th>ID</th><th>When to use</th></tr>
+          <tr><td>Discover</td><td><code>#btn-discover</code></td><td>USB scan via <code>*IDN?</code>. Empty result shows alert (not silent).</td></tr>
+          <tr><td>Open Session</td><td><code>#btn-open</code></td><td>Live VISA session. Required for USB START. PSU stays OFF until START.</td></tr>
+          <tr><td>Open SIM</td><td><code>#btn-open-sim</code></td><td>Fake PyVISA without USB. Same path as DEMO preflight.</td></tr>
+          <tr><td>Screenshot</td><td><code>#btn-shot</code></td><td>Capture scope screen to campaign screenshots folder.</td></tr>
+          <tr><td>+ Session</td><td><code>#btn-new-session</code></td><td>Writes <code>sessions/session_*.json</code> only -- no VISA.</td></tr>
+        </table>
+        <p id="session-hint-text">Session hint shows VISA backend on live open, or <code>sim_bus</code> detail on SIM.</p>
+
+        <h3>7.3 Run -- DUT / Channel</h3>
+        <ul>
+          <li><strong>DUT 1-4:</strong> Each checked DUT gets a board-change Continue gate on USB.</li>
+          <li><strong>Channels A/B:</strong> Order is all DUTs on CHA, then CHB (B-only if B alone checked).</li>
+          <li><strong>Advanced bench:</strong> VCC, freq, amp, repeats -- OpAmp sweeps only.</li>
+        </ul>
+
+        <h3>7.4 Run conditions (family YAML)</h3>
+        <p><code>#panel-run-conditions</code> -- corners from part yaml (<code>vcc_sweep_list</code> or <code>controls:</code>). Tests stay checkboxes in Test program.</p>
+
+        <h3>7.5 Board gains (OpAmp)</h3>
+        <p><code>#panel-gain-boards</code> -- locked to physical fixture. Not a software dial.</p>
+
+        <h3>7.6 Test program</h3>
+        <table>
+          <tr><th>Control</th><th>Notes</th></tr>
+          <tr><td>Select all / Clear</td><td>USB: avoid Select-all on first live run.</td></tr>
+          <tr><td>Add / edit tests</td><td>Opens tests menu modal, jumps to Tests tab.</td></tr>
+          <tr><td>START</td><td>Disabled until Open Session or Open SIM. Programs PSU + AWG.</td></tr>
+          <tr><td>DEMO (SIM)</td><td>Preflight USB; if none, fake SCPI + auto Continue.</td></tr>
+        </table>
+        <p>Each test row shows AWG shape (SQU / SIN / DC / PULS / off) from <code>list_tests.stimulus</code>.</p>
+
+        <div class="shot-missing">
+          <strong>IMAGE I (capture)</strong>
+          <p class="hint">Close-up: DUT 1 + CHA + one test ticked. START disabled until session open.</p>
+        </div>
+      </section>
+
+      <!-- SETUP MORE -->
+      <section id="setup-more">
+        <h2>8. Setup -- More (collapsed)</h2>
+        <p><code>details.setup-more</code> -- engineer and campaign metadata. Not needed every run.</p>
+
+        <h3>8.1 Person</h3>
+        <ul>
+          <li><strong>Save person</strong> -- writes <code>ate/config/owners.yaml</code> from Operator name + current SKU.</li>
+          <li><strong>Forget person</strong> -- drops yaml row only. Version folders stay.</li>
+        </ul>
+
+        <h3>8.2 Tags and labels</h3>
+        <ul>
+          <li><code>#db-tag-input</code> -- Space/Enter adds free tags. Chips compact with <code>+N more</code>.</li>
+          <li>Kind <strong>board</strong> + Value saves fixture PCB id (e.g. <code>board:LOGIC-SC70-REV1</code>).</li>
+          <li>Scope: this campaign / this class / all products.</li>
+          <li><strong>Clear all tags</strong> empties campaign tags. Saved to <code>TAGS.txt</code> + manifest.</li>
+        </ul>
+
+        <h3>8.3 Import xlsx</h3>
+        <p>Copy an existing lab book into <code>workbook/</code> for this campaign.</p>
+
+        <h3>8.4 Import family (engineer)</h3>
+        <p>GitHub URL or local folder into <code>ate/tests/&lt;family&gt;/</code>. Refuses overwrite of opamp/logic/level built-ins.</p>
+
+        <h3>8.5 New product under test</h3>
+        <p>Tracking sheet picker + RUN-IC class. <strong>Create folders + open</strong> builds Version_1. Do not scrape en.run-ic.com into the database.</p>
+
+        <h3>8.6 PSU safety (always on)</h3>
+        <p>OVP/OCP: defaults Vset+0.3 V, Iset+0.1 A. SAFE IDLE turns AWG then PSU off before Continue waits.</p>
+      </section>
+
+      <!-- TESTS PAGE -->
+      <section id="tests-page">
+        <h2>9. Tests tab</h2>
+        <figure>
+          <img src="images/03-tests-customize.png" alt="Tests tab: customize, version gaps, wrap golden" />
+          <figcaption>Figure 3 -- Tests: Path A customize, version gaps, Path C wrap scan. <code>03-tests-customize.png</code></figcaption>
+        </figure>
+
+        <h3>9.1 Customize tests (Path A)</h3>
+        <p><code>#panel-campaign-tests</code> -- tick registry ids that already exist in this category. <strong>Save this Version</strong> writes <code>_manifest/test_catalog.yaml</code> only.</p>
+        <div class="warn">Tests page checkboxes customize the catalog. They do <strong>not</strong> select what runs. Tick tests on <strong>Setup</strong> Test program to START.</div>
+
+        <h3>9.2 Version gaps</h3>
+        <p>Compares this person's Version folders for the SKU. <strong>Add missing from my versions</strong> copies enabled ids from your older Versions -- not from another operator.</p>
+
+        <h3>9.3 Import / wrap golden (Path C)</h3>
+        <p>AST scan of legacy <code>test_*</code> functions. Wrap writes <code>imported_&lt;id&gt;.py</code> scaffold. Rows with <code>input()</code> stay blocked. Scaffold is not done until you fill <code>run()</code> and <code>measurements</code> (Path B).</p>
+      </section>
+
+      <!-- RUN PAGE -->
+      <section id="run-page">
+        <h2>10. Run tab</h2>
+        <p>Auto-switches during START. Read-only mirror of worker progress.</p>
+        <table>
+          <tr><th>Panel</th><th>ID</th><th>Content</th></tr>
+          <tr><td>Progress</td><td><code>#progress-bar</code>, <code>#progress-meta</code></td><td>Fraction complete, current step</td></tr>
+          <tr><td>Next banner</td><td><code>#next-banner</code></td><td>Human-readable next action</td></tr>
+          <tr><td>Step status</td><td><code>#step-status-bar</code></td><td>Per-step chips</td></tr>
+          <tr><td>Timeline</td><td><code>#timeline</code></td><td>Ordered steps with pass/fail</td></tr>
+          <tr><td>History</td><td><code>#history</code></td><td>Recent operator events</td></tr>
+          <tr><td>Log</td><td><code>#log</code></td><td>Raw worker text (also <code>sessions/run_log.txt</code>)</td></tr>
+        </table>
+        <div class="shot-missing">
+          <strong>IMAGE J (capture)</strong>
+          <p class="hint">Run tab timeline after DEMO with completed steps.</p>
+        </div>
+      </section>
+
+      <!-- RESULTS -->
+      <section id="results-page">
+        <h2>11. Results tab</h2>
+        <figure>
+          <img src="images/02-results-sts.png" alt="Results: STS table and export buttons" />
+          <figcaption>Figure 2 -- Last results STS table, Export STS datalog, Fill Excel, Fetch limits. <code>02-results-sts.png</code></figcaption>
+        </figure>
+
+        <h3>11.1 Last results</h3>
+        <p><code>#results-table</code> -- DUT, Test, Param, Min, Max, Typ, Value, Result, Summary.</p>
+        <p><code>#results-sts-status</code> -- Status / Total / Pass / Fail after START or DEMO.</p>
+        <table>
+          <tr><th>Button</th><th>Action</th></tr>
+          <tr><td>Export STS datalog</td><td>Writes <code>sessions/datalog.md</code>, <code>.html</code>, <code>.pdf</code></td></tr>
+          <tr><td>Fill Excel numbers</td><td>USB: live lab xlsx + photos. SIM: <code>*_demo.xlsx</code> only.</td></tr>
+          <tr><td>Fetch limits</td><td>Local Reference PDF first, then website if missing</td></tr>
+        </table>
+
+        <h3>11.2 Lab progress board</h3>
+        <p><code>#panel-progress-board</code> -- everyone sees who ran what. Comments in <code>#Test_Database/_ate</code>. Kevin observer.</p>
+
+        <h3>11.3 Run ledger</h3>
+        <p><code>#run-ledger</code> -- session JSON list. Chip x deletes one JSON, never the Version folder. Filters: this campaign / this SKU / all.</p>
+
+        <h3>11.4 Waveform layout</h3>
+        <p>Source of truth: <code>_manifest/sheet_map.yaml</code> <code>tests.&lt;key&gt;.paste.photos</code>. Edit photo box grid, compare latest vs previous shot, overlay difference.</p>
+      </section>
+
+      <!-- DEMO -->
+      <section id="demo-sim">
+        <h2>12. DEMO (SIM) workflow</h2>
+        <div class="steps">
+          <div class="step">Operator = you (not All). Family + Apply campaign.</div>
+          <div class="step">DUT 1, tick <strong>one</strong> test on Setup (not Tests page).</div>
+          <div class="step">Click <strong>DEMO (SIM)</strong>. Preflight checks USB <code>*IDN?</code>.</div>
+          <div class="step">If no USB: opens fake PyVISA, SIM loopback proof, runs same START path. Continue auto, sleeps skipped.</div>
+          <div class="step">If USB answered: DEMO refuses -- use Open Session + START (correct).</div>
+          <div class="step">Results: STS PDF, <code>report.json</code> merge. Fill Excel targets <code>*_demo.xlsx</code>.</div>
+        </div>
+        <div class="ok-box">Same START path, fake SCPI. Values may be typ / 0 / placeholder. The run must still finish.</div>
+      </section>
+
+      <!-- USB -->
+      <section id="usb-live">
+        <h2>13. USB live START workflow</h2>
+        <div class="steps">
+          <div class="step">Morning: <code>python -m ate.core.check_visa</code> -- want <code>KEEP USB0::...</code> and <code>preflight mode=usb</code>.</div>
+          <div class="step">Close Ultra Sigma and other VISA apps.</div>
+          <div class="step"><strong>Discover</strong> -- tiles green. Empty = alert "No USB instruments".</div>
+          <div class="step"><strong>Open Session</strong> -- hint shows IVI/VISA backend, not SIM.</div>
+          <div class="step">Tick one test. <strong>START</strong>.</div>
+          <div class="step">Click <strong>Continue</strong> at each gate (board / DUT). PSU powers socket on START.</div>
+          <div class="step">Run tab, then Results. Export STS. Fill Excel only if you intend to write the live book.</div>
+        </div>
+        <div class="shot-missing">
+          <strong>IMAGE K + M (capture)</strong>
+          <p class="hint">K: live session hint with VISA backend and green tiles. M: Discover empty alert.</p>
+        </div>
+      </section>
+
+      <!-- GATES -->
+      <section id="gates">
+        <h2>14. Continue / Abort gates</h2>
+        <p><code>#modal</code> and <code>#gate-dock</code> -- operator must confirm wiring, DUT install, or probe moves.</p>
+        <ul>
+          <li><strong>Continue</strong> -- proceed to next step.</li>
+          <li><strong>Abort</strong> -- safe stop; PSU/AWG idle per SAFE IDLE rules.</li>
+          <li>Pin-1 wrong: Abort, rotate DUT, Continue.</li>
+          <li>DEMO: gates auto-accept.</li>
+        </ul>
+        <div class="shot-missing">
+          <strong>IMAGE L (capture)</strong>
+          <p class="hint">Continue gate modal or gate dock with badge.</p>
+        </div>
+      </section>
+
+      <!-- REPORTS -->
+      <section id="reports">
+        <h2>15. Reports and on-disk files</h2>
+        <p>Under <code>#Test_Database/.../Version_N/</code>:</p>
+        <table>
+          <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>workbook/*.xlsx</code></td><td>Lab report (live). SIM uses <code>*_demo.xlsx</code> sidecar.</td></tr>
+            <tr><td><code>sessions/datalog.pdf</code></td><td>STS export (also .md / .html)</td></tr>
+            <tr><td><code>sessions/report.json</code></td><td>Living latest -- merge by test_id+dut(+channel)</td></tr>
+            <tr><td><code>sessions/run_log.txt</code></td><td>Step dump for debug</td></tr>
+            <tr><td><code>sessions/session_*.json</code></td><td>Per-run ledger entries</td></tr>
+            <tr><td><code>{test}/DUT_n/records/*.json</code></td><td>Per-test history</td></tr>
+            <tr><td><code>_manifest/test_catalog.yaml</code></td><td>Path A Version catalog (wins over part yaml)</td></tr>
+            <tr><td><code>_manifest/sheet_map.yaml</code></td><td>Excel paste cells + photo boxes</td></tr>
+            <tr><td><code>_manifest/tags.yaml</code></td><td>Campaign tags</td></tr>
+            <tr><td><code>TAGS.txt</code></td><td>Human-readable tag list at campaign root</td></tr>
+          </tbody>
+        </table>
+        <div class="shot-missing">
+          <strong>IMAGE N + O (capture)</strong>
+          <p class="hint">Explorer <code>sessions\</code> with datalog.pdf; first page of STS PDF.</p>
+        </div>
+      </section>
+
+      <!-- ADD TEST -->
+      <section id="add-test">
+        <h2>16. Add or customize a test (three paths)</h2>
+        <p>Full detail: <code>docs/VIBE_CODE.md</code>. Check: <code>python -m ate.core.check_add_test</code>.</p>
+        <table>
+          <thead><tr><th>Path</th><th>You do</th><th>Done when</th></tr></thead>
+          <tbody>
+            <tr><td><strong>A Customize</strong></td><td>Tests tab tick + Save this Version</td><td>Setup shows id on this Version only</td></tr>
+            <tr><td><strong>B Realize</strong></td><td>New <code>TestSpec</code> + <code>__init__.py</code> + part yaml + limits</td><td>DEMO writes <code>measurements</code></td></tr>
+            <tr><td><strong>C Wrap then fill</strong></td><td>Wrap golden -> <code>imported_*.py</code> then fill like B</td><td>No "scaffold -- fill body" in summary</td></tr>
+          </tbody>
+        </table>
+        <h3 id="eugene-cin-cpd">Path B shipped example: Eugene <code>cin</code> + <code>cpd</code> (Logic RS1G07)</h3>
+        <div class="ok-box">Both tests are <strong>already in the repo</strong> and pass <code>check_add_test</code> + <code>check_demo_families</code> (SIM runs CIN then CPD on RS1G07).</div>
+        <table>
+          <thead><tr><th>Test id</th><th>Label</th><th>Instruments</th><th>Measurement id</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>cin</code></td><td>CIN (Eugene)</td><td>PSU, AWG, DMM</td><td><code>CIN_pF</code></td><td>3.3 V, square 1 / 5 / 10 MHz, DMM current -> C = I/(V*f)</td></tr>
+            <tr><td><code>cpd</code></td><td>CPD (Eugene)</td><td>PSU, AWG, DMM</td><td><code>CPD_pF</code></td><td>VCC corners 1.8 / 2.5 / 3.3 / 5.0 V, 10 MHz square, DMM current</td></tr>
+          </tbody>
+        </table>
+        <pre>ate/tests/logic/eugene_cap.py       # run_cin + run_cpd; register(TestSpec id=cin|cpd)
+ate/tests/logic/__init__.py         # import eugene_cap
+ate/config/parts/rs1g07.yaml        # enabled_tests includes cin, cpd
+ate/config/limits/rs1g07.yaml       # specs CIN_pF, CPD_pF</pre>
+        <p><strong>Try it on the console:</strong> Family <strong>Logic</strong>, Part <strong>RS1G07</strong>, Operator <strong>Eugene</strong>, Apply campaign, tick <code>cin</code> or <code>cpd</code> on Setup, <strong>DEMO (SIM)</strong>. Results STS shows <code>CIN_pF</code> / <code>CPD_pF</code>.</p>
+        <p>After worker-loaded edits: idle <code>restart_ate_worker.bat</code>. UI: Ctrl+F5.</p>
+        <div class="warn">Do not edit <code>runner.py</code> to add a test. Do not call <code>input()</code> in <code>TestSpec.run</code> -- use <code>pause_hook</code> / Continue.</div>
+      </section>
+
+      <!-- SPECS -->
+      <section id="specs">
+        <h2>17. Full application specs</h2>
+
+        <h3>17.1 Runtime stack</h3>
+        <table>
+          <tr><th>Layer</th><th>Location</th><th>Notes</th></tr>
+          <tr><td>UI</td><td><code>ate/ui/web/</code> index.html, app.js, styles.css</td><td>Static; bump <code>?v=</code> on change</td></tr>
+          <tr><td>Worker</td><td><code>ate/worker/server.py</code></td><td>JSON-RPC on 8766</td></tr>
+          <tr><td>Runner</td><td><code>ate/core/runner.py</code></td><td>START sequence, gates, DUT order</td></tr>
+          <tr><td>Registry</td><td><code>ate/core/registry.py</code></td><td><code>TestSpec</code>, <code>load_family</code></td></tr>
+          <tr><td>Instruments</td><td><code>ate/instruments/</code></td><td>Discover, session, SIM bus</td></tr>
+          <tr><td>Legacy (ingest only)</td><td><code>main.py</code>, <code>opa_tests.py</code></td><td>Not the live console runtime</td></tr>
+        </table>
+
+        <h3>17.2 Instruments (typical bench)</h3>
+        <table>
+          <tr><th>Tile</th><th>Typical model</th><th>Role</th></tr>
+          <tr><td>MSO</td><td>MSO5072 class</td><td>Scope capture, screenshots</td></tr>
+          <tr><td>PSU</td><td>DP832</td><td><code>power_on_protected</code> only</td></tr>
+          <tr><td>AWG</td><td>DG8xx</td><td>Stimulus per test</td></tr>
+          <tr><td>DMM</td><td>DMM6500 (optional)</td><td>DC measurements when test requires</td></tr>
+        </table>
+
+        <h3>17.3 Config files</h3>
+        <table>
+          <tr><th>File</th><th>Purpose</th></tr>
+          <tr><td><code>ate/config/cloud_db.txt</code></td><td>Local path to <code>#Test_Database</code></td></tr>
+          <tr><td><code>ate/config/owners.yaml</code></td><td>Operators and defaults</td></tr>
+          <tr><td><code>ate/config/inventory.yaml</code></td><td>Tracking sheet SKUs</td></tr>
+          <tr><td><code>ate/config/parts/&lt;key&gt;.yaml</code></td><td>enabled_tests, conditions, fixture</td></tr>
+          <tr><td><code>ate/config/limits/&lt;key&gt;.yaml</code></td><td>Min/max/typ specs</td></tr>
+          <tr><td><code>ate/config/extra_families.yaml</code></td><td>Imported family slots</td></tr>
+        </table>
+
+        <h3>17.4 UI contract rules</h3>
+        <ul>
+          <li>One <code>nav.tabs</code>, four pages: setup, detect, run, results.</li>
+          <li>Fonts: Barlow, JetBrains Mono, Space Grotesk only (no fourth family).</li>
+          <li>Combo dropdowns for Setup fields -- not datalist.</li>
+          <li>Tags on Setup More -- not a Tags tab.</li>
+          <li>Run ledger and lab board under Results <code>details</code> -- not new tabs.</li>
+          <li>Boot splash until worker + sync_repo ready.</li>
+        </ul>
+
+        <h3>17.5 START gate invariants</h3>
+        <ul>
+          <li>START disabled until Open Session or Open SIM.</li>
+          <li>Apply campaign before meaningful RPC.</li>
+          <li>Category-first order: board/category -> all DUTs on channel -> next channel.</li>
+          <li>PSU output not assumed ON until test writes it.</li>
+          <li>DEMO with USB plugged: refused (live path required).</li>
+        </ul>
+
+        <h3>17.6 Demo family acts (SIM rehearsal)</h3>
+        <table>
+          <tr><th>Act</th><th>Family</th><th>Part</th><th>Tick one test</th></tr>
+          <tr><td>C</td><td>OpAmp</td><td>RS622 TTSOP8</td><td>slew</td></tr>
+          <tr><td>D</td><td>Analog SW</td><td>RS2323 MSOP</td><td>iplus</td></tr>
+          <tr><td>E</td><td>Level</td><td>RS0204 TSSOP14</td><td>vih</td></tr>
+          <tr><td>F</td><td>Power</td><td>RS3213 SOT23-5</td><td>iq</td></tr>
+        </table>
+      </section>
+
+      <!-- TROUBLESHOOT -->
+      <section id="troubleshoot">
+        <h2>18. Troubleshooting</h2>
+        <table>
+          <thead><tr><th>Problem</th><th>Fix</th></tr></thead>
+          <tbody>
+            <tr><td>Worker offline</td><td><code>run_ate_app.bat</code> or <code>restart_ate_worker.bat</code> (idle only)</td></tr>
+            <tr><td>UI looks old</td><td>Ctrl+F5; check <code>app.js?v=</code></td></tr>
+            <tr><td>Discover empty</td><td>USB, power, close Ultra Sigma, or use DEMO</td></tr>
+            <tr><td>START disabled</td><td>Open Session or Open SIM first</td></tr>
+            <tr><td>DEMO says use Open Session</td><td>USB answered *IDN -- correct, go live</td></tr>
+            <tr><td>Excel unchanged on DEMO</td><td>Look for <code>*_demo.xlsx</code></td></tr>
+            <tr><td>Wrong part on run</td><td>Apply campaign again</td></tr>
+            <tr><td><code>venv not found</code></td><td><code>python install.py</code> from repo root</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- CHECKS -->
+      <section id="checks">
+        <h2>19. Proof checks (run what you touched)</h2>
+        <pre>python -m ate.core.check_ui_contract
+python -m ate.core.check_operator_tree
+python -m ate.core.check_sim_run
+python -m ate.core.check_visa
+python -m ate.core.check_demo_families
+python -m ate.core.check_add_test
+python -m ate.core.check_family_load
+python -m ate.core.check_campaign_outline
+python -m ate.core.check_session_values
+python -m ate.core.check_specs_datalog</pre>
+        <p class="hint">A green check that never could fail is not a check. <code>check_visa</code> with only SKIP ASRL does not prove USB gear is plugged in.</p>
+      </section>
+
+      <footer class="panel" style="margin-top:48px">
+        <p class="kicker">Screenshot pack</p>
+        <table>
+          <thead><tr><th>File</th><th>Section</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td><code>01-setup-campaign-session.png</code></td><td>Setup tab</td><td>in repo</td></tr>
+            <tr><td><code>02-results-sts.png</code></td><td>Results STS</td><td>in repo</td></tr>
+            <tr><td><code>03-tests-customize.png</code></td><td>Tests tab</td><td>in repo</td></tr>
+            <tr><td><code>04-test-database-folder.png</code></td><td>Install / cloud DB</td><td>in repo</td></tr>
+            <tr><td><code>06-cloud-db-txt.png</code></td><td>cloud_db.txt</td><td>in repo</td></tr>
+            <tr><td><code>05-boot-splash.png</code></td><td>Boot splash</td><td>capture when worker up</td></tr>
+            <tr><td><code>07-run-timeline.png</code></td><td>Run tab after DEMO</td><td>capture when worker up</td></tr>
+            <tr><td><code>08-continue-gate.png</code></td><td>Continue modal</td><td>USB START only</td></tr>
+          </tbody>
+        </table>
+        <p class="hint" style="margin-top:12px">Open: <code>docs/tutorial/ATE_TUTORIAL.html</code>. More shot IDs: <code>ATE_ONENOTE.md</code> shot list. Worker change -> idle <code>restart_ate_worker.bat</code>. UI-only -> Ctrl+F5.</p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
