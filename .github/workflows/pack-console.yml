@@ -4,16 +4,9 @@ on:
   workflow_dispatch:
   push:
     branches: [eugene-console]
-    paths:
-      - "ate/**"
-      - "START.bat"
-      - "pack_ate_console.py"
-      - "requirements-console.txt"
-      - "00_START_HERE.txt"
-      - "run_ate_app.bat"
-  tags:
-    - "console-*"
-    - "v*"
+    tags:
+      - "console-*"
+      - "v*"
 
 permissions:
   contents: write
