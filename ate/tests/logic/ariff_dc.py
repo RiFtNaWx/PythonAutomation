@@ -606,6 +606,23 @@ def _settle_ua(
     )
 
 
+def _delta_vccs(params: RunParams, cfg: dict[str, Any] | None = None) -> list[float]:
+    """Overlay vcc_list, else yaml low-only list, else resolved 0..5 sweep.
+
+    AUP vih_vil_vcc_list 1.8/2.5/3.3 must not grow to 5.0. Parameters Write still wins.
+    """
+    overlay = list(getattr(params, "vcc_list", None) or [])
+    if overlay:
+        return [float(v) for v in overlay]
+    data = cfg if isinstance(cfg, dict) else _part_cfg(params)
+    raw = data.get("delta_vcc_list") or data.get("vih_vil_vcc_list")
+    if isinstance(raw, list) and raw:
+        listed = [float(v) for v in raw]
+        if listed and max(listed) < 4.5 - 1e-9:
+            return listed
+    return list(params.resolved_vcc_sweep())
+
+
 def _run_delta_supply_current(instr, params: RunParams) -> dict[str, Any]:
     _require(instr, "PSU", "AWG", "DMM")
     from dmm_setup import dmm_setup_current
@@ -614,12 +631,7 @@ def _run_delta_supply_current(instr, params: RunParams) -> dict[str, Any]:
     cfg = _part_cfg(params)
     n_in = _logic_inputs(cfg, params)
     ilim = _current_limit(params)
-    overlay_vcc = list(getattr(params, "vcc_list", None) or [])
-    steps = (
-        [float(v) for v in overlay_vcc]
-        if overlay_vcc
-        else params.resolved_vcc_sweep()
-    )
+    steps = _delta_vccs(params, cfg)
     rows: list[dict[str, Any]] = []
     hook = params.progress_hook
     last_ua: float | None = None

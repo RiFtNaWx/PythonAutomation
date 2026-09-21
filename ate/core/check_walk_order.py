@@ -296,13 +296,18 @@ def main() -> int:
         errors.append("setup_square must APPL freq,amp,offset,phase=0 (Pro 50% duty)")
     if "def applied_freq_hz" not in gen_src:
         errors.append("generator_setup must expose applied_freq_hz (APPL? not FREQ?)")
-    if ":SOUR{ch}:FREQ" in gen_src and "park_generator_idle" in gen_src:
-        # park must not write FREQ; set_frequency helper may still exist unused
-        park = gen_src.split("def park_generator_idle", 1)[-1].split("def ", 1)[0]
-        if ":FREQ" in park:
-            errors.append("park_generator_idle must not send :FREQ (Error 116)")
+    if "def is_banned_awg_scpi" not in gen_src:
+        errors.append("generator_setup must expose is_banned_awg_scpi")
+    from generator_setup import applied_freq_hz, is_banned_awg_scpi
 
-    from generator_setup import applied_freq_hz
+    for i, ln in enumerate(gen_src.splitlines(), 1):
+        if ".write(" not in ln and ".query(" not in ln:
+            continue
+        probe = ln.replace("{ch}", "1").replace("{channel}", "1")
+        if is_banned_awg_scpi(probe):
+            errors.append(
+                f"generator_setup.py:{i} banned AWG header (Error 116): {ln.strip()}"
+            )
 
     class _Appl:
         def __init__(self, raw: str) -> None:

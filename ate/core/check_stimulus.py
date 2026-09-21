@@ -159,6 +159,16 @@ def main() -> int:
             "(DMM6500 -113; CONF:CURR:DC 0.01 is enough)"
         )
 
+    voh_126 = for_test("voh", family="logic", part="rs1g126")
+    if "RS0204" in str(voh_126.get("detail") or ""):
+        errors.append("rs1g126 voh stimulus must not say RS0204")
+    ioz_126 = for_test("ioz", family="logic", part="rs1g126")
+    if ioz_126.get("wave") != "DC":
+        errors.append(f"rs1g126 ioz wave {ioz_126.get('wave')!r} want DC")
+    if "AWG" in str(ioz_126.get("detail") or "").upper():
+        errors.append("rs1g126 ioz stimulus must not require AWG")
+    if "PSU CH3" not in str(ioz_126.get("detail") or ""):
+        errors.append("rs1g126 ioz stimulus must name PSU CH3 OE")
     cin_st = for_test("cin", family="logic")
     if cin_st.get("sweep") != "freq":
         errors.append("cin stimulus must declare sweep=freq")

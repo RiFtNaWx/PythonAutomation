@@ -1,5 +1,9 @@
 | Date | File | Keywords |
 |------|------|----------|
+| 2026-09-21 | 2026-09-21_ioz-no-awg.md | ioz, awg, psu-ch3, rs1g126, missing-instruments, seelim, leftover-honest |
+| 2026-09-21 | 2026-09-21_aup-delta-ioz-shot.md | aup, delta-idd, yaml-vcc, ioz, screenshot_from, seeLim, rs1g126, leftover-honest |
+| 2026-09-21 | 2026-09-21_oe-pin-ioz.md | ioz, oe, enable-pin, rs1g125, rs1g126, rs0204, catalog, psu-ch3, leftover-honest |
+| 2026-09-21 | 2026-09-21_awg-undefined-header.md | scpi, undefined-header, -116, -113, FREQ, DCYC, generator_setup, sim, check_visa, leftover-honest |
 | 2026-09-21 | 2026-09-21_fill-excel-aup-idd-awg.md | fill-excel, onedrive, tempfile, aup-idd, awg-pnp, rs1gt34, leftover-honest |
 | 2026-09-21 | 2026-09-21_screenshot-from-mso.md | screenshot_from, mso, visa-poison, parameters-write, rs74aup, rs3235, leftover-honest |
 | 2026-09-21 | 2026-09-21_rs1g126-recipe-awg-unknown.md | rs1g126, ioz, recipe, awg, pnp-unknown, catalog, gt34-mix, leftover-honest |

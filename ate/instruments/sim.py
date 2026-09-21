@@ -1,13 +1,16 @@
 """Fake PyVISA resources so DEMO / START can run with no USB.
 
 SCPI coverage is the subset psu_setup / generator_setup / dmm_setup / scope_setup
-actually send. Not a full instrument model.
+actually send. Not a full instrument model. Banned AWG/DMM headers set SYST:ERR
+(-116 / -113) so DEMO cannot hide USB Undefined Header.
 """
 from __future__ import annotations
 
 import re
 from io import BytesIO
 from typing import Any
+
+from generator_setup import is_banned_awg_scpi
 
 SIM_MAP = {
     "MSO": "SIM::MSO5072",
@@ -25,6 +28,21 @@ _IDN = {
 
 def _awg_blank() -> dict[str, Any]:
     return {"func": "SQU", "freq": 1000.0, "vpp": 1.0, "offs": 0.0, "out": "OFF"}
+
+
+def _dmm_banned_header(cmd: str) -> bool:
+    n = str(cmd or "").upper().replace(" ", "")
+    if n.startswith("*RST"):
+        return True
+    if any(tok in n for tok in ("NPLC", "AZER", "AVER")):
+        return True
+    if "TRAC" in n:
+        return True
+    if "MEAS:CURR" in n:
+        return True
+    if "VOLT:DC:RANG:AUTO" in n or "CURR:DC:RANG:AUTO" in n:
+        return True
+    return False
 
 
 # Shared AWG/PSU -> scope/DMM coupling (separate SimResource instances).
@@ -522,6 +540,7 @@ class SimResource:
         self.dmm_func = "VOLT"
         self.volt = {1: 0.0, 2: 0.0, 3: 0.0}
         self._pending_raw: bytes | None = None
+        self._syst_err = '0,"No error"'
 
     def _sync_psu_bus(self) -> None:
         if self.kind != "PSU":
@@ -538,6 +557,12 @@ class SimResource:
         text = str(cmd)
         self.writes.append(text)
         n = _norm(text)
+        if n == "*CLS" or n.startswith("*CLS"):
+            self._syst_err = '0,"No error"'
+        if self.kind == "AWG" and is_banned_awg_scpi(text):
+            self._syst_err = '-116,"Undefined header"'
+        if self.kind == "DMM" and _dmm_banned_header(text):
+            self._syst_err = '-113,"Undefined header"'
         if n == "*RST" or n.startswith("*RST"):
             if self.kind == "DMM":
                 self.dmm_func = "VOLT"
@@ -617,8 +642,14 @@ class SimResource:
     def query(self, cmd: str) -> str:
         text = str(cmd)
         n = _norm(text)
+        if self.kind == "AWG" and is_banned_awg_scpi(text):
+            self._syst_err = '-116,"Undefined header"'
+        if self.kind == "DMM" and _dmm_banned_header(text):
+            self._syst_err = '-113,"Undefined header"'
         if n.startswith("SYST:ERR") or n.startswith(":SYST:ERR"):
-            return '0,"No error"\n'
+            out = self._syst_err
+            self._syst_err = '0,"No error"'
+            return out if out.endswith("\n") else out + "\n"
         if n.startswith(":OUTP?CH"):
             ch = int(n[8])
             return self.outp.get(ch, "OFF") + "\n"
@@ -645,7 +676,8 @@ class SimResource:
             func = str(st.get("func") or "SQU")
             freq = float(st.get("freq") or 0.0)
             vpp = float(st.get("vpp") or 0.0)
-            return f"{func},{freq:.6g},{vpp:.6g},0,0\n"
+            offs = float(st.get("offs") or 0.0)
+            return f"{func},{freq:.6g},{vpp:.6g},{offs:.6g},0\n"
         if n.startswith(":READ?") or n == "READ?":
             if self.dmm_func == "CURR":
                 return f"{_dmm_current():.6g}\n"
@@ -666,6 +698,7 @@ class SimResource:
 
     def clear(self) -> None:
         self._pending_raw = None
+        self._syst_err = '0,"No error"'
 
     def close(self) -> None:
         return None

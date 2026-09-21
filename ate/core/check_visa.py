@@ -18,7 +18,15 @@ def _sim_load_timing_and_control() -> list[str]:
     from ate.instruments.session import Instruments
     from ate.instruments.sim import loopback_check, reset_bus
     from dmm_setup import dmm_setup_current, dmm_setup_voltage
-    from generator_setup import set_output_load, setup_dc, setup_square, stop_output
+    from generator_setup import (
+        is_banned_awg_scpi,
+        query_frequency,
+        set_frequency,
+        set_output_load,
+        setup_dc,
+        setup_square,
+        stop_output,
+    )
     from psu_setup import power_off, power_on, power_on_protected, resolve_protect
 
     errors: list[str] = []
@@ -50,6 +58,39 @@ def _sim_load_timing_and_control() -> list[str]:
     err = str(awg.query("SYST:ERR?")).strip()
     if not err.startswith("0"):
         errors.append(f"AWG SYST:ERR after LOAD/APPL want 0 got {err!r}")
+    if not is_banned_awg_scpi(":SOUR1:FREQ 1000"):
+        errors.append("is_banned_awg_scpi must flag :SOUR1:FREQ")
+    if is_banned_awg_scpi(":SOUR1:APPL:SQU 1000,3.3,1.65,0"):
+        errors.append("is_banned_awg_scpi must allow APPL:SQU")
+    if not is_banned_awg_scpi(":OUTP3 OFF") or not is_banned_awg_scpi(
+        ":SOUR1:FUNC:SQU:DCYC 50"
+    ):
+        errors.append("is_banned_awg_scpi must flag OUTP3 and DCYC")
+    awg.write(":SOUR1:FREQ 1000")
+    err_bad = str(awg.query("SYST:ERR?")).strip()
+    if not err_bad.startswith("-116"):
+        errors.append(f"SIM AWG FREQ must SYST:ERR -116 got {err_bad!r}")
+    err_clr = str(awg.query("SYST:ERR?")).strip()
+    if not err_clr.startswith("0"):
+        errors.append("SYST:ERR must clear after read")
+    n1 = len(awg.writes)
+    set_frequency(awg, 2, 2000.0)
+    new = awg.writes[n1:]
+    if any(is_banned_awg_scpi(str(w)) for w in new):
+        errors.append(f"set_frequency sent banned header {new}")
+    if not any("APPL:" in str(w).upper() for w in new):
+        errors.append("set_frequency must re-APPL (no standalone FREQ)")
+    got_f = query_frequency(awg, 2)
+    if abs(float(got_f) - 2000.0) > 1.0:
+        errors.append(f"query_frequency after set want 2000 got {got_f}")
+    err_set = str(awg.query("SYST:ERR?")).strip()
+    if not err_set.startswith("0"):
+        errors.append(f"set_frequency SYST:ERR want 0 got {err_set!r}")
+    try:
+        setup_square(awg, 3, 1000, 1.0, 0.0)
+        errors.append("AWG CH3 must raise (OUTP3 is Error 116)")
+    except ValueError:
+        pass
 
     psu = sim.psu
     try:
@@ -85,6 +126,10 @@ def _sim_load_timing_and_control() -> list[str]:
     sim.reset_all()
     if any("*RST" in str(w).upper() for w in dmm.writes[-8:]):
         errors.append("reset_all must not *RST DMM")
+    dmm.write("*RST")
+    derr = str(dmm.query("SYST:ERR?")).strip()
+    if not derr.startswith("-113"):
+        errors.append(f"SIM DMM *RST must SYST:ERR -113 got {derr!r}")
 
     lb = loopback_check()
     bad = [c for c in (lb.get("checks") or []) if not c.get("ok")]
@@ -95,8 +140,42 @@ def _sim_load_timing_and_control() -> list[str]:
     return errors
 
 
+_DMM_BAN_LN = ("*RST", "NPLC", "AZER", "AVER", ":TRAC", "MEAS:CURR")
+
+
+def _scan_live_banned_headers() -> list[str]:
+    """Fail-closed: live helpers + ate/tests must not write AWG -116 / DMM -113."""
+    from generator_setup import is_banned_awg_scpi
+
+    errors: list[str] = []
+    paths: list[Path] = [REPO_ROOT / "generator_setup.py"]
+    for folder in (REPO_ROOT / "ate" / "tests", REPO_ROOT / "ate" / "drivers"):
+        if folder.is_dir():
+            paths.extend(sorted(folder.rglob("*.py")))
+    for path in paths:
+        try:
+            rel = path.relative_to(REPO_ROOT).as_posix()
+        except ValueError:
+            rel = path.name
+        for i, ln in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if ".write(" not in ln and ".query(" not in ln:
+                continue
+            probe = ln.replace("{ch}", "1").replace("{channel}", "1")
+            if is_banned_awg_scpi(probe):
+                errors.append(f"{rel}:{i} banned AWG header: {ln.strip()}")
+    dmm = REPO_ROOT / "dmm_setup.py"
+    for i, ln in enumerate(dmm.read_text(encoding="utf-8").splitlines(), 1):
+        if ".write(" not in ln:
+            continue
+        u = ln.upper()
+        if any(tok in u for tok in _DMM_BAN_LN):
+            errors.append(f"dmm_setup.py:{i} banned DMM6500 header: {ln.strip()}")
+    return errors
+
+
 def main() -> int:
     errors: list[str] = []
+    errors.extend(_scan_live_banned_headers())
     disc = REPO_ROOT / "ate" / "instruments" / "discovery.py"
     sess = REPO_ROOT / "ate" / "instruments" / "session.py"
     runner = REPO_ROOT / "ate" / "core" / "runner.py"

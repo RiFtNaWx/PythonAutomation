@@ -597,6 +597,14 @@ def _check_ariff_dc_scale() -> list[str]:
     g07_idd = _idd_vccs(RunParams(part="rs1g07"))
     if 5.5 not in g07_idd:
         errors.append(f"RS1G07 IDD must keep 5.5 V corner, got {g07_idd}")
+    from ate.tests.logic.ariff_dc import _delta_vccs
+
+    aup_delta = _delta_vccs(RunParams(part="rs74aup1g07"))
+    if not aup_delta or max(aup_delta) >= 4.5 - 1e-9:
+        errors.append(f"AUP DeltaIDD VCC must stay below 4.5, got {aup_delta}")
+    g07_delta = _delta_vccs(RunParams(part="rs1g07"))
+    if not g07_delta or max(g07_delta) < 4.5:
+        errors.append(f"RS1G07 DeltaIDD must keep the 0..5 sweep, got {g07_delta}")
     settle_src = _src(REPO / "ate" / "tests" / "opa" / "settling.py")
     if "SETTLE_us" in settle_src:
         errors.append("settling must not stamp MSO delay as SETTLE_us")
