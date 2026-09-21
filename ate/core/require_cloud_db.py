@@ -1,12 +1,11 @@
-"""Gate for the operator app zip: central DB folder must already exist.
+"""Print the resolved #Test_Database path. Never blocks the console.
 
 Run: python -m ate.core.require_cloud_db
-Exit 0 if the resolved #Test_Database directory is on this PC.
-Exit 2 if missing (sync SharePoint / fill cloud_db.txt).
+Exit 0 always. Missing folder -> WARN on stderr. START.bat still launches.
+Operator then clicks Setup Choose folder (or Add shortcut to OneDrive).
 """
 from __future__ import annotations
 
-import os
 import sys
 
 from ate.core.paths import load_test_db_root, sharepoint_url
@@ -20,11 +19,8 @@ def main() -> int:
         print(url)
     if root.is_dir():
         return 0
-    app = str(os.environ.get("ATE_APP_ONLY") or "").strip()
-    if app:
-        print("MISSING_CLOUD_DB", file=sys.stderr)
-        return 2
     print("WARN_CLOUD_DB_MISSING", file=sys.stderr)
+    print("Console still opens. Setup -> Choose folder to pick #Test_Database.", file=sys.stderr)
     return 0
 
 

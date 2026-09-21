@@ -1,0 +1,43 @@
+# Path B Logic DC card fields. Panel save keys come from fields[].key.
+# OCR: PaddleOCR only. Do not install Baidu unless asked.
+oop_objects:
+  - Part
+  - Pin
+  - TruthTable
+  - Isolation
+  - Limit
+  - Recipe
+ocr:
+  engine: paddleocr
+  forbid:
+    - baidu
+fields:
+  - {key: pins, oop: Pin, editable: true, deletable: true}
+  - {key: logic_inputs, oop: Pin, editable: true, deletable: true}
+  - {key: output_pin, oop: Pin, editable: true, deletable: true}
+  - {key: pin_drive, oop: Pin, editable: true, deletable: true}
+  - {key: oe, oop: Pin, editable: true, deletable: true}
+  - {key: schmitt, oop: Part, editable: true, deletable: true}
+  - {key: truth_table, oop: TruthTable, editable: true, deletable: true}
+  - {key: isolation, oop: Isolation, editable: true, deletable: true}
+  - {key: pass_mode, oop: Limit, editable: true, deletable: true}
+  - {key: recipe, oop: Recipe, editable: true, deletable: true}
+  - {key: recipe.stable_eps_A, oop: Recipe, editable: true, deletable: true}
+  - {key: recipe.search, oop: Recipe, editable: true, deletable: true}
+  - {key: recipe.dual_channel_continue, oop: Recipe, editable: true, deletable: true}
+  - {key: recipe.channels, oop: Recipe, editable: true, deletable: true}
+  - {key: recipe.icc_vcc_list, oop: Recipe, editable: true, deletable: true}
+  - {key: recipe.icc_vcc_mode, oop: Recipe, editable: true, deletable: true}
+  - {key: recipe.icc_vcc_step, oop: Recipe, editable: true, deletable: true}
+  - {key: recipe.icc_vcc_start, oop: Recipe, editable: true, deletable: true}
+  - {key: recipe.icc_vcc_stop, oop: Recipe, editable: true, deletable: true}
+  - {key: vcc_grid, oop: Recipe, editable: true, deletable: true}
+  - {key: vcc_plan, oop: Recipe, editable: true, deletable: true}
+  - {key: vcc_list, oop: Recipe, editable: true, deletable: false}
+  - {key: wire_map, oop: Pin, editable: true, deletable: true}
+  - {key: settle_prompt, oop: Recipe, editable: true, deletable: true}
+  - {key: data_paths, oop: Recipe, editable: true, deletable: true}
+  - {key: excel_plots, oop: Recipe, editable: true, deletable: true}
+  - {key: workbook_policy, oop: Recipe, editable: true, deletable: true}
+  - {key: sample_size, oop: Part, editable: true, deletable: true}
+  - {key: gaps, oop: Part, editable: true, deletable: true}

@@ -1,0 +1,2650 @@
+{
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "reports_root": "#Test_Database/_ate/goldens",
+  "formats": {
+    "opamp_lab": 2,
+    "switch_ron": 2,
+    "logic_split_vih_voh": 2,
+    "logic_lab_vix_vox": 8,
+    "other": 3,
+    "none": 9
+  },
+  "parts": [
+    {
+      "part": "RS622",
+      "part_key": "rs622",
+      "category": "opamp",
+      "family": "opamp",
+      "format": "opamp_lab",
+      "xlsx": "RS622/RS622XK_Lab_Report.xlsx",
+      "sheets": [
+        "Summary",
+        "ORT",
+        "SlewRate"
+      ],
+      "enabled": [
+        "slew",
+        "settling",
+        "sssr",
+        "lssr",
+        "no_phase_reversal",
+        "power_on_time",
+        "gbw",
+        "ort",
+        "psrr",
+        "cmrr",
+        "vohl",
+        "noise",
+        "vos_sweep",
+        "ac_gain_check",
+        "ac_vin_sweep"
+      ],
+      "spec_ids": [
+        "VOS_mV",
+        "GAIN_VV",
+        "GBW_MHz",
+        "IQ_uA",
+        "SR_Vus",
+        "OS_VCC",
+        "OS_OUTA",
+        "IDD_5V",
+        "IEE_5V",
+        "IDD_36V",
+        "IEE_36V",
+        "EN_1kHz_nVrtHz",
+        "EN_10kHz_nVrtHz",
+        "VN_IN_PP_uV",
+        "SETTLE_VPP_V",
+        "PSRR_dB",
+        "CMRR_dB",
+        "AOL_dB",
+        "POWERON_ns",
+        "VOH_V",
+        "VOL_V",
+        "OVERSHOOT",
+        "LSSR_VPP_V",
+        "NPR_VPP_V",
+        "ORT_POS_us",
+        "ORT_NEG_us"
+      ],
+      "extract_len": 31559,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "ORT",
+          "ids": [
+            "ort"
+          ],
+          "enabled": [
+            "ort"
+          ]
+        },
+        {
+          "sheet": "SlewRate",
+          "ids": [
+            "slew"
+          ],
+          "enabled": [
+            "slew"
+          ]
+        }
+      ],
+      "missing_enable": [],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS2323",
+      "part_key": "rs2323",
+      "category": "analog_switch",
+      "family": "switch",
+      "format": "switch_ron",
+      "xlsx": "RS2323",
+      "sheets": [
+        "Mapping",
+        "Status",
+        "Ron",
+        "VTH",
+        "ICC",
+        "ION",
+        "IOZ",
+        "INN",
+        "Cin, Con, Coff",
+        "TOFF",
+        "TON",
+        "BW",
+        "ISO",
+        "XTalk",
+        "QI",
+        "TBBM"
+      ],
+      "enabled": [
+        "iplus",
+        "leakage_off",
+        "leakage_on",
+        "input_leakage",
+        "ron",
+        "vth",
+        "ton_toff",
+        "con_coff",
+        "tbbm",
+        "iso",
+        "xtalk"
+      ],
+      "spec_ids": [
+        "IPLUS_uA",
+        "VCC_V",
+        "RON_ohm",
+        "IOZ_uA",
+        "ION_uA",
+        "IIN_uA",
+        "TON_ns",
+        "TOFF_ns",
+        "CON_pF",
+        "COFF_pF",
+        "CIN_pF",
+        "TBBM_ns",
+        "VTH_V",
+        "ISO_dB",
+        "XTALK_dB"
+      ],
+      "extract_len": 15874,
+      "pdf": true,
+      "thin": false,
+      "mapped": [],
+      "missing_enable": [],
+      "missing_code": [
+        "Ron",
+        "VTH",
+        "ICC",
+        "ION",
+        "IOZ",
+        "INN",
+        "Cin, Con, Coff",
+        "TOFF",
+        "TON",
+        "BW",
+        "ISO",
+        "XTalk",
+        "QI",
+        "TBBM"
+      ],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS0204",
+      "part_key": "rs0204",
+      "category": "level",
+      "family": "level",
+      "format": "logic_split_vih_voh",
+      "xlsx": "RS0204/RS0204 Data Report.xlsx",
+      "sheets": [
+        "Summary",
+        "Checklist",
+        "VIH",
+        "VIL",
+        "VOH",
+        "VOL",
+        "Icc",
+        "Il",
+        "Tpd",
+        "Tp",
+        "Tsu",
+        "Th",
+        "fmax",
+        "tr",
+        "tf",
+        "Tsk",
+        "Cpd",
+        "tw"
+      ],
+      "enabled": [
+        "vih",
+        "vil",
+        "voh",
+        "vol",
+        "icc",
+        "il",
+        "tpd",
+        "tp_rs0204",
+        "tsu",
+        "th",
+        "fmax",
+        "tr",
+        "tf",
+        "tsk",
+        "cpd",
+        "tw"
+      ],
+      "spec_ids": [
+        "VCCA_V",
+        "VCCB_V",
+        "ICC_uA",
+        "IL_uA",
+        "VOL_V",
+        "VOH_DROP_V",
+        "VIH_RATIO",
+        "VIH_V",
+        "VIL_RATIO",
+        "VIL_V",
+        "CI_pF",
+        "CIO_A_pF",
+        "CIO_B_pF",
+        "TPD_PHL_ns",
+        "TPD_PLH_ns",
+        "TP_PHL_ns",
+        "TP_PLH_ns",
+        "TEN_ns",
+        "TDIS_ns",
+        "TSK_ns",
+        "FMAX_Mbps",
+        "TW_ns",
+        "TR_ns",
+        "TF_ns"
+      ],
+      "extract_len": 36056,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "VIH",
+          "ids": [
+            "vih_vil",
+            "vih"
+          ],
+          "enabled": [
+            "vih"
+          ]
+        },
+        {
+          "sheet": "VIL",
+          "ids": [
+            "vih_vil",
+            "vil"
+          ],
+          "enabled": [
+            "vil"
+          ]
+        },
+        {
+          "sheet": "VOH",
+          "ids": [
+            "voh_load",
+            "voh"
+          ],
+          "enabled": [
+            "voh"
+          ]
+        },
+        {
+          "sheet": "VOL",
+          "ids": [
+            "vol_load",
+            "vol",
+            "output_voltage"
+          ],
+          "enabled": [
+            "vol"
+          ]
+        },
+        {
+          "sheet": "Icc",
+          "ids": [
+            "supply_current",
+            "supply_current_sweep",
+            "icc"
+          ],
+          "enabled": [
+            "icc"
+          ]
+        },
+        {
+          "sheet": "Il",
+          "ids": [
+            "input_leakage_sweep",
+            "il"
+          ],
+          "enabled": [
+            "il"
+          ]
+        },
+        {
+          "sheet": "Tpd",
+          "ids": [
+            "tp",
+            "tpd",
+            "tp_rs0204"
+          ],
+          "enabled": [
+            "tpd",
+            "tp_rs0204"
+          ]
+        },
+        {
+          "sheet": "Tp",
+          "ids": [
+            "tp"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "Cpd",
+          "ids": [
+            "cpd"
+          ],
+          "enabled": [
+            "cpd"
+          ]
+        }
+      ],
+      "missing_enable": [
+        "Tp"
+      ],
+      "missing_code": [
+        "Tsu",
+        "Th",
+        "fmax",
+        "tr",
+        "tf",
+        "Tsk",
+        "tw"
+      ],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS1GT34",
+      "part_key": "rs1gt34",
+      "category": "logic",
+      "family": "logic",
+      "format": "logic_lab_vix_vox",
+      "xlsx": "RS1GT34/RS1GT34_Lab_Report.xlsx",
+      "sheets": [
+        "Summary",
+        "Checklist",
+        "VIX",
+        "VOX",
+        "ICC",
+        "IOFF",
+        "CPD",
+        "CIN",
+        "tPD"
+      ],
+      "enabled": [
+        "input_threshold",
+        "icc",
+        "ii",
+        "voh",
+        "vol",
+        "delta_icc"
+      ],
+      "spec_ids": [
+        "ICC_uA",
+        "ICC_FULL_uA",
+        "DELTA_ICC_uA",
+        "II_uA",
+        "II_FULL_uA",
+        "Ioff_uA",
+        "IOFF_uA",
+        "VCC_V",
+        "VIH_2p0V",
+        "VIL_2p0V",
+        "VIH_3p3V",
+        "VIL_3p3V",
+        "VIH_4p5V",
+        "VIL_4p5V",
+        "VIH_5p0V",
+        "VIL_5p0V",
+        "VIH_5p5V",
+        "VIL_5p5V",
+        "VOH_2p0V_100uA",
+        "VOH_3p3V_100uA",
+        "VOH_4p5V_100uA",
+        "VOH_4p6V_100uA",
+        "VOH_4p7V_100uA",
+        "VOH_4p8V_100uA",
+        "VOH_4p9V_100uA",
+        "VOH_5p0V_100uA",
+        "VOH_5p1V_100uA",
+        "VOH_5p2V_100uA",
+        "VOH_5p3V_100uA",
+        "VOH_5p4V_100uA",
+        "VOH_5p5V_100uA",
+        "VOH_2p0V_8mA",
+        "VOH_3p3V_24mA",
+        "VOH_4p5V_32mA",
+        "VOH_5p0V_32mA",
+        "VOH_5p5V_32mA",
+        "VOH_2p0V",
+        "VOH_3p3V",
+        "VOH_4p5V",
+        "VOH_5p0V",
+        "VOH_5p5V",
+        "VOL_2p0V_100uA",
+        "VOL_3p3V_100uA",
+        "VOL_4p5V_100uA",
+        "VOL_4p6V_100uA",
+        "VOL_4p7V_100uA",
+        "VOL_4p8V_100uA",
+        "VOL_4p9V_100uA",
+        "VOL_5p0V_100uA",
+        "VOL_5p1V_100uA",
+        "VOL_5p2V_100uA",
+        "VOL_5p3V_100uA",
+        "VOL_5p4V_100uA",
+        "VOL_5p5V_100uA",
+        "VOL_2p0V_8mA",
+        "VOL_3p3V_24mA",
+        "VOL_4p5V_32mA",
+        "VOL_5p0V_32mA",
+        "VOL_5p5V_32mA",
+        "VOL_2p0V",
+        "VOL_3p3V",
+        "VOL_4p5V",
+        "VOL_5p0V",
+        "VOL_5p5V",
+        "CIN_pF",
+        "CPD_pF"
+      ],
+      "extract_len": 14695,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "VIX",
+          "ids": [
+            "vih_vil"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "VOX",
+          "ids": [
+            "voh_load",
+            "vol_load"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "ICC",
+          "ids": [
+            "supply_current",
+            "supply_current_sweep",
+            "icc"
+          ],
+          "enabled": [
+            "icc"
+          ]
+        },
+        {
+          "sheet": "IOFF",
+          "ids": [
+            "ioff_leakage"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "CPD",
+          "ids": [
+            "cpd"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "CIN",
+          "ids": [
+            "cin"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "tPD",
+          "ids": [
+            "tp",
+            "tpd",
+            "tp_rs0204"
+          ],
+          "enabled": []
+        }
+      ],
+      "missing_enable": [
+        "VIX",
+        "VOX",
+        "IOFF",
+        "CPD",
+        "CIN",
+        "tPD"
+      ],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS1G125",
+      "part_key": "rs1g125",
+      "category": "logic",
+      "family": "logic",
+      "format": "logic_lab_vix_vox",
+      "xlsx": "RS1G125/RS1G125XC5_Lab_Report.xlsx",
+      "sheets": [
+        "Summary",
+        "Checklist",
+        "VIX",
+        "VOX",
+        "ICC",
+        "∆ICC",
+        "IIL",
+        "IOFF",
+        "CPD",
+        "IOZ",
+        "CI",
+        "tPD"
+      ],
+      "enabled": [
+        "tp",
+        "ten",
+        "tdis",
+        "supply_current",
+        "input_threshold",
+        "icc",
+        "ii",
+        "delta_icc",
+        "ioz",
+        "voh",
+        "vol"
+      ],
+      "spec_ids": [
+        "ICC_uA",
+        "IOZ_uA",
+        "VCC_V",
+        "VOH_1p65V",
+        "VOH_2p0V",
+        "VOH_2p3V",
+        "VOH_3p0V",
+        "VOH_3p3V",
+        "VOH_4p5V",
+        "VOH_5p0V",
+        "VOH_5p5V",
+        "VOL_1p65V",
+        "VOL_2p0V",
+        "VOL_2p3V",
+        "VOL_3p0V",
+        "VOL_3p3V",
+        "VOL_4p5V",
+        "VOL_5p0V",
+        "VOL_5p5V",
+        "TEN_ns",
+        "TDIS_ns"
+      ],
+      "extract_len": 16114,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "VIX",
+          "ids": [
+            "vih_vil"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "VOX",
+          "ids": [
+            "voh_load",
+            "vol_load"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "ICC",
+          "ids": [
+            "supply_current",
+            "supply_current_sweep",
+            "icc"
+          ],
+          "enabled": [
+            "supply_current",
+            "icc"
+          ]
+        },
+        {
+          "sheet": "∆ICC",
+          "ids": [
+            "delta_supply_current"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "IIL",
+          "ids": [
+            "input_leakage_sweep"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "IOFF",
+          "ids": [
+            "ioff_leakage"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "CPD",
+          "ids": [
+            "cpd"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "CI",
+          "ids": [
+            "cin"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "tPD",
+          "ids": [
+            "tp",
+            "tpd",
+            "tp_rs0204"
+          ],
+          "enabled": [
+            "tp"
+          ]
+        }
+      ],
+      "missing_enable": [
+        "VIX",
+        "VOX",
+        "∆ICC",
+        "IIL",
+        "IOFF",
+        "CPD",
+        "CI"
+      ],
+      "missing_code": [
+        "IOZ"
+      ],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS1G07",
+      "part_key": "rs1g07",
+      "category": "logic",
+      "family": "logic",
+      "format": "logic_lab_vix_vox",
+      "xlsx": "RS1G07/RS1G07XC5_Lab_Report.xlsx",
+      "sheets": [
+        "Summary",
+        "Checklist",
+        "VIX",
+        "VOL",
+        "ICC",
+        "ICCT",
+        "IIL",
+        "IOFF",
+        "CPD",
+        "CIN",
+        "tPD"
+      ],
+      "enabled": [
+        "supply_current",
+        "delta_supply_current",
+        "ioff_leakage",
+        "input_leakage_sweep",
+        "input_threshold",
+        "icc",
+        "ii",
+        "delta_icc",
+        "vol"
+      ],
+      "spec_ids": [
+        "ICC_uA",
+        "DELTA_ICC_uA",
+        "IOFF_uA",
+        "II_uA",
+        "CIN_pF",
+        "CPD_pF",
+        "VCC_V",
+        "VOL_1p65V",
+        "VOL_2p0V",
+        "VOL_2p3V",
+        "VOL_3p0V",
+        "VOL_3p3V",
+        "VOL_4p5V",
+        "VOL_5p0V",
+        "VOL_5p5V"
+      ],
+      "extract_len": 14944,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "VIX",
+          "ids": [
+            "vih_vil"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "VOL",
+          "ids": [
+            "vol_load",
+            "vol",
+            "output_voltage"
+          ],
+          "enabled": [
+            "vol"
+          ]
+        },
+        {
+          "sheet": "ICC",
+          "ids": [
+            "supply_current",
+            "supply_current_sweep",
+            "icc"
+          ],
+          "enabled": [
+            "supply_current",
+            "icc"
+          ]
+        },
+        {
+          "sheet": "ICCT",
+          "ids": [
+            "delta_supply_current"
+          ],
+          "enabled": [
+            "delta_supply_current"
+          ]
+        },
+        {
+          "sheet": "IIL",
+          "ids": [
+            "input_leakage_sweep"
+          ],
+          "enabled": [
+            "input_leakage_sweep"
+          ]
+        },
+        {
+          "sheet": "IOFF",
+          "ids": [
+            "ioff_leakage"
+          ],
+          "enabled": [
+            "ioff_leakage"
+          ]
+        },
+        {
+          "sheet": "CPD",
+          "ids": [
+            "cpd"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "CIN",
+          "ids": [
+            "cin"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "tPD",
+          "ids": [
+            "tp",
+            "tpd",
+            "tp_rs0204"
+          ],
+          "enabled": []
+        }
+      ],
+      "missing_enable": [
+        "VIX",
+        "CPD",
+        "CIN",
+        "tPD"
+      ],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS1G08",
+      "part_key": "rs1g08",
+      "category": "logic",
+      "family": "logic",
+      "format": "logic_lab_vix_vox",
+      "xlsx": "RS1G08/RS1G08_Lab_Report.xlsx",
+      "sheets": [
+        "Summary",
+        "Checklist",
+        "VIX",
+        "VOX",
+        "IL",
+        "IOFF",
+        "ICC",
+        "ICCT",
+        "Cpd",
+        "Cin",
+        "tPD",
+        "TrTf",
+        "setting time",
+        "SR",
+        "PSRR",
+        "SR高低温"
+      ],
+      "enabled": [
+        "tp",
+        "tidle",
+        "tdis",
+        "delta_supply_current",
+        "off_current",
+        "input_thresholds",
+        "ioff_leakage",
+        "input_leakage_sweep",
+        "supply_current_sweep",
+        "vih_vil",
+        "voh_load",
+        "vol_load",
+        "input_threshold",
+        "icc",
+        "delta_icc",
+        "ii",
+        "voh",
+        "vol"
+      ],
+      "spec_ids": [
+        "VOH_2p0V",
+        "VOH_3p3V",
+        "VOH_4p5V",
+        "VOH_5p0V",
+        "VOH_5p5V",
+        "VOL_2p0V",
+        "VOL_3p3V",
+        "VOL_4p5V",
+        "VOL_5p0V",
+        "VOL_5p5V",
+        "ICC_uA",
+        "VCC_V",
+        "VOH_1p65V",
+        "VOH_2p3V",
+        "VOH_3p0V",
+        "VOL_1p65V",
+        "VOL_2p3V",
+        "VOL_3p0V"
+      ],
+      "extract_len": 16487,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "VIX",
+          "ids": [
+            "vih_vil"
+          ],
+          "enabled": [
+            "vih_vil"
+          ]
+        },
+        {
+          "sheet": "VOX",
+          "ids": [
+            "voh_load",
+            "vol_load"
+          ],
+          "enabled": [
+            "voh_load",
+            "vol_load"
+          ]
+        },
+        {
+          "sheet": "IL",
+          "ids": [
+            "input_leakage_sweep",
+            "il"
+          ],
+          "enabled": [
+            "input_leakage_sweep"
+          ]
+        },
+        {
+          "sheet": "IOFF",
+          "ids": [
+            "ioff_leakage"
+          ],
+          "enabled": [
+            "ioff_leakage"
+          ]
+        },
+        {
+          "sheet": "ICC",
+          "ids": [
+            "supply_current",
+            "supply_current_sweep",
+            "icc"
+          ],
+          "enabled": [
+            "supply_current_sweep",
+            "icc"
+          ]
+        },
+        {
+          "sheet": "ICCT",
+          "ids": [
+            "delta_supply_current"
+          ],
+          "enabled": [
+            "delta_supply_current"
+          ]
+        },
+        {
+          "sheet": "Cpd",
+          "ids": [
+            "cpd"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "Cin",
+          "ids": [
+            "cin"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "tPD",
+          "ids": [
+            "tp",
+            "tpd",
+            "tp_rs0204"
+          ],
+          "enabled": [
+            "tp"
+          ]
+        }
+      ],
+      "missing_enable": [
+        "Cpd",
+        "Cin"
+      ],
+      "missing_code": [],
+      "opamp_leftover": [
+        "TrTf",
+        "setting time",
+        "SR",
+        "PSRR",
+        "SR高低温"
+      ],
+      "error": ""
+    },
+    {
+      "part": "RS1G32",
+      "part_key": "rs1g32",
+      "category": "logic",
+      "family": "logic",
+      "format": "logic_lab_vix_vox",
+      "xlsx": "RS1G32/RS1G32_Lab_Report.xlsx",
+      "sheets": [
+        "Summary",
+        "Checklist",
+        "VIX",
+        "VOX",
+        "IL",
+        "IOFF",
+        "ICC",
+        "ICCT",
+        "Cpd",
+        "Cin",
+        "tPD",
+        "TrTf",
+        "setting time",
+        "SR",
+        "PSRR",
+        "SR高低温"
+      ],
+      "enabled": [
+        "delta_supply_current",
+        "off_current",
+        "input_thresholds",
+        "ioff_leakage",
+        "input_leakage_sweep",
+        "supply_current_sweep",
+        "vih_vil",
+        "voh_load",
+        "vol_load",
+        "input_threshold",
+        "icc",
+        "delta_icc",
+        "ii",
+        "voh",
+        "vol"
+      ],
+      "spec_ids": [
+        "ICC_uA",
+        "VCC_V",
+        "VOH_2p0V",
+        "VOH_3p3V",
+        "VOH_4p5V",
+        "VOH_5p0V",
+        "VOH_5p5V",
+        "VOL_2p0V",
+        "VOL_3p3V",
+        "VOL_4p5V",
+        "VOL_5p0V",
+        "VOL_5p5V",
+        "VOH_1p65V",
+        "VOH_2p3V",
+        "VOH_3p0V",
+        "VOL_1p65V",
+        "VOL_2p3V",
+        "VOL_3p0V"
+      ],
+      "extract_len": 16576,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "VIX",
+          "ids": [
+            "vih_vil"
+          ],
+          "enabled": [
+            "vih_vil"
+          ]
+        },
+        {
+          "sheet": "VOX",
+          "ids": [
+            "voh_load",
+            "vol_load"
+          ],
+          "enabled": [
+            "voh_load",
+            "vol_load"
+          ]
+        },
+        {
+          "sheet": "IL",
+          "ids": [
+            "input_leakage_sweep",
+            "il"
+          ],
+          "enabled": [
+            "input_leakage_sweep"
+          ]
+        },
+        {
+          "sheet": "IOFF",
+          "ids": [
+            "ioff_leakage"
+          ],
+          "enabled": [
+            "ioff_leakage"
+          ]
+        },
+        {
+          "sheet": "ICC",
+          "ids": [
+            "supply_current",
+            "supply_current_sweep",
+            "icc"
+          ],
+          "enabled": [
+            "supply_current_sweep",
+            "icc"
+          ]
+        },
+        {
+          "sheet": "ICCT",
+          "ids": [
+            "delta_supply_current"
+          ],
+          "enabled": [
+            "delta_supply_current"
+          ]
+        },
+        {
+          "sheet": "Cpd",
+          "ids": [
+            "cpd"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "Cin",
+          "ids": [
+            "cin"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "tPD",
+          "ids": [
+            "tp",
+            "tpd",
+            "tp_rs0204"
+          ],
+          "enabled": []
+        }
+      ],
+      "missing_enable": [
+        "Cpd",
+        "Cin",
+        "tPD"
+      ],
+      "missing_code": [],
+      "opamp_leftover": [
+        "TrTf",
+        "setting time",
+        "SR",
+        "PSRR",
+        "SR高低温"
+      ],
+      "error": ""
+    },
+    {
+      "part": "RS1G14",
+      "part_key": "rs1g14",
+      "category": "logic",
+      "family": "logic",
+      "format": "logic_lab_vix_vox",
+      "xlsx": "RS1G14/RS1G14XC5_Lab_Report.xlsx",
+      "sheets": [
+        "Summary",
+        "Checklist",
+        "ΔVT",
+        "VOX",
+        "ICC",
+        "∆ICC",
+        "IIL",
+        "IOFF",
+        "CPD",
+        "CI",
+        "tPD"
+      ],
+      "enabled": [
+        "supply_current",
+        "delta_supply_current",
+        "ioff_leakage",
+        "input_leakage_sweep",
+        "vth",
+        "icc",
+        "ii",
+        "delta_icc",
+        "voh",
+        "vol"
+      ],
+      "spec_ids": [
+        "ICC_uA",
+        "VCC_V",
+        "VOH_1p65V",
+        "VOH_2p0V",
+        "VOH_2p3V",
+        "VOH_3p0V",
+        "VOH_3p3V",
+        "VOH_4p5V",
+        "VOH_5p0V",
+        "VOH_5p5V",
+        "VOL_1p65V",
+        "VOL_2p0V",
+        "VOL_2p3V",
+        "VOL_3p0V",
+        "VOL_3p3V",
+        "VOL_4p5V",
+        "VOL_5p0V",
+        "VOL_5p5V"
+      ],
+      "extract_len": 15834,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "ΔVT",
+          "ids": [
+            "vih_vil"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "VOX",
+          "ids": [
+            "voh_load",
+            "vol_load"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "ICC",
+          "ids": [
+            "supply_current",
+            "supply_current_sweep",
+            "icc"
+          ],
+          "enabled": [
+            "supply_current",
+            "icc"
+          ]
+        },
+        {
+          "sheet": "∆ICC",
+          "ids": [
+            "delta_supply_current"
+          ],
+          "enabled": [
+            "delta_supply_current"
+          ]
+        },
+        {
+          "sheet": "IIL",
+          "ids": [
+            "input_leakage_sweep"
+          ],
+          "enabled": [
+            "input_leakage_sweep"
+          ]
+        },
+        {
+          "sheet": "IOFF",
+          "ids": [
+            "ioff_leakage"
+          ],
+          "enabled": [
+            "ioff_leakage"
+          ]
+        },
+        {
+          "sheet": "CPD",
+          "ids": [
+            "cpd"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "CI",
+          "ids": [
+            "cin"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "tPD",
+          "ids": [
+            "tp",
+            "tpd",
+            "tp_rs0204"
+          ],
+          "enabled": []
+        }
+      ],
+      "missing_enable": [
+        "ΔVT",
+        "VOX",
+        "CPD",
+        "CI",
+        "tPD"
+      ],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS1G97",
+      "part_key": "rs1g97",
+      "category": "logic",
+      "family": "logic",
+      "format": "other",
+      "xlsx": "RS1G97/RS1G97.xlsx",
+      "sheets": [
+        "Summary",
+        "VTH",
+        "IC",
+        "∆ICC",
+        "II",
+        "tpd",
+        "Cpd",
+        "Ci"
+      ],
+      "enabled": [
+        "tp",
+        "input_threshold",
+        "vth",
+        "icc",
+        "delta_icc",
+        "ii",
+        "voh",
+        "vol"
+      ],
+      "spec_ids": [
+        "VCC_V",
+        "ICC_uA",
+        "DELTA_ICC_uA",
+        "II_uA",
+        "VOH_min_leftover",
+        "VOL_max_leftover"
+      ],
+      "extract_len": 22095,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "VTH",
+          "ids": [
+            "input_thresholds",
+            "vih_vil"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "IC",
+          "ids": [
+            "supply_current"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "∆ICC",
+          "ids": [
+            "delta_supply_current"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "II",
+          "ids": [
+            "input_leakage_sweep"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "tpd",
+          "ids": [
+            "tp",
+            "tpd",
+            "tp_rs0204"
+          ],
+          "enabled": [
+            "tp"
+          ]
+        },
+        {
+          "sheet": "Cpd",
+          "ids": [
+            "cpd"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "Ci",
+          "ids": [
+            "cin"
+          ],
+          "enabled": []
+        }
+      ],
+      "missing_enable": [
+        "VTH",
+        "IC",
+        "∆ICC",
+        "II",
+        "Cpd",
+        "Ci"
+      ],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS1GT08",
+      "part_key": "rs1gt08",
+      "category": "logic",
+      "family": "logic",
+      "format": "logic_lab_vix_vox",
+      "xlsx": "RS1GT08/RS1GT08_Lab_Report.xlsx",
+      "sheets": [
+        "Summary",
+        "Checklist",
+        "VIX",
+        "VOX",
+        "IL",
+        "IOFF",
+        "ICC",
+        "ICCT",
+        "Cpd",
+        "Cin",
+        "tPD",
+        "TrTf",
+        "setting time",
+        "SR",
+        "PSRR",
+        "SR高低温"
+      ],
+      "enabled": [
+        "tp",
+        "tidle",
+        "tdis",
+        "delta_supply_current",
+        "off_current",
+        "vih_vil",
+        "voh_load",
+        "vol_load",
+        "input_threshold",
+        "icc",
+        "delta_icc",
+        "ii",
+        "voh",
+        "vol"
+      ],
+      "spec_ids": [
+        "ICC_uA",
+        "VCC_V",
+        "VOH_2p0V",
+        "VOH_3p3V",
+        "VOH_4p5V",
+        "VOH_5p0V",
+        "VOH_5p5V",
+        "VOL_2p0V",
+        "VOL_3p3V",
+        "VOL_4p5V",
+        "VOL_5p0V",
+        "VOL_5p5V",
+        "CIN_pF",
+        "CPD_pF"
+      ],
+      "extract_len": 19661,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "VIX",
+          "ids": [
+            "vih_vil"
+          ],
+          "enabled": [
+            "vih_vil"
+          ]
+        },
+        {
+          "sheet": "VOX",
+          "ids": [
+            "voh_load",
+            "vol_load"
+          ],
+          "enabled": [
+            "voh_load",
+            "vol_load"
+          ]
+        },
+        {
+          "sheet": "IL",
+          "ids": [
+            "input_leakage_sweep",
+            "il"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "IOFF",
+          "ids": [
+            "ioff_leakage"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "ICC",
+          "ids": [
+            "supply_current",
+            "supply_current_sweep",
+            "icc"
+          ],
+          "enabled": [
+            "icc"
+          ]
+        },
+        {
+          "sheet": "ICCT",
+          "ids": [
+            "delta_supply_current"
+          ],
+          "enabled": [
+            "delta_supply_current"
+          ]
+        },
+        {
+          "sheet": "Cpd",
+          "ids": [
+            "cpd"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "Cin",
+          "ids": [
+            "cin"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "tPD",
+          "ids": [
+            "tp",
+            "tpd",
+            "tp_rs0204"
+          ],
+          "enabled": [
+            "tp"
+          ]
+        }
+      ],
+      "missing_enable": [
+        "IL",
+        "IOFF",
+        "Cpd",
+        "Cin"
+      ],
+      "missing_code": [],
+      "opamp_leftover": [
+        "TrTf",
+        "setting time",
+        "SR",
+        "PSRR",
+        "SR高低温"
+      ],
+      "error": ""
+    },
+    {
+      "part": "RS1GT32",
+      "part_key": "rs1gt32",
+      "category": "logic",
+      "family": "logic",
+      "format": "logic_lab_vix_vox",
+      "xlsx": "RS1GT32/RS1GT32_Lab_Report.xlsx",
+      "sheets": [
+        "Summary",
+        "Checklist",
+        "VIX",
+        "VOX",
+        "IL",
+        "IOFF",
+        "ICC",
+        "ICCT",
+        "Cpd",
+        "Cin",
+        "tPD",
+        "TrTf",
+        "setting time",
+        "SR",
+        "PSRR",
+        "SR高低温"
+      ],
+      "enabled": [
+        "delta_supply_current",
+        "off_current",
+        "vih_vil",
+        "voh_load",
+        "vol_load",
+        "supply_current_sweep",
+        "input_threshold",
+        "icc",
+        "delta_icc",
+        "ii",
+        "voh",
+        "vol"
+      ],
+      "spec_ids": [
+        "ICC_uA",
+        "VCC_V",
+        "VOH_2p0V",
+        "VOH_3p3V",
+        "VOH_4p5V",
+        "VOH_5p0V",
+        "VOH_5p5V",
+        "VOL_2p0V",
+        "VOL_3p3V",
+        "VOL_4p5V",
+        "VOL_5p0V",
+        "VOL_5p5V",
+        "CIN_pF",
+        "CPD_pF"
+      ],
+      "extract_len": 14933,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "VIX",
+          "ids": [
+            "vih_vil"
+          ],
+          "enabled": [
+            "vih_vil"
+          ]
+        },
+        {
+          "sheet": "VOX",
+          "ids": [
+            "voh_load",
+            "vol_load"
+          ],
+          "enabled": [
+            "voh_load",
+            "vol_load"
+          ]
+        },
+        {
+          "sheet": "IL",
+          "ids": [
+            "input_leakage_sweep",
+            "il"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "IOFF",
+          "ids": [
+            "ioff_leakage"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "ICC",
+          "ids": [
+            "supply_current",
+            "supply_current_sweep",
+            "icc"
+          ],
+          "enabled": [
+            "supply_current_sweep",
+            "icc"
+          ]
+        },
+        {
+          "sheet": "ICCT",
+          "ids": [
+            "delta_supply_current"
+          ],
+          "enabled": [
+            "delta_supply_current"
+          ]
+        },
+        {
+          "sheet": "Cpd",
+          "ids": [
+            "cpd"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "Cin",
+          "ids": [
+            "cin"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "tPD",
+          "ids": [
+            "tp",
+            "tpd",
+            "tp_rs0204"
+          ],
+          "enabled": []
+        }
+      ],
+      "missing_enable": [
+        "IL",
+        "IOFF",
+        "Cpd",
+        "Cin",
+        "tPD"
+      ],
+      "missing_code": [],
+      "opamp_leftover": [
+        "TrTf",
+        "setting time",
+        "SR",
+        "PSRR",
+        "SR高低温"
+      ],
+      "error": ""
+    },
+    {
+      "part": "RS1G126",
+      "part_key": "rs1g126",
+      "category": "logic",
+      "family": "logic",
+      "format": "logic_split_vih_voh",
+      "xlsx": "RS1G126/RS1G126 Test Report.xlsx",
+      "sheets": [
+        "Summary",
+        "Checklist",
+        "VIH",
+        "VIL",
+        "VOH",
+        "VOL",
+        "II",
+        "IOFF",
+        "IOZ",
+        "ICC",
+        "ΔICC",
+        "tpd",
+        "ten",
+        "tdis",
+        "Cpd",
+        "setting time",
+        "SR",
+        "PSRR",
+        "SR高低温"
+      ],
+      "enabled": [
+        "tp",
+        "ten",
+        "tdis",
+        "input_threshold",
+        "icc",
+        "delta_icc",
+        "ii",
+        "voh",
+        "vol",
+        "ioz"
+      ],
+      "spec_ids": [
+        "VCC_V",
+        "ICC_uA",
+        "DELTA_ICC_uA",
+        "II_uA",
+        "IOFF_uA",
+        "IOZ_uA",
+        "TEN_ns",
+        "TDIS_ns",
+        "VOH_min_leftover",
+        "VOL_max_leftover"
+      ],
+      "extract_len": 17195,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "VIH",
+          "ids": [
+            "vih_vil",
+            "vih"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "VIL",
+          "ids": [
+            "vih_vil",
+            "vil"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "VOH",
+          "ids": [
+            "voh_load",
+            "voh"
+          ],
+          "enabled": [
+            "voh"
+          ]
+        },
+        {
+          "sheet": "VOL",
+          "ids": [
+            "vol_load",
+            "vol",
+            "output_voltage"
+          ],
+          "enabled": [
+            "vol"
+          ]
+        },
+        {
+          "sheet": "II",
+          "ids": [
+            "input_leakage_sweep"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "IOFF",
+          "ids": [
+            "ioff_leakage"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "ICC",
+          "ids": [
+            "supply_current",
+            "supply_current_sweep",
+            "icc"
+          ],
+          "enabled": [
+            "icc"
+          ]
+        },
+        {
+          "sheet": "ΔICC",
+          "ids": [
+            "delta_supply_current"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "tpd",
+          "ids": [
+            "tp",
+            "tpd",
+            "tp_rs0204"
+          ],
+          "enabled": [
+            "tp"
+          ]
+        },
+        {
+          "sheet": "ten",
+          "ids": [
+            "ten"
+          ],
+          "enabled": [
+            "ten"
+          ]
+        },
+        {
+          "sheet": "tdis",
+          "ids": [
+            "tdis"
+          ],
+          "enabled": [
+            "tdis"
+          ]
+        },
+        {
+          "sheet": "Cpd",
+          "ids": [
+            "cpd"
+          ],
+          "enabled": []
+        }
+      ],
+      "missing_enable": [
+        "VIH",
+        "VIL",
+        "II",
+        "IOFF",
+        "ΔICC",
+        "Cpd"
+      ],
+      "missing_code": [
+        "IOZ"
+      ],
+      "opamp_leftover": [
+        "setting time",
+        "SR",
+        "PSRR",
+        "SR高低温"
+      ],
+      "error": ""
+    },
+    {
+      "part": "RS74AUP1G07",
+      "part_key": "rs74aup1g07",
+      "category": "logic",
+      "family": "logic",
+      "format": "none",
+      "xlsx": "",
+      "sheets": [],
+      "enabled": [
+        "vih_vil",
+        "supply_current",
+        "delta_supply_current",
+        "ioff_leakage"
+      ],
+      "spec_ids": [],
+      "extract_len": 0,
+      "pdf": false,
+      "thin": true,
+      "mapped": [],
+      "missing_enable": [],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS358",
+      "part_key": "rs358",
+      "category": "opamp",
+      "family": "opamp",
+      "format": "none",
+      "xlsx": "",
+      "sheets": [],
+      "enabled": [
+        "slew",
+        "settling",
+        "gbw",
+        "ort",
+        "noise"
+      ],
+      "spec_ids": [
+        "VOS_mV",
+        "GBW_MHz",
+        "SR_Vus",
+        "SETTLE_VPP_V",
+        "IQ_uA",
+        "VCC_V"
+      ],
+      "extract_len": 27066,
+      "pdf": true,
+      "thin": false,
+      "mapped": [],
+      "missing_enable": [],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS1G123",
+      "part_key": "rs1g123",
+      "category": "logic",
+      "family": "logic",
+      "format": "none",
+      "xlsx": "",
+      "sheets": [],
+      "enabled": [
+        "tp",
+        "supply_current"
+      ],
+      "spec_ids": [
+        "VCC_V",
+        "PULSE_ns"
+      ],
+      "extract_len": 19121,
+      "pdf": true,
+      "thin": false,
+      "mapped": [],
+      "missing_enable": [],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS164",
+      "part_key": "rs164",
+      "category": "logic",
+      "family": "logic",
+      "format": "none",
+      "xlsx": "",
+      "sheets": [],
+      "enabled": [
+        "tp",
+        "supply_current"
+      ],
+      "spec_ids": [
+        "VCC_V",
+        "CLKQ_PHL_ns",
+        "CLKQ_PLH_ns",
+        "Q7_HIGH_V",
+        "Q7_LOW_V"
+      ],
+      "extract_len": 16360,
+      "pdf": true,
+      "thin": false,
+      "mapped": [],
+      "missing_enable": [],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS1G74",
+      "part_key": "rs1g74",
+      "category": "logic",
+      "family": "logic",
+      "format": "none",
+      "xlsx": "",
+      "sheets": [],
+      "enabled": [
+        "tp",
+        "supply_current"
+      ],
+      "spec_ids": [
+        "VCC_V",
+        "ICC_uA",
+        "CLKQ_PHL_ns",
+        "CLKQ_PLH_ns"
+      ],
+      "extract_len": 23677,
+      "pdf": true,
+      "thin": false,
+      "mapped": [],
+      "missing_enable": [],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS0302",
+      "part_key": "rs0302",
+      "category": "level",
+      "family": "level",
+      "format": "none",
+      "xlsx": "",
+      "sheets": [],
+      "enabled": [
+        "i2c_ii",
+        "i2c_ron",
+        "i2c_cioff"
+      ],
+      "spec_ids": [
+        "II_uA",
+        "RON_ohm",
+        "CIOFF_pF"
+      ],
+      "extract_len": 19100,
+      "pdf": true,
+      "thin": false,
+      "mapped": [],
+      "missing_enable": [],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS3213",
+      "part_key": "rs3213",
+      "category": "power",
+      "family": "power",
+      "format": "none",
+      "xlsx": "",
+      "sheets": [],
+      "enabled": [
+        "iq",
+        "vinmin",
+        "lir",
+        "lor",
+        "ioutmax",
+        "enable_current"
+      ],
+      "spec_ids": [
+        "VOUT_V",
+        "IQ_uA",
+        "VIN_V",
+        "VDO_mV",
+        "VINMIN_V",
+        "LIR_mV",
+        "LOR_mV",
+        "IOUTMAX_V",
+        "IEN_uA"
+      ],
+      "extract_len": 23683,
+      "pdf": true,
+      "thin": false,
+      "mapped": [],
+      "missing_enable": [],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS3235",
+      "part_key": "rs3235",
+      "category": "power",
+      "family": "power",
+      "format": "none",
+      "xlsx": "",
+      "sheets": [],
+      "enabled": [
+        "iq",
+        "vinmin",
+        "lir",
+        "lor",
+        "ioutmax",
+        "enable_current"
+      ],
+      "spec_ids": [
+        "VOUT_V",
+        "VINMIN_V",
+        "LIR_mV",
+        "LOR_mV",
+        "IOUTMAX_V",
+        "IEN_uA"
+      ],
+      "extract_len": 30771,
+      "pdf": true,
+      "thin": false,
+      "mapped": [],
+      "missing_enable": [],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS8551",
+      "part_key": "rs8551",
+      "category": "opamp",
+      "family": "opamp",
+      "format": "none",
+      "xlsx": "",
+      "sheets": [],
+      "enabled": [
+        "vos_sweep",
+        "gbw",
+        "slew",
+        "noise"
+      ],
+      "spec_ids": [
+        "GBW_MHz",
+        "SR_Vus",
+        "IQ_uA"
+      ],
+      "extract_len": 31451,
+      "pdf": true,
+      "thin": false,
+      "mapped": [],
+      "missing_enable": [],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "LM358",
+      "part_key": "lm358",
+      "category": "opamp",
+      "family": "opamp",
+      "format": "opamp_lab",
+      "xlsx": "LM358/Training_LM358测试报告.xlsx",
+      "sheets": [
+        "Summary",
+        "Sheet2",
+        "芯片挑选",
+        "SR",
+        "GBW",
+        "GBW Retest",
+        "VOHL",
+        "PSRR",
+        "PSRR RD",
+        "CMRR",
+        "CMRR RD",
+        "AOL_10K",
+        "AOL RD",
+        "Large_signal",
+        "Small_signal",
+        "Overload_recovery",
+        "Noise",
+        "Power On Time",
+        "Settling Time",
+        "IQ",
+        "SR高低温",
+        "GBW高低温",
+        "高低温稳定性",
+        "ICC RD",
+        "VOS",
+        "DATALOG RD",
+        "ISC",
+        "ISC RD",
+        "IB "
+      ],
+      "enabled": [
+        "slew",
+        "settling",
+        "sssr",
+        "lssr",
+        "no_phase_reversal",
+        "gbw",
+        "ort"
+      ],
+      "spec_ids": [
+        "VOS_mV",
+        "GBW_MHz",
+        "SR_Vus",
+        "SETTLE_VPP_V",
+        "IQ_uA",
+        "VCC_V"
+      ],
+      "extract_len": 27066,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "SR",
+          "ids": [
+            "slew"
+          ],
+          "enabled": [
+            "slew"
+          ]
+        },
+        {
+          "sheet": "GBW",
+          "ids": [
+            "gbw"
+          ],
+          "enabled": [
+            "gbw"
+          ]
+        },
+        {
+          "sheet": "VOHL",
+          "ids": [
+            "vohl"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "PSRR",
+          "ids": [
+            "psrr"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "CMRR",
+          "ids": [
+            "cmrr"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "Noise",
+          "ids": [
+            "noise"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "Power On Time",
+          "ids": [
+            "power_on_time"
+          ],
+          "enabled": []
+        },
+        {
+          "sheet": "Settling Time",
+          "ids": [
+            "settling"
+          ],
+          "enabled": [
+            "settling"
+          ]
+        },
+        {
+          "sheet": "SR高低温",
+          "ids": [
+            "slew"
+          ],
+          "enabled": [
+            "slew"
+          ]
+        },
+        {
+          "sheet": "GBW高低温",
+          "ids": [
+            "gbw"
+          ],
+          "enabled": [
+            "gbw"
+          ]
+        },
+        {
+          "sheet": "VOS",
+          "ids": [
+            "vos_sweep"
+          ],
+          "enabled": []
+        }
+      ],
+      "missing_enable": [
+        "VOHL",
+        "PSRR",
+        "CMRR",
+        "Noise",
+        "Power On Time",
+        "VOS"
+      ],
+      "missing_code": [
+        "AOL_10K",
+        "Large_signal",
+        "Small_signal",
+        "Overload_recovery",
+        "IQ",
+        "ISC",
+        "IB "
+      ],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS2227",
+      "part_key": "rs2227",
+      "category": "analog_switch",
+      "family": "switch",
+      "format": "switch_ron",
+      "xlsx": "RS2227/RS2227A Test Report.xlsx",
+      "sheets": [
+        "总结",
+        "ICC",
+        "RON",
+        "∆RON ",
+        "ICCT",
+        "IOFF",
+        "IOZ",
+        "ION ",
+        "VTH",
+        "IIN",
+        "TON",
+        "TOFF",
+        "BW",
+        "OIRR",
+        "XTALK",
+        "CIN、CON、COFF",
+        "TBBM",
+        "眼图",
+        "电荷注入",
+        "Sheet1"
+      ],
+      "enabled": [
+        "iplus",
+        "leakage_off",
+        "leakage_on",
+        "input_leakage",
+        "usb_ron",
+        "usb_ton_toff",
+        "usb_iso",
+        "usb_xtalk"
+      ],
+      "spec_ids": [
+        "IPLUS_uA",
+        "IOZ_uA",
+        "ION_uA",
+        "IIN_uA",
+        "USB_RON_ohm",
+        "USB_TON_ns",
+        "USB_TOFF_ns",
+        "USB_ISO_dB",
+        "USB_XTALK_dB"
+      ],
+      "extract_len": 14364,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "IIN",
+          "ids": [
+            "input_leakage"
+          ],
+          "enabled": [
+            "input_leakage"
+          ]
+        }
+      ],
+      "missing_enable": [],
+      "missing_code": [
+        "ICC",
+        "RON",
+        "∆RON ",
+        "ICCT",
+        "IOFF",
+        "IOZ",
+        "ION ",
+        "VTH",
+        "TON",
+        "TOFF",
+        "BW",
+        "OIRR",
+        "XTALK",
+        "CIN、CON、COFF",
+        "TBBM"
+      ],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS29511",
+      "part_key": "rs29511",
+      "category": "logic",
+      "family": "logic",
+      "format": "other",
+      "xlsx": "RS29511/RS29511 Test Report.xlsx",
+      "sheets": [
+        "Summary",
+        "Checklist",
+        "TP",
+        "TIDLE",
+        "TDIS",
+        "TEN",
+        "IDD",
+        "VOUT",
+        "CapLoad"
+      ],
+      "enabled": [
+        "tp",
+        "tidle",
+        "tdis",
+        "ten",
+        "supply_current",
+        "output_voltage",
+        "cap_load"
+      ],
+      "spec_ids": [
+        "VCC_V",
+        "TEN_ns",
+        "TDIS_ns",
+        "TPD_PHL_ns",
+        "TPD_PLH_ns",
+        "TIDLE_PHL_ns",
+        "TIDLE_PLH_ns",
+        "ICC_uA",
+        "CAP_pF"
+      ],
+      "extract_len": 39064,
+      "pdf": true,
+      "thin": false,
+      "mapped": [
+        {
+          "sheet": "TP",
+          "ids": [
+            "tp"
+          ],
+          "enabled": [
+            "tp"
+          ]
+        },
+        {
+          "sheet": "TIDLE",
+          "ids": [
+            "tidle"
+          ],
+          "enabled": [
+            "tidle"
+          ]
+        },
+        {
+          "sheet": "TDIS",
+          "ids": [
+            "tdis"
+          ],
+          "enabled": [
+            "tdis"
+          ]
+        },
+        {
+          "sheet": "TEN",
+          "ids": [
+            "ten"
+          ],
+          "enabled": [
+            "ten"
+          ]
+        },
+        {
+          "sheet": "IDD",
+          "ids": [
+            "supply_current"
+          ],
+          "enabled": [
+            "supply_current"
+          ]
+        }
+      ],
+      "missing_enable": [],
+      "missing_code": [
+        "VOUT",
+        "CapLoad"
+      ],
+      "opamp_leftover": [],
+      "error": ""
+    },
+    {
+      "part": "RS1GT32D",
+      "part_key": "rs1gt32d",
+      "category": "logic",
+      "family": "logic",
+      "format": "other",
+      "xlsx": "RS1GT32D/RS1GT32D高低温测试-20251222.xlsx",
+      "sheets": [
+        "总结",
+        "Cpd",
+        "CI",
+        "tpd",
+        "ICC",
+        "VIHL",
+        "IIN",
+        "VOHL",
+        "IOFF",
+        "ICCT"
+      ],
+      "enabled": [
+        "vih_vil",
+        "voh_load",
+        "vol_load",
+        "delta_supply_current",
+        "off_current",
+        "input_thresholds",
+        "ioff_leakage",
+        "input_leakage_sweep",
+        "supply_current_sweep",
+        "cin",
+        "cpd",
+        "tp"
+      ],
+      "spec_ids": [
+        "VOH_2p0V",
+        "VOH_3p3V",
+        "VOH_4p5V",
+        "VOH_5p0V",
+        "VOH_5p5V",
+        "VOL_2p0V",
+        "VOL_3p3V",
+        "VOL_4p5V",
+        "VOL_5p0V",
+        "VOL_5p5V"
+      ],
+      "extract_len": 0,
+      "pdf": false,
+      "thin": true,
+      "mapped": [
+        {
+          "sheet": "Cpd",
+          "ids": [
+            "cpd"
+          ],
+          "enabled": [
+            "cpd"
+          ]
+        },
+        {
+          "sheet": "CI",
+          "ids": [
+            "cin"
+          ],
+          "enabled": [
+            "cin"
+          ]
+        },
+        {
+          "sheet": "tpd",
+          "ids": [
+            "tp",
+            "tpd",
+            "tp_rs0204"
+          ],
+          "enabled": [
+            "tp"
+          ]
+        },
+        {
+          "sheet": "ICC",
+          "ids": [
+            "supply_current",
+            "supply_current_sweep",
+            "icc"
+          ],
+          "enabled": [
+            "supply_current_sweep"
+          ]
+        },
+        {
+          "sheet": "VIHL",
+          "ids": [
+            "vih_vil"
+          ],
+          "enabled": [
+            "vih_vil"
+          ]
+        },
+        {
+          "sheet": "IIN",
+          "ids": [
+            "input_leakage_sweep"
+          ],
+          "enabled": [
+            "input_leakage_sweep"
+          ]
+        },
+        {
+          "sheet": "VOHL",
+          "ids": [
+            "voh_load",
+            "vol_load"
+          ],
+          "enabled": [
+            "voh_load",
+            "vol_load"
+          ]
+        },
+        {
+          "sheet": "IOFF",
+          "ids": [
+            "ioff_leakage"
+          ],
+          "enabled": [
+            "ioff_leakage"
+          ]
+        },
+        {
+          "sheet": "ICCT",
+          "ids": [
+            "delta_supply_current"
+          ],
+          "enabled": [
+            "delta_supply_current"
+          ]
+        }
+      ],
+      "missing_enable": [],
+      "missing_code": [],
+      "opamp_leftover": [],
+      "error": ""
+    }
+  ],
+  "n": 26
+}

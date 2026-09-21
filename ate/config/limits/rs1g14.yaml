@@ -2,8 +2,8 @@ part: RS1G14
 datasheet:
   lang: en
   source: local-reference
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1G14_(RevA.3.1).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1g14.txt
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS1G14_(RevA.3.1).pdf'
+  extract: ate/config/datasheets/text/rs1g14.txt
 specs:
 - id: ICC_uA
   unit: uA
@@ -15,3 +15,83 @@ specs:
   min: 1.65
   max: 5.5
   source: local:RS1G14_(RevA.3.1).pdf
+- id: VOH_1p65V
+  unit: V
+  min: 1.2
+  test: voh_load
+  source: parts/rs1g14.yaml voh_table
+- id: VOH_2p0V
+  unit: V
+  min: 1.6
+  test: voh_load
+  source: parts/rs1g14.yaml voh_table
+- id: VOH_2p3V
+  unit: V
+  min: 1.9
+  test: voh_load
+  source: parts/rs1g14.yaml voh_table
+- id: VOH_3p0V
+  unit: V
+  min: 2.4
+  test: voh_load
+  source: parts/rs1g14.yaml voh_table
+- id: VOH_3p3V
+  unit: V
+  min: 2.5
+  test: voh_load
+  source: parts/rs1g14.yaml voh_table
+- id: VOH_4p5V
+  unit: V
+  min: 3.8
+  test: voh_load
+  source: parts/rs1g14.yaml voh_table
+- id: VOH_5p0V
+  unit: V
+  min: 4.2
+  test: voh_load
+  source: parts/rs1g14.yaml voh_table
+- id: VOH_5p5V
+  unit: V
+  min: 4.8
+  test: voh_load
+  source: parts/rs1g14.yaml voh_table
+- id: VOL_1p65V
+  unit: V
+  max: 0.45
+  test: vol_load
+  source: parts/rs1g14.yaml vol_table
+- id: VOL_2p0V
+  unit: V
+  max: 0.45
+  test: vol_load
+  source: parts/rs1g14.yaml vol_table
+- id: VOL_2p3V
+  unit: V
+  max: 0.3
+  test: vol_load
+  source: parts/rs1g14.yaml vol_table
+- id: VOL_3p0V
+  unit: V
+  max: 0.4
+  test: vol_load
+  source: parts/rs1g14.yaml vol_table
+- id: VOL_3p3V
+  unit: V
+  max: 0.55
+  test: vol_load
+  source: parts/rs1g14.yaml vol_table
+- id: VOL_4p5V
+  unit: V
+  max: 0.55
+  test: vol_load
+  source: parts/rs1g14.yaml vol_table
+- id: VOL_5p0V
+  unit: V
+  max: 0.5
+  test: vol_load
+  source: parts/rs1g14.yaml vol_table
+- id: VOL_5p5V
+  unit: V
+  max: 0.45
+  test: vol_load
+  source: parts/rs1g14.yaml vol_table

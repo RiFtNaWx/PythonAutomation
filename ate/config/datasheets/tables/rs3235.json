@@ -1,0 +1,72 @@
+{
+  "part": "RS3235",
+  "part_key": "rs3235",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs3235.yaml",
+    "truth_table": "ate/config/parts/rs3235.yaml",
+    "extract": "ate/config/datasheets/text/rs3235.txt",
+    "xlsx": ""
+  },
+  "specs": [
+    {
+      "id": "VOUT_V",
+      "test": "iq",
+      "unit": "V",
+      "typ": 3.3,
+      "source": "parts/rs3235.yaml vout_nominal",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "VINMIN_V",
+      "test": "vinmin",
+      "unit": "V",
+      "source": "DMM first VIN where VOUT >= 0.98*VOUT_nom (SIM follows PSU CH1; leftover)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "LIR_mV",
+      "test": "lir",
+      "unit": "mV",
+      "source": "abs dVOUT across VIN_LIR sweep (unspec; no fake PDF)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "LOR_mV",
+      "test": "lor",
+      "unit": "mV",
+      "source": "abs dVOUT across load_lor (unspec; no fake PDF)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "IOUTMAX_V",
+      "test": "ioutmax",
+      "unit": "V",
+      "source": "min VOUT under load_iout (unspec; no fake Iout max A)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "IEN_uA",
+      "test": "enable_current",
+      "unit": "uA",
+      "source": "worst DMM IEN (unspec; no fake PDF)",
+      "min": null,
+      "max": null,
+      "typ": null
+    }
+  ],
+  "truth_table": {},
+  "voh_table": [],
+  "vol_table": [],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

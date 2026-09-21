@@ -1,0 +1,45 @@
+{
+  "part": "RS0302",
+  "part_key": "rs0302",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs0302.yaml",
+    "truth_table": "ate/config/parts/rs0302.yaml",
+    "extract": "ate/config/datasheets/text/rs0302.txt",
+    "xlsx": ""
+  },
+  "specs": [
+    {
+      "id": "II_uA",
+      "test": "i2c_ii",
+      "unit": "uA",
+      "max": 5.0,
+      "source": "local:RS0302_(RevA.4.1).pdf II VI=5V EN=0V",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "RON_ohm",
+      "test": "i2c_ron",
+      "unit": "ohm",
+      "source": "platform 10 mA (datasheet 64 mA / 15 mA -- do not invent min/max)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "CIOFF_pF",
+      "test": "i2c_cioff",
+      "unit": "pF",
+      "typ": 4.0,
+      "max": 6.0,
+      "source": "local:RS0302_(RevA.4.1).pdf Ci(off) typ 4 max 6",
+      "min": null
+    }
+  ],
+  "truth_table": {},
+  "voh_table": [],
+  "vol_table": [],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

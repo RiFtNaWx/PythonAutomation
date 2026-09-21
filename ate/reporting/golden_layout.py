@@ -329,6 +329,156 @@ def apply_photo_grid_single(
     return anchors
 
 
+PHOTO_START_COLS = (1, 5, 9, 13, 17, 21, 25, 29)
+PHOTO_COLS_PER_BOX = 4
+PHOTO_BODY_ROWS = 10
+PHOTO_BODY_MIN = 6
+PHOTO_BODY_MAX = 16
+PHOTO_BAND_GAP = 1
+# 4-col = DUT x CHA/CHB grid. 8-col = OpAmp golden CHA | CHB pair (Slew Rate).
+PHOTO_START_COLS_BY_WIDTH = {
+    4: PHOTO_START_COLS,
+    8: (1, 9, 17, 25),
+}
+
+
+def _photo_body_merges(ws) -> list:
+    out = []
+    for mr in ws.merged_cells.ranges:
+        width = mr.max_col - mr.min_col + 1
+        height = mr.max_row - mr.min_row + 1
+        starts = PHOTO_START_COLS_BY_WIDTH.get(width)
+        if (
+            starts
+            and PHOTO_BODY_MIN <= height <= PHOTO_BODY_MAX
+            and mr.min_col in starts
+        ):
+            out.append(mr)
+    out.sort(key=lambda m: (m.min_row, m.min_col))
+    return out
+
+
+def intro_end_row(ws, max_scan: int = 80) -> int:
+    """Last row of the Test Conclusion merge (or the label row)."""
+    for row in range(1, max_scan + 1):
+        lab = ws.cell(row, 1).value
+        if not lab or str(lab).strip().lower() != "test conclusion":
+            continue
+        end = row
+        for mr in ws.merged_cells.ranges:
+            if mr.min_row == row and mr.min_col <= 2:
+                end = max(end, mr.max_row)
+        return end
+    return 1
+
+
+def photo_header_start(ws, *, gap: int = 2) -> int:
+    """Header row for the first photo band: existing boxes, else after conclusion."""
+    bodies = _photo_body_merges(ws)
+    if bodies:
+        return max(1, min(m.min_row for m in bodies) - 2)
+    return intro_end_row(ws) + max(1, int(gap))
+
+
+def _col_unit_ch(col: int, width: int = 4) -> tuple[int, str]:
+    starts = PHOTO_START_COLS_BY_WIDTH.get(int(width) or 4) or PHOTO_START_COLS
+    idx = list(starts).index(int(col)) if int(col) in starts else PHOTO_START_COLS.index(int(col))
+    unit = idx // 2 + 1
+    ch = "chA" if idx % 2 == 0 else "chB"
+    return unit, ch
+
+
+def _band_key_prefix(titles: list[str], index: int) -> str:
+    lows = [str(t or "").lower() for t in titles]
+    this = lows[index] if 0 <= index < len(lows) else ""
+    if "positive" in this:
+        return "pos_"
+    if "negative" in this:
+        return "neg_"
+    pos = [i for i, t in enumerate(lows) if "positive" in t]
+    neg = [i for i, t in enumerate(lows) if "negative" in t]
+    if len(titles) == 2 and len(pos) == 1 and len(neg) == 1:
+        return "pos_" if index in pos else "neg_"
+    if index == 0:
+        return ""
+    return f"t{index + 1}_"
+
+
+def discover_photo_anchors(ws) -> dict[str, str]:
+    """Top-left of each merged 4-col or 8-col photo body.
+
+    Two boxes on a row = Channel A | Channel B (OpAmp golden Slew), not DUT2.
+    Extra bands: pos_/neg_ from titles, else tN_.
+    """
+    bodies = _photo_body_merges(ws)
+    if not bodies:
+        return {}
+    rows = sorted({m.min_row for m in bodies})
+    titles: list[str] = []
+    for row in rows:
+        header = ws.cell(row - 2, 1).value or ws.cell(row - 1, 1).value or ""
+        titles.append(str(header))
+    anchors: dict[str, str] = {}
+    for band_i, row in enumerate(rows):
+        prefix = _band_key_prefix(titles, band_i)
+        band = [mr for mr in bodies if mr.min_row == row]
+        band.sort(key=lambda m: m.min_col)
+        if len(band) == 2:
+            pairs = [(1, "chA"), (1, "chB")]
+        else:
+            pairs = [
+                _col_unit_ch(mr.min_col, width=mr.max_col - mr.min_col + 1) for mr in band
+            ]
+        for mr, (unit, ch) in zip(band, pairs):
+            anchors[f"{prefix}u{unit}_{ch}"] = f"{get_column_letter(mr.min_col)}{mr.min_row}"
+    return anchors
+
+
+def apply_photo_bands(
+    ws,
+    *,
+    start_row: int,
+    sample_size: int = 4,
+    titles: list[str] | None = None,
+    body_rows: int = PHOTO_BODY_ROWS,
+) -> dict[str, str]:
+    """Stack same-size merged bands. sample_size DUT columns; len(titles) = trial count."""
+    titles = list(titles or ["DUT"])
+    sample = max(1, int(sample_size or 1))
+    anchors: dict[str, str] = {}
+    row = int(start_row)
+    for i, title in enumerate(titles):
+        band = apply_photo_grid_single(
+            ws, title=str(title), start_row=row, sample_size=sample, body_rows=body_rows
+        )
+        prefix = _band_key_prefix(titles, i)
+        for key, cell in band.items():
+            anchors[f"{prefix}{key}"] = cell
+        row += 2 + int(body_rows) + PHOTO_BAND_GAP
+    return anchors
+
+
+def ensure_photo_boxes(
+    ws,
+    *,
+    sample_size: int = 4,
+    titles: list[str] | None = None,
+    write: bool = False,
+) -> dict[str, str]:
+    """Reuse existing merged boxes. Place only when write=True and none exist."""
+    found = discover_photo_anchors(ws)
+    if found:
+        return found
+    if not write:
+        return {}
+    return apply_photo_bands(
+        ws,
+        start_row=photo_header_start(ws),
+        sample_size=sample_size,
+        titles=titles,
+    )
+
+
 def find_content_bottom(ws, max_scan: int = 180) -> int:
     bottom = 1
     for row in ws.iter_rows(min_row=1, max_row=max_scan, max_col=16):
@@ -394,27 +544,20 @@ def apply_golden_non_ort(ws, sheet_name: str, sample_size: int = 4) -> dict:
 
     sample_hdrs = ensure_sample_columns_headers(ws, sample_size)
 
-    bottom = find_content_bottom(ws, max_scan=200)
-    photo_start = bottom + 2
-    for r in range(max(1, bottom - 50), bottom + 1):
-        v = ws.cell(r, 1).value
-        if not v:
-            continue
-        text = str(v)
-        if "#" in text and any(
-            t in text
-            for t in (
-                "Slew", "GBW", "VOS", "ORT", "PSRR", "Step", "Settling",
-                "Noise", "Power", "Phase", "AOL", "CMRR", "EMIRR", "VOL",
-            )
-        ):
-            photo_start = r
-            break
-
     title = PHOTO_TITLE_BY_SHEET.get(sheet_name, sheet_name)
-    anchors = apply_photo_grid_single(
-        ws, title=title, start_row=photo_start, sample_size=sample_size, body_rows=10
-    )
+    existing = discover_photo_anchors(ws)
+    if existing:
+        anchors = existing
+        photo_start = photo_header_start(ws)
+    else:
+        photo_start = photo_header_start(ws)
+        anchors = apply_photo_bands(
+            ws,
+            start_row=photo_start,
+            sample_size=sample_size,
+            titles=[title],
+            body_rows=PHOTO_BODY_ROWS,
+        )
 
     return {
         "sheet": sheet_name,

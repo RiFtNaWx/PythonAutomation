@@ -5,8 +5,8 @@ datasheet:
   source: local-reference
   notes: Vos/GBW/Iq from RUN-IC English product copy. OS_/IDD_ from STS8200 RS622
     datalog sheet.
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS62X_(RevC.3).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs622.txt
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS62X_(RevC.3).pdf'
+  extract: ate/config/datasheets/text/rs622.txt
 test_info:
   gbw:
     title: Gain bandwidth
@@ -30,6 +30,11 @@ specs:
   typ: 0.7
   max: 3.0
   source: en.run-ic.com
+- id: GAIN_VV
+  test: ac_gain_check
+  unit: V/V
+  typ: 201
+  source: G201 closed-loop Av (research board). Not datasheet AOL_dB.
 - id: GBW_MHz
   test: gbw
   unit: MHz
@@ -38,7 +43,8 @@ specs:
 - id: IQ_uA
   unit: uA
   typ: 600
-  source: en.run-ic.com
+  max: 800
+  source: RS62X RevC.3 table 7.4 (per amplifier)
 - id: SR_Vus
   test: slew
   unit: V/us
@@ -84,3 +90,59 @@ specs:
   test: noise
   unit: uV
   source: 0.1-10 Hz input-referred Vpp (lab Noise sheet). PDF has no 0.1-10 Hz limit.
+- id: SETTLE_VPP_V
+  test: settling
+  unit: V
+  source: BUFFER CHAN2 VPP of 2 Vpp square. Photo/cursor leftover -- not 0.1% SETTLE_us.
+- id: PSRR_dB
+  test: psrr
+  unit: dB
+  min: 78
+  typ: 93
+  source: RS62X RevC.3 table 7.4 (Vs=2.5V to 5.5V, 25C)
+- id: CMRR_dB
+  test: cmrr
+  unit: dB
+  min: 74
+  typ: 92
+  source: RS62X RevC.3 table 7.4 (Vs=5.5V, Vcm=-0.1V to 4V, 25C)
+- id: AOL_dB
+  test: aol
+  unit: dB
+  min: 96
+  typ: 102
+  source: RS62X RevC.3 table 7.4 (RL=2k, 25C)
+- id: POWERON_ns
+  test: power_on_time
+  unit: ns
+  source: MSO rail-to-VOUT delay (no invented min/max)
+- id: VOH_V
+  test: vohl
+  unit: V
+  source: BUFFER rail swing DMM near +rail (no invented min/max; RS62X extract has
+    no VOH table)
+- id: VOL_V
+  test: vohl
+  unit: V
+  source: BUFFER rail swing DMM near -rail (no invented min/max; RS62X extract has
+    no VOL table)
+- id: OVERSHOOT
+  test: sssr
+  unit: ''
+  source: MSO CH2 OVERshoot (raw). No invented min/max
+- id: LSSR_VPP_V
+  test: lssr
+  unit: V
+  source: MSO CH2 VPP gate (photo test). No invented min/max
+- id: NPR_VPP_V
+  test: no_phase_reversal
+  unit: V
+  source: MSO CH2 VPP gate (photo test). No invented min/max
+- id: ORT_POS_us
+  test: ort
+  unit: us
+  source: MSO RRDelay G_NEG100 POS. Extract 0.5 s is garbled; no invented min/max
+- id: ORT_NEG_us
+  test: ort
+  unit: us
+  source: MSO FFDelay G_NEG100 NEG. Extract 0.5 s is garbled; no invented min/max

@@ -1,12 +1,32 @@
 # Optional golden codebases to scan for def test_* (AST only; never execute).
 # Missing paths are skipped. ate/tests is always scanned.
-#
-# roots:
-#   - path: absolute or ~ path
-#     label: short name for UI
+# Prefer in-repo goldens/ (byte copies). Keep delay/timing as the authors wrote them.
+# Use %USERPROFILE% so the zip pack is not tied to one PC.
 
 roots:
-  - path: "C:/Users/OoiJianHong/Downloads/LabAutomation-1/LabAutomation-1"
+  - path: goldens/ariff
+    label: Ariff (in-repo)
+    author: ariff
+  - path: goldens/see_lin
+    label: SeeLim (in-repo)
+    author: seelim
+  - path: "%USERPROFILE%/Downloads/See Lim Repo"
+    label: See Lim Repo
+    author: seelim
+  - path: goldens/eugene
+    label: Eugene (in-repo)
+    author: eugene
+  - path: "%USERPROFILE%/Downloads/Ariff Repo"
+    label: Ariff Repo
+    author: ariff
+  - path: "%USERPROFILE%/Downloads/Eugene Repo"
+    label: Eugene Repo
+    author: eugene
+  - path: goldens/downloads
+    label: Downloads logic_test(s)
+  - path: "%USERPROFILE%/Downloads/LabAutomation-1/LabAutomation-1"
     label: LabAutomation-1
-  - path: "C:/Users/OoiJianHong/LabAutomation_14.7"
+  - path: "%USERPROFILE%/LabAutomation_14.7"
     label: LabAutomation_14.7
+  - path: "%USERPROFILE%/Downloads/LabAutomation_14.7 (1)/LabAutomation_14.7"
+    label: LabAutomation_14.7 Downloads

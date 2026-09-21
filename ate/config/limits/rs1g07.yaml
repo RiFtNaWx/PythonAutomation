@@ -2,16 +2,88 @@ part: RS1G07
 datasheet:
   lang: en
   source: local-reference
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1G07_(RevA.6).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1g07.txt
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS1G07_(RevA.6).pdf'
+  extract: ate/config/datasheets/text/rs1g07.txt
 specs:
 - id: ICC_uA
   unit: uA
+  typ: 0.1
   max: 1.0
   test: supply_current
+  source: local:RS1G07_(RevA.6).pdf
+- id: DELTA_ICC_uA
+  unit: uA
+  max: 500.0
+  test: delta_supply_current
+  source: local:RS1G07_(RevA.6).pdf
+- id: IOFF_uA
+  unit: uA
+  typ: 0.1
+  max: 1.0
+  test: ioff_leakage
+  source: local:RS1G07_(RevA.6).pdf
+- id: II_uA
+  unit: uA
+  typ: 0.1
+  max: 1.0
+  test: input_leakage_sweep
+  source: local:RS1G07_(RevA.6).pdf
+- id: CIN_pF
+  unit: pF
+  typ: 4.0
+  min: 1.0
+  max: 10.0
+  test: cin
+  source: local:RS1G07_(RevA.6).pdf
+- id: CPD_pF
+  unit: pF
+  typ: 6.0
+  min: 2.0
+  max: 10.0
+  test: cpd
   source: local:RS1G07_(RevA.6).pdf
 - id: VCC_V
   unit: V
   min: 1.65
   max: 5.5
   source: local:RS1G07_(RevA.6).pdf
+- id: VOL_1p65V
+  unit: V
+  max: 0.45
+  test: vol_load
+  source: parts/rs1g07.yaml vol_table
+- id: VOL_2p0V
+  unit: V
+  max: 0.45
+  test: vol_load
+  source: parts/rs1g07.yaml vol_table
+- id: VOL_2p3V
+  unit: V
+  max: 0.3
+  test: vol_load
+  source: parts/rs1g07.yaml vol_table
+- id: VOL_3p0V
+  unit: V
+  max: 0.4
+  test: vol_load
+  source: parts/rs1g07.yaml vol_table
+- id: VOL_3p3V
+  unit: V
+  max: 0.55
+  test: vol_load
+  source: parts/rs1g07.yaml vol_table
+- id: VOL_4p5V
+  unit: V
+  max: 0.55
+  test: vol_load
+  source: parts/rs1g07.yaml vol_table
+- id: VOL_5p0V
+  unit: V
+  max: 0.5
+  test: vol_load
+  source: parts/rs1g07.yaml vol_table
+- id: VOL_5p5V
+  unit: V
+  max: 0.45
+  test: vol_load
+  source: parts/rs1g07.yaml vol_table

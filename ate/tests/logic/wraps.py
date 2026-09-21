@@ -1,151 +1,151 @@
-"""Thin TestSpec wraps for repo-root logic_tests.py (A02-T01)."""
+"""Logic TestSpec ids. Path B bodies live in cmos_prop / rs29511_* / eugene_cap / oe_timing.
+
+Do not import repo-root logic goldens. No input().
+"""
 from __future__ import annotations
 
-import inspect
-from typing import Any, Callable
+from contextlib import nullcontext
 
 from ate.core.registry import TestSpec, register
 from ate.core.runner import RunParams
+from ate.tests.logic.product_model import has_product_model, load_product_model, path_b_handoff
 
 _LOGIC_FIXTURE = "LOGIC"
+# Scale-wave UNCONFIRMED: no eugene_cap IDD body (check_logic_dc._NEXT_WAVE_SKUS).
+_SUPPLY_CURRENT_LEFTOVER_DRAFT = frozenset(
+    {"rs1g00", "rs1g02", "rs1g04", "rs1g86", "rs2g08", "rs2g32"}
+)
 
 
-def _invoke_legacy(fn: Callable[..., dict[str, Any]], instr, params: RunParams):
-    """Downloads/logic_tests.py IDD takes (vcca, vccb); repo-root takes (vcc)."""
-    names = [
-        p.name
-        for p in inspect.signature(fn).parameters.values()
-        if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-        and p.name != "instr"
-        and p.default is inspect.Parameter.empty
-    ]
-    if "vccb" in names:
-        vccb = params.vcc
-        try:
-            from ate.core.paths import PARTS_DIR
-            import yaml
-
-            raw = yaml.safe_load((PARTS_DIR / f"{params.part}.yaml").read_text(encoding="utf-8")) or {}
-            if isinstance(raw, dict) and raw.get("vccb") is not None:
-                vccb = float(raw["vccb"])
-        except Exception:
-            pass
-        return fn(instr, params.vcc, vccb)
-    return fn(instr, params.vcc)
+def _part(params: RunParams) -> str:
+    return str(getattr(params, "part", "") or "").strip().lower()
 
 
-def _register_vcc_test(
-    *,
-    test_id: str,
-    label: str,
-    lab_sheet: str,
-    required: frozenset[str],
-    legacy_fn: Callable[..., dict[str, Any]],
-) -> None:
-    def _run(instr, params: RunParams):
-        data = _invoke_legacy(legacy_fn, instr, params)
-        keys = [k for k in data if k not in ("VCC", "VCCA", "VCCB")]
-        summary = " ".join(f"{k}={data[k]}" for k in keys) if keys else f"VCC={data.get('VCC', params.vcc)}"
-        return {"summary": summary, "data": data}
+def _run_tp(instr, params: RunParams):
+    pk = _part(params)
+    model = load_product_model(pk) if has_product_model(pk) else None
+    ctx = path_b_handoff(params, model, "tp") if model is not None else nullcontext()
+    with ctx:
+        if pk == "rs29511":
+            from ate.tests.logic.rs29511_prop import run_tp
 
-    register(
-        TestSpec(
-            id=test_id,
-            label=label,
-            required_instruments=required,
-            fixture_mode=_LOGIC_FIXTURE,
-            lab_sheet=lab_sheet,
-            run=_run,
-            dual_channel=False,
-        )
-    )
+            return run_tp(instr, params)
+        from ate.tests.logic.cmos_prop import run_tp as cmos_tp
+
+        return cmos_tp(instr, params)
 
 
-def _register_cap_load() -> None:
-    def _run(instr, _params: RunParams):
-        from logic_tests import test_cap_load
+def _run_tidle(instr, params: RunParams):
+    pk = _part(params)
+    if pk == "rs29511":
+        from ate.tests.logic.rs29511_prop import run_tidle
 
-        data = test_cap_load(instr)
+        return run_tidle(instr, params)
+    from ate.tests.logic.cmos_prop import run_tidle as cmos_tidle
+
+    return cmos_tidle(instr, params)
+
+
+def _run_supply_current(instr, params: RunParams):
+    from ate.tests.logic.eugene_cap import _IDD_PARTS, run_idd
+
+    pk = _part(params)
+    if pk == "rs29511":
+        from ate.tests.logic.rs29511_dc import run_icc
+
+        return run_icc(instr, params)
+    if pk in _IDD_PARTS:
+        return run_idd(instr, params)
+    if pk in _SUPPLY_CURRENT_LEFTOVER_DRAFT:
         return {
-            "summary": f"CAP_pF={data.get('CAP_pF', float('nan'))}",
-            "data": data,
+            "summary": (
+                f"{pk}: supply_current LEFTOVER "
+                "(no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD)"
+            ),
+            "data": {"status": "LEFTOVER", "greenable": False},
+            "measurements": [
+                {
+                    "id": "ICC_uA",
+                    "value": 0.0,
+                    "unit": "uA",
+                    "greenable": False,
+                    "status": "LEFTOVER",
+                }
+            ],
         }
+    raise RuntimeError(f"{pk}: supply_current has no Path B body (logic_tests wrap blocked)")
 
-    register(
-        TestSpec(
-            id="cap_load",
-            label="Capacitive Load",
-            required_instruments=frozenset({"DMM"}),
-            fixture_mode=_LOGIC_FIXTURE,
-            lab_sheet="CapLoad",
-            run=_run,
-            dual_channel=False,
-        )
+
+def _run_output_voltage(instr, params: RunParams):
+    pk = _part(params)
+    if pk == "rs29511":
+        from ate.tests.logic.rs29511_dc import run_vout
+
+        return run_vout(instr, params)
+    raise RuntimeError(f"{pk}: output_voltage has no Path B body (logic_tests wrap blocked)")
+
+
+def _run_cap_load(instr, params: RunParams):
+    pk = _part(params)
+    if pk == "rs29511":
+        from ate.tests.logic.rs29511_dc import run_cap
+
+        return run_cap(instr, params)
+    raise RuntimeError(f"{pk}: cap_load has no Path B body (logic_tests wrap blocked)")
+
+
+register(
+    TestSpec(
+        id="tp",
+        label="Propagation Delay (TP)",
+        required_instruments=frozenset({"MSO", "PSU", "AWG"}),
+        fixture_mode=_LOGIC_FIXTURE,
+        lab_sheet="TP",
+        run=_run_tp,
+        dual_channel=False,
     )
-
-
-def _load_legacy():
-    from logic_tests import (
-        test_output_voltage,
-        test_supply_current,
-        test_tdis,
-        test_ten,
-        test_tidle,
-        test_tp,
+)
+register(
+    TestSpec(
+        id="tidle",
+        label="Idle Propagation Delay (TIDLE)",
+        required_instruments=frozenset({"MSO", "PSU", "AWG"}),
+        fixture_mode=_LOGIC_FIXTURE,
+        lab_sheet="TIDLE",
+        run=_run_tidle,
+        dual_channel=False,
     )
-
-    return {
-        "tp": test_tp,
-        "tidle": test_tidle,
-        "tdis": test_tdis,
-        "ten": test_ten,
-        "supply_current": test_supply_current,
-        "output_voltage": test_output_voltage,
-    }
-
-
-_legacy = _load_legacy()
-
-_register_vcc_test(
-    test_id="tp",
-    label="Propagation Delay (TP)",
-    lab_sheet="TP",
-    required=frozenset({"MSO", "PSU", "AWG"}),
-    legacy_fn=_legacy["tp"],
 )
-_register_vcc_test(
-    test_id="tidle",
-    label="Idle Propagation Delay (TIDLE)",
-    lab_sheet="TIDLE",
-    required=frozenset({"MSO", "PSU", "AWG"}),
-    legacy_fn=_legacy["tidle"],
+register(
+    TestSpec(
+        id="supply_current",
+        label="Supply Current (IDD)",
+        required_instruments=frozenset({"PSU", "DMM"}),
+        fixture_mode=_LOGIC_FIXTURE,
+        lab_sheet="IDD",
+        run=_run_supply_current,
+        dual_channel=False,
+    )
 )
-_register_vcc_test(
-    test_id="tdis",
-    label="Output Disable Time (TDIS)",
-    lab_sheet="TDIS",
-    required=frozenset({"MSO", "PSU", "AWG"}),
-    legacy_fn=_legacy["tdis"],
+register(
+    TestSpec(
+        id="output_voltage",
+        label="Output Voltage",
+        required_instruments=frozenset({"PSU", "DMM"}),
+        fixture_mode=_LOGIC_FIXTURE,
+        lab_sheet="VOUT",
+        run=_run_output_voltage,
+        dual_channel=False,
+    )
 )
-_register_vcc_test(
-    test_id="ten",
-    label="Output Enable Time (TEN)",
-    lab_sheet="TEN",
-    required=frozenset({"MSO", "PSU", "AWG"}),
-    legacy_fn=_legacy["ten"],
+register(
+    TestSpec(
+        id="cap_load",
+        label="Capacitive Load",
+        required_instruments=frozenset({"DMM"}),
+        fixture_mode=_LOGIC_FIXTURE,
+        lab_sheet="CapLoad",
+        run=_run_cap_load,
+        dual_channel=False,
+    )
 )
-_register_vcc_test(
-    test_id="supply_current",
-    label="Supply Current (IDD)",
-    lab_sheet="IDD",
-    required=frozenset({"PSU", "DMM"}),
-    legacy_fn=_legacy["supply_current"],
-)
-_register_vcc_test(
-    test_id="output_voltage",
-    label="Output Voltage",
-    lab_sheet="VOUT",
-    required=frozenset({"PSU", "DMM"}),
-    legacy_fn=_legacy["output_voltage"],
-)
-_register_cap_load()

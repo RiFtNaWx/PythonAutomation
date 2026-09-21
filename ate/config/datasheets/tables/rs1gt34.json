@@ -1,0 +1,889 @@
+{
+  "part": "RS1GT34",
+  "part_key": "rs1gt34",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs1gt34.yaml",
+    "truth_table": "ate/config/parts/rs1gt34.yaml",
+    "extract": "ate/config/datasheets/text/rs1gt34.txt",
+    "xlsx": "RS1GT34/RS1GT34_Lab_Report.xlsx"
+  },
+  "specs": [
+    {
+      "id": "ICC_uA",
+      "unit": "uA",
+      "max": 1.0,
+      "test": "icc",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "ICC_FULL_uA",
+      "unit": "uA",
+      "max": 10.0,
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "DELTA_ICC_uA",
+      "unit": "uA",
+      "max": 500.0,
+      "test": "delta_icc",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "II_uA",
+      "unit": "uA",
+      "max": 1.0,
+      "test": "ii",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "II_FULL_uA",
+      "unit": "uA",
+      "max": 5.0,
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "Ioff_uA",
+      "unit": "uA",
+      "max": 1.0,
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "IOFF_uA",
+      "unit": "uA",
+      "max": 1.0,
+      "test": "ioff",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VCC_V",
+      "unit": "V",
+      "min": 2.0,
+      "max": 5.5,
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "typ": null
+    },
+    {
+      "id": "VIH_2p0V",
+      "unit": "V",
+      "max": 1.0,
+      "test": "vih_vil",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VIL_2p0V",
+      "unit": "V",
+      "min": 0.3,
+      "test": "vih_vil",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VIH_3p3V",
+      "unit": "V",
+      "max": 1.5,
+      "test": "vih_vil",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VIL_3p3V",
+      "unit": "V",
+      "min": 0.55,
+      "test": "vih_vil",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VIH_4p5V",
+      "unit": "V",
+      "max": 2.0,
+      "test": "vih_vil",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VIL_4p5V",
+      "unit": "V",
+      "min": 0.8,
+      "test": "vih_vil",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VIH_5p0V",
+      "unit": "V",
+      "max": 2.0,
+      "test": "vih_vil",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VIL_5p0V",
+      "unit": "V",
+      "min": 0.8,
+      "test": "vih_vil",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VIH_5p5V",
+      "unit": "V",
+      "max": 2.0,
+      "test": "vih_vil",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VIL_5p5V",
+      "unit": "V",
+      "min": 0.8,
+      "test": "vih_vil",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_2p0V_100uA",
+      "unit": "V",
+      "min": 1.9,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_3p3V_100uA",
+      "unit": "V",
+      "min": 3.2,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_4p5V_100uA",
+      "unit": "V",
+      "min": 4.4,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_4p6V_100uA",
+      "unit": "V",
+      "min": 4.5,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_4p7V_100uA",
+      "unit": "V",
+      "min": 4.6,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_4p8V_100uA",
+      "unit": "V",
+      "min": 4.7,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_4p9V_100uA",
+      "unit": "V",
+      "min": 4.8,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p0V_100uA",
+      "unit": "V",
+      "min": 4.9,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p1V_100uA",
+      "unit": "V",
+      "min": 5.0,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p2V_100uA",
+      "unit": "V",
+      "min": 5.1,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p3V_100uA",
+      "unit": "V",
+      "min": 5.2,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p4V_100uA",
+      "unit": "V",
+      "min": 5.3,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p5V_100uA",
+      "unit": "V",
+      "min": 5.4,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_2p0V_8mA",
+      "unit": "V",
+      "min": 1.6,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_3p3V_24mA",
+      "unit": "V",
+      "min": 2.5,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_4p5V_32mA",
+      "unit": "V",
+      "min": 3.8,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p0V_32mA",
+      "unit": "V",
+      "min": 4.2,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p5V_32mA",
+      "unit": "V",
+      "min": 4.8,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_2p0V",
+      "unit": "V",
+      "min": 1.6,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_3p3V",
+      "unit": "V",
+      "min": 2.5,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_4p5V",
+      "unit": "V",
+      "min": 3.8,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p0V",
+      "unit": "V",
+      "min": 4.2,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p5V",
+      "unit": "V",
+      "min": 4.8,
+      "test": "voh",
+      "pass_mode": "min-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_2p0V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_3p3V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_4p5V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_4p6V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_4p7V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_4p8V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_4p9V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p0V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p1V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p2V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p3V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p4V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p5V_100uA",
+      "unit": "V",
+      "max": 0.1,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_2p0V_8mA",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_3p3V_24mA",
+      "unit": "V",
+      "max": 0.55,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_4p5V_32mA",
+      "unit": "V",
+      "max": 0.55,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p0V_32mA",
+      "unit": "V",
+      "max": 0.5,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p5V_32mA",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_2p0V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_3p3V",
+      "unit": "V",
+      "max": 0.55,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_4p5V",
+      "unit": "V",
+      "max": 0.55,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p0V",
+      "unit": "V",
+      "max": 0.5,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p5V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol",
+      "pass_mode": "max-only",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "CIN_pF",
+      "unit": "pF",
+      "max": 6.0,
+      "test": "cin",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "CPD_pF",
+      "unit": "pF",
+      "max": 25.0,
+      "test": "cpd",
+      "source": "local:RS1GT34_(RevA.1.1).pdf",
+      "min": null,
+      "typ": null
+    }
+  ],
+  "truth_table": {
+    "status": "CONFIRMED",
+    "source": "RS1GT34 RevA.1.1 §4",
+    "rows": [
+      {
+        "A": "L",
+        "Y": "L"
+      },
+      {
+        "A": "H",
+        "Y": "H"
+      }
+    ]
+  },
+  "voh_table": [
+    {
+      "id": "VOH_2p0V_100uA",
+      "vcc": 2.0,
+      "ioh_a": -0.0001,
+      "spec_min": 1.9
+    },
+    {
+      "id": "VOH_3p3V_100uA",
+      "vcc": 3.3,
+      "ioh_a": -0.0001,
+      "spec_min": 3.2
+    },
+    {
+      "id": "VOH_4p5V_100uA",
+      "vcc": 4.5,
+      "ioh_a": -0.0001,
+      "spec_min": 4.4
+    },
+    {
+      "id": "VOH_4p6V_100uA",
+      "vcc": 4.6,
+      "ioh_a": -0.0001,
+      "spec_min": 4.5
+    },
+    {
+      "id": "VOH_4p7V_100uA",
+      "vcc": 4.7,
+      "ioh_a": -0.0001,
+      "spec_min": 4.6
+    },
+    {
+      "id": "VOH_4p8V_100uA",
+      "vcc": 4.8,
+      "ioh_a": -0.0001,
+      "spec_min": 4.7
+    },
+    {
+      "id": "VOH_4p9V_100uA",
+      "vcc": 4.9,
+      "ioh_a": -0.0001,
+      "spec_min": 4.8
+    },
+    {
+      "id": "VOH_5p0V_100uA",
+      "vcc": 5.0,
+      "ioh_a": -0.0001,
+      "spec_min": 4.9
+    },
+    {
+      "id": "VOH_5p1V_100uA",
+      "vcc": 5.1,
+      "ioh_a": -0.0001,
+      "spec_min": 5.0
+    },
+    {
+      "id": "VOH_5p2V_100uA",
+      "vcc": 5.2,
+      "ioh_a": -0.0001,
+      "spec_min": 5.1
+    },
+    {
+      "id": "VOH_5p3V_100uA",
+      "vcc": 5.3,
+      "ioh_a": -0.0001,
+      "spec_min": 5.2
+    },
+    {
+      "id": "VOH_5p4V_100uA",
+      "vcc": 5.4,
+      "ioh_a": -0.0001,
+      "spec_min": 5.3
+    },
+    {
+      "id": "VOH_5p5V_100uA",
+      "vcc": 5.5,
+      "ioh_a": -0.0001,
+      "spec_min": 5.4
+    },
+    {
+      "id": "VOH_2p0V_8mA",
+      "vcc": 2.0,
+      "ioh_a": -0.008,
+      "spec_min": 1.6
+    },
+    {
+      "id": "VOH_3p3V_24mA",
+      "vcc": 3.3,
+      "ioh_a": -0.024,
+      "spec_min": 2.5
+    },
+    {
+      "id": "VOH_4p5V_32mA",
+      "vcc": 4.5,
+      "ioh_a": -0.032,
+      "spec_min": 3.8
+    },
+    {
+      "id": "VOH_5p0V_32mA",
+      "vcc": 5.0,
+      "ioh_a": -0.032,
+      "spec_min": 4.2
+    },
+    {
+      "id": "VOH_5p5V_32mA",
+      "vcc": 5.5,
+      "ioh_a": -0.032,
+      "spec_min": 4.8
+    }
+  ],
+  "vol_table": [
+    {
+      "id": "VOL_2p0V_100uA",
+      "vcc": 2.0,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_3p3V_100uA",
+      "vcc": 3.3,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_4p5V_100uA",
+      "vcc": 4.5,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_4p6V_100uA",
+      "vcc": 4.6,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_4p7V_100uA",
+      "vcc": 4.7,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_4p8V_100uA",
+      "vcc": 4.8,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_4p9V_100uA",
+      "vcc": 4.9,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_5p0V_100uA",
+      "vcc": 5.0,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_5p1V_100uA",
+      "vcc": 5.1,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_5p2V_100uA",
+      "vcc": 5.2,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_5p3V_100uA",
+      "vcc": 5.3,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_5p4V_100uA",
+      "vcc": 5.4,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_5p5V_100uA",
+      "vcc": 5.5,
+      "iol_a": 0.0001,
+      "spec_max": 0.1
+    },
+    {
+      "id": "VOL_2p0V_8mA",
+      "vcc": 2.0,
+      "iol_a": 0.008,
+      "spec_max": 0.45
+    },
+    {
+      "id": "VOL_3p3V_24mA",
+      "vcc": 3.3,
+      "iol_a": 0.024,
+      "spec_max": 0.55
+    },
+    {
+      "id": "VOL_4p5V_32mA",
+      "vcc": 4.5,
+      "iol_a": 0.032,
+      "spec_max": 0.55
+    },
+    {
+      "id": "VOL_5p0V_32mA",
+      "vcc": 5.0,
+      "iol_a": 0.032,
+      "spec_max": 0.5
+    },
+    {
+      "id": "VOL_5p5V_32mA",
+      "vcc": 5.5,
+      "iol_a": 0.032,
+      "spec_max": 0.45
+    }
+  ],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

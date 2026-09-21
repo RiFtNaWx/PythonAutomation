@@ -21,6 +21,16 @@ from ate.reporting.lab_report import (
 MYT = timezone(timedelta(hours=8))
 
 
+def _require_ch2_vpp(scope, min_v: float, label: str) -> float:
+    vpp = abs(float(scope.query(":MEASure:ITEM? VPP,CHAN2").strip()))
+    if vpp > 1e12 or vpp < min_v:
+        raise RuntimeError(
+            f"{label} CH2 Vpp={vpp} expected >= {min_v} V "
+            "(probes CH1=IN+/AWG, CH2=VOUT; BUFFER DUT in socket)"
+        )
+    return vpp
+
+
 def _emit(params: RunParams, step_id: str, status: str, message: str) -> None:
     hook: Optional[Callable[..., None]] = getattr(params, "progress_hook", None)
     if hook:
@@ -79,6 +89,7 @@ def _run_sssr(instr, params: RunParams):
         scope.write(":MEASure:ITEM OVERshoot,CHAN2")
         time.sleep(1)
         overshoot = float(scope.query(":MEASure:ITEM? OVERshoot,CHAN2").strip())
+        _require_ch2_vpp(scope, 0.04, "SSSR")
         print(f"SSSR overshoot CH2: {overshoot}", flush=True)
         _emit(params, "capture", "running", "Capturing SSSR scope photo")
         shot = _capture(
@@ -98,10 +109,13 @@ def _run_sssr(instr, params: RunParams):
         except Exception as exc:
             excel_msg = f"Excel update skipped: {exc}"
         return {
-            "summary": f"SSSR photo -> Test_Database; {excel_msg}",
+            "summary": f"SSSR overshoot={overshoot:.4g}; {excel_msg}",
             "screenshots": [str(shot)],
             "lab_sheet": "SSSR",
             "OverSHT": overshoot,
+            "measurements": [
+                {"id": "OVERSHOOT", "value": round(overshoot, 4), "unit": ""}
+            ],
         }
     finally:
         try:
@@ -139,6 +153,7 @@ def _run_lssr(instr, params: RunParams):
         scope.write("CHAN2:OFFS 0")
         scope.write("TIMebase:OFFSet 1e-6")
         time.sleep(1)
+        vpp = _require_ch2_vpp(scope, 0.4, "LSSR")
         _emit(params, "capture", "running", "Capturing LSSR scope photo")
         shot = _capture(
             scope,
@@ -157,9 +172,12 @@ def _run_lssr(instr, params: RunParams):
         except Exception as exc:
             excel_msg = f"Excel update skipped: {exc}"
         return {
-            "summary": f"LSSR photo -> Test_Database; {excel_msg}",
+            "summary": f"LSSR Vpp={vpp:.4g} V; {excel_msg}",
             "screenshots": [str(shot)],
             "lab_sheet": "LSSR",
+            "measurements": [
+                {"id": "LSSR_VPP_V", "value": round(vpp, 4), "unit": "V"}
+            ],
         }
     finally:
         try:
@@ -197,6 +215,7 @@ def _run_npr(instr, params: RunParams):
         scope.write("CHAN2:OFFS -1")
         scope.write("TIMebase:OFFSet 0")
         time.sleep(1)
+        vpp = _require_ch2_vpp(scope, 0.4, "NPR")
         _emit(params, "capture", "running", "Capturing NPR scope photo")
         shot = _capture(
             scope,
@@ -208,9 +227,12 @@ def _run_npr(instr, params: RunParams):
             ts=ts,
         )
         return {
-            "summary": f"NPR photo -> Test_Database ({shot.name})",
+            "summary": f"NPR Vpp={vpp:.4g} V ({shot.name})",
             "screenshots": [str(shot)],
             "lab_sheet": "NoPhaseReversal",
+            "measurements": [
+                {"id": "NPR_VPP_V", "value": round(vpp, 4), "unit": "V"}
+            ],
         }
     finally:
         try:

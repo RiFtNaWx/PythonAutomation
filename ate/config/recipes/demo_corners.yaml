@@ -1,0 +1,34 @@
+# A14 demo recipe: VCC list x 2^n corners, then measure.
+# DEMO / SIM safe. Closed opcodes only.
+id: demo_corners
+label: Demo corners (A14)
+shortform: CORN
+details: for_list VCC x for_corners n=2 then dmm_read CORNER_V
+family: logic
+products:
+  - rs1g08
+vcc_list:
+  - 1.65
+  - 3.3
+logic_inputs: 2
+levels:
+  - 0.0
+  - 5.5
+nodes:
+  - id: n1
+    op: for_list
+    var: vcc
+    list: [1.65, 3.3]
+    children:
+      - id: n2
+        op: for_corners
+        n: 2
+        levels: [0.0, 5.5]
+        children:
+          - id: n3
+            op: dmm_read
+            measure_id: CORNER_V
+            unit: V
+  - id: n_end
+    op: end
+edges: []

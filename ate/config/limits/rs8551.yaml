@@ -2,8 +2,8 @@ part: RS8551
 datasheet:
   lang: en
   source: local-reference
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS855X_(RevC.2.1).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs8551.txt
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS855X_(RevC.2.1).pdf'
+  extract: ate/config/datasheets/text/rs8551.txt
 specs:
 - id: GBW_MHz
   unit: MHz

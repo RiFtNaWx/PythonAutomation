@@ -49,6 +49,7 @@ fixture_modes:
     board_class: general
     checklist:
       - "PSU CH1 = VCCA, CH2 = VCCB. VCCA must be <= VCCB."
+      - "Continue waits before VOH and before VOL -- dual-rail wiring differs."
       - "OE is AWG CH2 = VCCA (enable) except Tsk (tie OE to VCCA on the board)."
       - "Tsu/Th are datasheet ten/tdis (OE). Cpd is pin Cio, not dynamic Cpd."
     tests:

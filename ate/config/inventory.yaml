@@ -2,21 +2,26 @@
 # One row per SKU (part + orderable + package + lot). Not the RUN-IC website
 # catalog (RS724-Q1 / RS722P-Q1 stay off until we test them).
 #
-# Sources:
+# Sources (portable -- any PC, zip pack, or clone):
 #   Qualification Product List-20260320.xlsx (Main sheet, 2026-03-20)
-#   Product Testing Report drop 2026-09-03
-#     C:\Users\OoiJianHong\Downloads\OneDrive_2026-09-03\Product Testing Report
+#   Product Testing Report drop: %USERPROFILE%/Downloads/Product Testing Report
+#     (unzip of Test Reports.zip). If that folder is missing, resolve to
+#     #Test_Database/_ate/goldens (prefix may be any OneDrive root).
+#   Archive zip: %USERPROFILE%/Downloads/Test Reports.zip
+# Datasheets: %USERPROFILE%/Downloads/Reference/Reference (bench.yaml reference_root)
+#   else #Test_Database/Reference. Never store C:\Users\<name> in this file.
 #
 # sheet_class = exact tracking-sheet category text (SoT for classification)
 # category    = RUN-IC id: opamp | analog_switch | logic | level | power
 # ate_suite   = optional live family when tracking class is stub (RS0204)
 # pic blank on the sheet -> omit (do not invent). Empty pic must not
 # clobber a later/earlier assigned PIC in migrate_operator_folders.
-# report = lab-report folder or xlsx under the Product Testing Report drop.
+# report = lab-report folder or xlsx relative to reports_root (not an absolute path).
 
-source: Qualification Product List-20260320.xlsx + Product Testing Report 2026-09-03
-reports_root: "C:\\Users\\OoiJianHong\\Downloads\\OneDrive_2026-09-03\\Product Testing Report"
-qualification_xlsx: "C:\\Users\\OoiJianHong\\Downloads\\OneDrive_2026-09-03\\Product Testing Report\\Qualification Product List-20260320.xlsx"
+source: Qualification Product List-20260320.xlsx + Product Testing Report
+reports_zip: "%USERPROFILE%/Downloads/Test Reports.zip"
+reports_root: "%USERPROFILE%/Downloads/Product Testing Report"
+qualification_xlsx: "%USERPROFILE%/Downloads/Product Testing Report/Qualification Product List-20260320.xlsx"
 parts:
   # --- Wave 1 Ongoing (in Wuxi) ---
   - {part: RS622, sheet_class: "Low Noise Op-Amp", category: opamp, package: SOP8, model: RS622XK, lot: CQ844W.1, qty: 0, pic: eugene, status: Ongoing, priority: 1, date: "20/3/2026", remark: "in Wuxi", report: RS622/RS622XK_Lab_Report.xlsx}
@@ -24,7 +29,7 @@ parts:
   - {part: RS0204, sheet_class: "Level Shifters", category: level, ate_suite: logic, package: TSSOP14, model: RS0204YQ, pic: changthong, status: Ongoing, priority: 1, date: "20/3/2026", remark: "in Wuxi; campaign under Level/; dual-rail suite still logic", report: RS0204/RS0204 Data Report.xlsx}
 
   # --- Wave 1 TBD ---
-  - {part: RS1GT34, sheet_class: "Logic Series", category: logic, package: SOT-353, model: RS1GT34XC5, lot: CQ3H21.3, qty: 30, status: TBD, priority: 1}
+  - {part: RS1GT34, sheet_class: "Logic Series", category: logic, package: SOT23-5, model: RS1GT34XC5, lot: CQ3H21.3, qty: 30, status: TBD, priority: 1, pic: chun_tak, report: RS1GT34/RS1GT34_Lab_Report.xlsx, remark: "Chun Tak / Core AE OK golden; package SOT23-5 (alt SC70-5 only, not SOT-353)"}
   - {part: RS1G125, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G125XC5, status: TBD, priority: 1, remark: "Wait Sample", report: RS1G125/RS1G125XC5_Lab_Report.xlsx}
   - {part: RS1G07, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G07XC5, lot: CQ694T.3, qty: 30, status: TBD, priority: 1, report: RS1G07/RS1G07XC5_Lab_Report.xlsx}
   - {part: RS1G08, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G08XC5, lot: CR5R94.1, qty: 30, status: TBD, priority: 1, report: RS1G08/RS1G08_Lab_Report.xlsx, remark: "Also Wong Chun Wei RS1G08 template 27 Aug 2026 (loose xlsx)"}
@@ -32,10 +37,10 @@ parts:
   # --- Wave 2 TBD ---
   - {part: RS1G32, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G32XC5, lot: CQ1L02.2, qty: 30, status: TBD, priority: 2, report: RS1G32/RS1G32_Lab_Report.xlsx}
   - {part: RS1G14, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G14XC5, lot: CQAD1V.1, qty: 30, status: TBD, priority: 2, report: RS1G14/RS1G14XC5_Lab_Report.xlsx, remark: "Duplicate loose RS1G14XC5_Lab_Report.xlsx at drop root"}
-  - {part: RS1G97, sheet_class: "Logic Series", category: logic, package: SC70-6, model: RS1G97XC6, lot: CPA919.4, qty: 30, status: TBD, priority: 2, report: RS1G97/RS1G97.xlsx}
-  - {part: RS1GT08, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1GT08XC5, lot: CR1D4T.1, qty: 30, status: TBD, priority: 2}
-  - {part: RS1GT32, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1GT32XC5, lot: CR2U3R.1, qty: 30, status: TBD, priority: 2}
-  - {part: RS1G126, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G126XC5, lot: CR5Q1Q.1, qty: 30, status: TBD, priority: 2, report: RS1G126/RS1G126 Test Report.xlsx}
+  - {part: RS1G97, sheet_class: "Logic Series", category: logic, package: SC70-6, model: RS1G97XC6, lot: CPA919.4, qty: 30, status: TBD, priority: 2, pic: seelim, report: RS1G97/RS1G97.xlsx, remark: "SeeLim pickup; VOH/VOL not in his tree yet"}
+  - {part: RS1GT08, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1GT08XC5, lot: CR1D4T.1, qty: 30, status: TBD, priority: 2, pic: ariff, report: RS1GT08/RS1GT08_Lab_Report.xlsx}
+  - {part: RS1GT32, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1GT32XC5, lot: CR2U3R.1, qty: 30, status: TBD, priority: 2, pic: ariff, report: RS1GT32/RS1GT32_Lab_Report.xlsx}
+  - {part: RS1G126, sheet_class: "Logic Series", category: logic, package: SC70-5, model: RS1G126XC5, lot: CR5Q1Q.1, qty: 30, status: TBD, priority: 2, pic: seelim, report: RS1G126/RS1G126 Test Report.xlsx, remark: "SeeLim pickup; TEN/TDIS Path B oe_timing"}
   - {part: RS74AUP1G07, sheet_class: "Logic Series", category: logic, model: RS74AUP1G07, status: TBD, priority: 2, remark: "plan to MP, wait sample"}
   - {part: RS358, sheet_class: "General Op-Amp", category: opamp, package: SOP8, model: RS358XK, lot: CR8P1Q.4, qty: 20, status: TBD, priority: 2}
 
@@ -67,6 +72,6 @@ parts:
 
   # --- Product Testing Report folders not on Qualification Main (keep part yaml) ---
   - {part: LM358, sheet_class: "General Op-Amp", category: opamp, package: DIP8, model: LM358, pic: eugene, remark: "training report; not on Qualification Main", report: LM358/Training_LM358测试报告.xlsx}
-  - {part: RS2227, sheet_class: "Analog Switch", category: analog_switch, package: MSOP, model: RS2227A, pic: lim, remark: "analog switch reference / prior-gen vs RS2323", report: RS2227/RS2227A Test Report.xlsx}
+  - {part: RS2227, sheet_class: "Analog Switch", category: analog_switch, package: MSOP, model: RS2227A, pic: seelim, status: Completed, remark: "SeeLim Wuxi done; nobody holding", report: RS2227/RS2227A Test Report.xlsx}
   - {part: RS29511, sheet_class: "Logic Series", category: logic, package: SOIC, model: RS29511, pic: soo, remark: "Soo Logic suite; not on Qualification Main", report: RS29511/RS29511 Test Report.xlsx}
   - {part: RS1GT32D, sheet_class: "Logic Series", category: logic, package: SOT23, model: RS1GT32D, pic: ariff, remark: "high-low temp 2025-12-22; not RS1GT32XC5", report: RS1GT32D/RS1GT32D高低温测试-20251222.xlsx}

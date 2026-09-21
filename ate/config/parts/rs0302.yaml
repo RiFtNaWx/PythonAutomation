@@ -1,5 +1,5 @@
-# RS0302 Level Shifter. No dual-rail recipe yet -- folders only.
-# Do not copy RS0204 ids until a wrap exists.
+# RS0302 I2C / SMBus bidirectional translator. Not RS0204 CMOS.
+# Do not copy RS0204 vih/voh/tpd. RON at 10 mA (datasheet also 64 mA).
 
 part: RS0302
 model: RS0302YUTDS8
@@ -11,12 +11,28 @@ version: Version_1
 sample_size: 4
 year: "2026"
 part_key: rs0302
-enabled_tests: []
+vcc: 1.8
+vccb: 3.3
+current_limit: 0.05
+bias_current_limit: 0.05
+ron_force_a: 0.01
+dmm_settle_s: 0.3
+enabled_tests:
+  - i2c_ii
+  - i2c_ron
+  - i2c_cioff
 timing:
-  timeout_s: 4.0
+  timeout_s: 30.0
   settle_s: 0.3
 fixture_modes:
   LOGIC:
-    label: "Level shifter board (RS0302) -- suite pending"
+    label: "RS0302 I2C translator (VREF1/VREF2/EN, SDA/SCL)"
     board_class: general
-    tests: []
+    checklist:
+      - "I2C bidirectional switch. Not RS0204 CMOS translator."
+      - "PSU CH1=VREF1 CH2=VREF2. AWG CH1=EN. DMM on SCL1/SCL2 as prompted."
+      - "RON is 10 mA platform force. Datasheet 64 mA is leftover-honest."
+    tests:
+      - i2c_ii
+      - i2c_ron
+      - i2c_cioff

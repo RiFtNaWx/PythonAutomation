@@ -125,9 +125,16 @@ def _run(instr, params: RunParams):
             excel_msg = f"Excel update skipped: {exc}"
 
         return {
-            "summary": f"Settling photos → Test_Database; {excel_msg}",
+            "summary": (
+                f"Settling CHAN2 VPP={ch2_vpp:.3f} V (photo/cursor leftover); "
+                f"{excel_msg}"
+            ),
+            "data": {"settle_vpp_v": ch2_vpp, "photos_only": True},
             "screenshots": [str(p) for p in shots],
             "lab_sheet": "SettlingTime",
+            "measurements": [
+                {"id": "SETTLE_VPP_V", "value": round(float(ch2_vpp), 4), "unit": "V"}
+            ],
         }
     finally:
         # PSU/AWG stay up for VISA retry. Runner _safe_idle is the only off-ramp.

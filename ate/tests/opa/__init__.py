@@ -14,6 +14,10 @@ from ate.tests.opa import (  # noqa: F401
     buffer_steps,
     mapped_dc,
     noise,
+    psrr,
+    cmrr,
+    power_on,
+    vohl,
 )
 
 __all__ = [
@@ -27,4 +31,8 @@ __all__ = [
     "buffer_steps",
     "mapped_dc",
     "noise",
+    "psrr",
+    "cmrr",
+    "power_on",
+    "vohl",
 ]

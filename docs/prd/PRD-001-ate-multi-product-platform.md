@@ -2,11 +2,11 @@
 
 **Product:** PythonAutomation ATE (operator console + worker)
 **Owner:** founder
-**Status:** A01-A06 closed-accepted. A07-A12 implemented (R-0003 pending -- verify wave, not this implement slice). Do not reopen A01-A16. A13 Excel merge-center and A14 xyflow stay PARKED (numbers reserved). EPIC-A15/A16 implemented. **WIP: EPIC-A17** (F24 tags + session datalog JSON + auto-paste + golden workbook).
+**Status:** A01-A21 implemented or leftover-honest (A01-A06 closed-accepted). Follow-on profile workflow is [PRD-002](PRD-002-operator-profile-workflow.md) (A22 implemented; A23-A26 queued). Snippet pointer+trigger is [PRD-003](PRD-003-snippet-pointer-trigger.md) (A27 READY). A13 Excel merge-center and A14 xyflow stay PARKED. Do not reopen A01-A21. A16 wrap-copy stays leftover-honest (not a failed epic). Operator-default campaign is 5-level Eugene (not leftover `_unassigned`).
 **Repos in scope:** this repo (`PythonAutomation` / origin `jian-hong/Python_Automation_JH`); LA-1 recipe source at `C:\Users\OoiJianHong\Downloads\LabAutomation-1\LabAutomation-1` (reference, not a second runtime)
 **Created:** 2026-08-19
-**Updated:** 2026-09-08 (F24 founder: tags beside model, STS session JSON, auto-paste into sheet_map, golden format check)
-**Epic home:** A17 at `docs/epics/EPIC-A17-tags-session-datalog.md` (READY). A16-A15 implemented; A12-A07 R-0003 pending; A06-A01 closed. Do **not** open GitHub Issues for epics/tickets unless the founder later opts into issue tracking on `origin`. Ticket files under `docs/tickets/`.
+**Updated:** 2026-09-15 (F27 founder snippet pointer -> PRD-003; A16 not reopened)
+**Epic home:** PRD-003 A27 at `docs/epics/EPIC-A27-snippet-pointer-trigger.md` (READY). PRD-002 A22 implemented. A21-A01 stay closed or leftover-honest. Do **not** open GitHub Issues for epics/tickets unless the founder later opts into issue tracking on `origin`. Ticket files under `docs/tickets/`.
 
 ---
 
@@ -480,12 +480,14 @@ Ordering law: irreversibility, not value. A01 before A02 before A03 before A04 b
 | Status | **PARKED** (number reserved F21; do not slice) |
 | Unlock | founder unparks after A15; not this wave |
 
-### EPIC-A14 - xyflow / canvas waves (RESERVED PARKED)
+### EPIC-A14 - Recipe canvas + closed interpreter (UNPARKED)
 
 | Field | Value |
 |-------|-------|
-| Status | **PARKED** (number reserved F21; do not slice) |
-| Unlock | founder unparks after A15; not this wave |
+| Status | **READY** - founder unpark 2026-09-15 (PRD-005) |
+| Epic | `docs/epics/EPIC-A14-recipe-canvas.md` |
+| Tickets | A14-T01 shell, A14-T02 palette+grep, A14-T03 walker+DEMO |
+| Unlock | done; closed-opcode ISA only (no eval; Comparator stays live: false) |
 
 ---
 
@@ -649,6 +651,9 @@ Append only. Never rewrite prior rows.
 | F22 | 2026-09-08 | founder session (F22) | Ask mixed 8 products. Two forks: (1) campaign path INSERT operator folder BEFORE Version: `#Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/` and migrate existing trees. (2) THIS SLICE core: category change must load a different suite; operator identity in folder + session; PSU/AWG safety hard rules -- OVP/OCP always ON, DUT-capped (interpret "set to the max" as protect always on, NOT DP832 30 V / 3 A; golden OVP=Vset+0.3 V, OCP=Iset+0.1 A, Iset default 100 mA). Park cloud sync, mini-scope/CSV reconstruct, circuit drawing, drag-drop waves, no-code wizard. Also "check all tickets solve all" -- A01-A06 closed-accepted; A07-A12 implemented R-0003 pending; do not reopen. | **PRD amendment** -> **EPIC-A15** (A13/A14 stay PARKED reserved). Maps to no open implement epic; founder authorized this slice. R-0003 A07-A12 = separate verify wave. | **Ack.** Tickets A15-T01 path+migrate, A15-T02 category suite, A15-T03 PSU/AWG protect. No GitHub Issues. No Comparator/Power bodies. |
 | F23 | 2026-09-08 | founder session (F23) | Add-test / add-version / transferability: detect new `def test_*` from golden codebase + ate/tests; wrap into TestSpec; copy/enable onto another part; + buttons for Version / Session / Feature; standardised authoring; categorise. Chose first wave: detect+wrap+copy + +Version/+Session; scan both LA-1 and ate/tests; no in-browser editor. Pasted test_cpd/test_cin are detect examples (use input() -- must block). | **PRD amendment** -> **EPIC-A16**. A03 stays closed (slot exists). Full no-code wizard stays PARKED. A13/A14 stay PARKED. | **Implemented.** Tickets A16-T01/T02. `check_test_detect` OK. Worker restarted. Ctrl+F5 `?v=20260908f23`. |
 | F24 | 2026-09-08 | founder session (F24) | New Tags page + chips beside model; multi tags (board rev / project); grep TAGS.txt; STS8200-style rolling session JSON + archive; auto-fill photos into sheet_map cells; golden format check/fix; AGENTS.md / UI contract for AI-safe edits. Separate branch from A16; A13 OneDrive/MCP stay parked. | **PRD amendment** -> **EPIC-A17**. A01-A16 stay closed. A13/A14 stay PARKED. | **Ack.** Tickets A17-T01 tags/datalog, A17-T02 Tags UI+contract, A17-T03 auto-paste+golden. Branch `epic/a17-tags-session-datalog`. No GitHub Issues. |
+| F25 | 2026-09-11 | founder session (F25) | Boss Done/Ongoing/Not-complete; living JSON must merge (keep unrun tests + timestamps); per-test records/; Excel standard auto-fill and PDF limit P/F still missing; agent guide precise. | **PRD amendment** -> **EPIC-A18** (JSON merge + STATUS.md). A19 Excel fill and A20 PDF named next. A13/A14 stay PARKED. | **Implemented.** `sessions/report.json` merges; `{test_key}/DUT_n/records/`; `STATUS.md`; `check_tags_datalog` OK. |
+| F26 | 2026-09-14 | founder session (F26) | New person auto-starts workflow: product codes they handle; if SKUs exist, auto-assign related products and auto-create folders. Later remove self from a product. Remove person with confirm AND typed passphrase. Tune parameters/limits/specs per person. If tests exist, learn what people used, import, suggest by type -> part -> tests. Named groups; drag groups; add/name groups. | **Maps to no open implement epic** -> founder authorized **PRD-002** (do not reopen A01-A21). Assign = `parts:` + `ensure_product` this operator only (not move trees). Forget passphrase = type `FORGET {label}`. Limits = Version overlay. Import = enable existing ids. Groups = catalog labels not A14. | **Ack.** PRD-002 + epics A22-A26 written. WIP: **A22 only**. No tickets by prd-agent. No code. A13/A14 parked. |
+| F27 | 2026-09-15 | founder session (F27) | Remember the snippet section where the code is located. UI does not rewrite the code; it scans and triggers. Scale / change params / add tests / change limits in the original location stay in sync. Opposite of no-code wizard. | **Maps to no open implement epic** (A16 leftover-honest, not failed) -> founder authorized **PRD-003** / **EPIC-A27**. Do not reopen A16 tickets. A13/A14 / wizard stay parked. | **Ack.** PRD-003 + A27 + Mode A T01-T03. No product code this sitting. |
 
 ---
 
@@ -661,7 +666,7 @@ Append only. Never rewrite prior rows.
 | Contract impact | additive RPCs; no breaking path change |
 | Depends on | A15 operator path; A07 sheet_map paste SoT; A16 session JSON stays |
 | Appetite | 1 wave (3 tickets) |
-| Status | **READY** - 2026-09-08 F24. Epic file `docs/epics/EPIC-A17-tags-session-datalog.md` |
+| Status | **implemented** - 2026-09-08 F24. Epic file `docs/epics/EPIC-A17-tags-session-datalog.md` |
 
 **One-liner:** Tags beside model + Tags page write `_manifest/tags.yaml` and grep-able `TAGS.txt`; each run updates rolling STS-shaped `sessions/report.json` (archive on end); session-end pastes screenshots into campaign xlsx via `paste.photos`; golden layout check/fix on campaign workbook; AGENTS.md + UI contract.
 
@@ -672,10 +677,31 @@ Append only. Never rewrite prior rows.
 
 ---
 
+### EPIC-A18 - Living JSON merge + per-test records
+
+| Field | Value |
+|-------|-------|
+| Tier | capability (datalog merge) + stakeholder surface (STATUS.md) |
+| Repo | this repo |
+| Contract impact | additive merge semantics on `report.json`; no path axis change |
+| Depends on | A17 rolling report.json |
+| Appetite | 1 wave |
+| Status | **implemented** - 2026-09-11 F25. Epic file `docs/epics/EPIC-A18-json-latest-merge.md` |
+
+**One-liner:** Living `sessions/report.json` per operator Version merges by test_id+dut(+channel); unrun tests keep old timestamps; history under `{test_key}/DUT_n/records/`; boss `STATUS.md`.
+
+**Acceptance (testable):**
+> WHEN START A records ort and START B records only gbw, THE SYSTEM SHALL keep ort in `report.json` with the original timestamp and SHALL add gbw. WHEN a step is newly recorded, THE SYSTEM SHALL write a timestamped file under `{test_key}/DUT_n/records/`. WHEN `check_tags_datalog` runs, THE SYSTEM SHALL pass.
+
+**Out of epic:** A19 Excel numeric auto-fill; A20 PDF datasheet limit P/F; A13/A14; reopen A01-A17.
+
+---
+
 ## 10. Recommended next action
 
-1. Implement **EPIC-A17** on branch `epic/a17-tags-session-datalog`. Ctrl+F5 console `?v=20260908f24`.
-2. Separate wave: R-0003 verify on A07-A12 (do not reopen).
-3. Keep A13/A14 and no-code wizard parked. RS1G07 CPD/CIN physics still parked until clean wraps exist.
+1. Stakeholder paste: repo-root `STATUS.md`.
+2. Next implement wave on this pointer ask: **PRD-003 EPIC-A27** (T01 then T02 then T03). A16 stays leftover-honest. Do not reopen A01-A21.
+3. PRD-002 A23 Forget remains the next **profile** wave; do not fly A25/A26 with A27.
+4. Keep A13/A14 parked. A19/A20 honesty leftovers (VOX corners, rON image) stay leftovers.
 
-**Model handoff:** implement Composer 2.5; validate/close Grok 4.5 high. Ports 8766 / 5174.
+**Model handoff:** implement Composer 2.5. Validate Grok 4.5 or 4.6. Ports 8766 / 5174.

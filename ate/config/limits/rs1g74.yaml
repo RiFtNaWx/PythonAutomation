@@ -2,8 +2,8 @@ part: RS1G74
 datasheet:
   lang: en
   source: local-reference
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1G74_(RevA.2).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1g74.txt
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS1G74_(RevA.2).pdf'
+  extract: ate/config/datasheets/text/rs1g74.txt
 specs:
 - id: VCC_V
   unit: V
@@ -15,3 +15,11 @@ specs:
   max: 10.0
   test: supply_current
   source: local:RS1G74_(RevA.2).pdf
+- id: CLKQ_PHL_ns
+  test: clk_q
+  unit: ns
+  source: CLK to Q delay (no invented min/max)
+- id: CLKQ_PLH_ns
+  test: clk_q
+  unit: ns
+  source: CLK to Q delay (no invented min/max)

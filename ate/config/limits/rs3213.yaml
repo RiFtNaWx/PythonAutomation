@@ -1,30 +1,47 @@
-# RS3213 LDO. English PDF in local Reference (not RS32X opamp).
-
 part: RS3213
 datasheet:
   lang: en
   source: local-reference
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS3213_(RevWeb).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs3213.txt
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS3213_(RevWeb).pdf'
+  extract: ate/config/datasheets/text/rs3213.txt
   notes: Do not attach RS32X opamp. Fetched English product PDF into local Reference.
-
 specs:
-  - id: VOUT_V
-    test: iq
-    unit: V
-    typ: 3.3
-    source: parts/rs3213.yaml vout_nominal
-  - id: IQ_uA
-    test: iq
-    unit: uA
-    typ: 30
-    source: local:RS3213_(RevWeb).pdf Low IQ TYP
-  - id: VIN_V
-    unit: V
-    min: 1.6
-    max: 5.5
-    source: local:RS3213_(RevWeb).pdf Input Voltage Range
-  - id: VDO_mV
-    unit: mV
-    typ: 580
-    source: local:RS3213_(RevWeb).pdf dropout at 500 mA VOUT=3.3V
+- id: VOUT_V
+  test: iq
+  unit: V
+  typ: 3.3
+  source: parts/rs3213.yaml vout_nominal
+- id: IQ_uA
+  test: iq
+  unit: uA
+  typ: 30
+  source: local:RS3213_(RevWeb).pdf Low IQ TYP
+- id: VIN_V
+  unit: V
+  min: 1.6
+  max: 5.5
+  source: local:RS3213_(RevWeb).pdf Input Voltage Range
+- id: VDO_mV
+  unit: mV
+  typ: 580
+  source: local:RS3213_(RevWeb).pdf dropout at 500 mA VOUT=3.3V
+- id: VINMIN_V
+  test: vinmin
+  unit: V
+  source: DMM first VIN where VOUT >= 0.98*VOUT_nom (SIM follows PSU CH1; leftover)
+- id: LIR_mV
+  test: lir
+  unit: mV
+  source: abs dVOUT across VIN_LIR sweep (unspec; no fake PDF)
+- id: LOR_mV
+  test: lor
+  unit: mV
+  source: abs dVOUT across load_lor (unspec; no fake PDF)
+- id: IOUTMAX_V
+  test: ioutmax
+  unit: V
+  source: min VOUT under load_iout (unspec; no fake Iout max A)
+- id: IEN_uA
+  test: enable_current
+  unit: uA
+  source: worst DMM IEN (unspec; no fake PDF)

@@ -59,9 +59,13 @@ def check_mapped_ids() -> list[str]:
         return ["noise TestSpec missing"]
     if any(c.test_id == "noise" for c in CASES):
         return ["noise must be the 0.1-10Hz body, not a mapped_dc screenshot stub"]
+    if any(c.test_id == "vohl" for c in CASES):
+        return ["vohl must be the DMM rail-swing body, not a mapped_dc screenshot stub"]
     vohl = next(t for t in all_tests() if t.id == "vohl")
     if "DMM" not in vohl.required_instruments:
         return ["vohl must require DMM"]
+    if "AWG" not in vohl.required_instruments:
+        return ["vohl must require AWG"]
     return []
 
 

@@ -13,6 +13,7 @@ def main() -> int:
     from ate.core.lookup import (
         INDEX_PATH,
         build_index,
+        portable_limits_meta,
         reference_root,
         resolve_pdf,
         sync_limits_from_local,
@@ -28,6 +29,7 @@ def main() -> int:
         return 1
 
     idx = build_index(persist=True)
+    portable_limits_meta(write=True)
     if not INDEX_PATH.is_file():
         errors.append("datasheets.yaml not written")
     pdfs = idx.get("pdfs") or []
@@ -36,6 +38,12 @@ def main() -> int:
     p = resolve_pdf("RS1G08", index=idx)
     if p is None or not Path(p).is_file():
         errors.append("resolve_pdf RS1G08 failed")
+    for sku in ("RS1GT08", "RS1GT32"):
+        gp = resolve_pdf(sku, index=idx)
+        if gp is None or not Path(gp).is_file():
+            errors.append(f"resolve_pdf {sku} failed from Reference")
+        elif sku.lower() not in Path(gp).name.lower():
+            errors.append(f"{sku} pdf must be the GT datasheet, got {gp}")
     p62 = resolve_pdf("RS622", index=idx)
     if p62 is None or not Path(p62).is_file():
         errors.append("resolve_pdf RS622 (family RS62X) failed")
@@ -63,6 +71,10 @@ def main() -> int:
     specs0204 = load_part_specs("rs0204")
     if not any(s.get("id") == "ICC_uA" and s.get("max") == 10 for s in specs0204):
         errors.append("rs0204 ICC_uA max 10 uA from local PDF table missing")
+    if not any(s.get("id") == "VIH_RATIO" and s.get("min") == 0.65 for s in specs0204):
+        errors.append("rs0204 VIH_RATIO min 0.65 from RevA.5 missing")
+    if not any(s.get("id") == "TPD_PHL_ns" for s in specs0204):
+        errors.append("rs0204 TPD_PHL_ns from RevA.5 missing")
 
     sync_limits_from_local("RS1G08", part_key="rs1g08", web_ok=False)
     specs = load_part_specs("rs1g08")

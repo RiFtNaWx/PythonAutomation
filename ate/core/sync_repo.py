@@ -62,54 +62,58 @@ def _is_dirty() -> bool:
     return bool((r.stdout or "").strip())
 
 
-def main() -> int:
-    force = "--force" in sys.argv
+def run_sync(*, force: bool = False) -> dict:
+    """Fetch + ff-only pull. Never overwrites a dirty tree. Safe for UI splash."""
     if str(os.environ.get("ATE_APP_ONLY") or "").strip():
-        print("SKIP sync_repo: operator app zip (no git pull)")
-        return 0
+        return {"action": "skip", "message": "App package -- software updates come with a new zip."}
     if not (REPO_ROOT / ".git").is_dir():
-        print("SKIP sync_repo: not a git clone")
-        return 0
+        return {"action": "skip", "message": "Not a git clone."}
 
     try:
         dirty = _is_dirty()
     except (OSError, subprocess.TimeoutExpired):
-        print("SKIP sync_repo: git status failed")
-        return 0
+        return {"action": "skip", "message": "Could not read git status."}
 
     action = should_attempt_pull(dirty, _read_stamp(), time.time(), force)
     if action == "fresh":
-        print("SKIP sync_repo: already fetched today")
-        return 0
+        return {"action": "fresh", "message": "Already updated today."}
 
     try:
         fetch = _git(["fetch", "--all", "--prune"], timeout=120)
     except (OSError, subprocess.TimeoutExpired) as exc:
-        print(f"SKIP sync_repo: fetch failed ({exc})")
-        return 0
+        return {"action": "skip", "message": f"Update check failed ({exc})."}
     if fetch.returncode != 0:
         err = (fetch.stderr or fetch.stdout or "fetch failed").strip().splitlines()
-        print("SKIP sync_repo: " + (err[-1] if err else "fetch failed"))
-        return 0
+        return {"action": "skip", "message": err[-1] if err else "Update check failed."}
 
     if action == "dirty":
         _stamp_now()
-        print("KEEP local files (uncommitted changes). Fetched remotes only. No pull.")
-        return 0
+        return {
+            "action": "dirty",
+            "message": "Your local edits were kept. Fetched remotes only.",
+        }
 
     try:
         pull = _git(["pull", "--ff-only"], timeout=120)
     except (OSError, subprocess.TimeoutExpired) as exc:
-        print(f"SKIP sync_repo: pull failed ({exc})")
-        return 0
+        return {"action": "skip", "message": f"Pull failed ({exc})."}
     out = ((pull.stdout or "") + (pull.stderr or "")).strip()
     if pull.returncode != 0:
-        print("KEEP local commits. Remote moved too; ff-only refused. Fetch is done.")
-        if out:
-            print(out.splitlines()[-1][:400])
-        return 0
+        return {
+            "action": "diverged",
+            "message": "Your local commits were kept. Fetch is done.",
+        }
     _stamp_now()
-    print(out or "OK sync_repo: already up to date")
+    msg = out.splitlines()[-1][:200] if out else "Already up to date."
+    if "Already up to date" in out or "already up to date" in out.lower():
+        return {"action": "fresh", "message": "Already up to date."}
+    return {"action": "pull", "message": msg or "Updated."}
+
+
+def main() -> int:
+    force = "--force" in sys.argv
+    result = run_sync(force=force)
+    print(result.get("message") or result.get("action") or "OK")
     return 0
 
 

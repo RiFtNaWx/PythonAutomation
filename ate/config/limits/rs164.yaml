@@ -1,7 +1,28 @@
 part: RS164
 datasheet:
   lang: en
-  source: unfound
-  file: ''
-  extract: ''
-specs: []
+  source: local-reference
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS164_(RevWeb).pdf'
+  extract: ate/config/datasheets/text/rs164.txt
+specs:
+- id: VCC_V
+  unit: V
+  min: 1.65
+  max: 5.5
+  source: local:RS164_(RevWeb).pdf
+- id: CLKQ_PHL_ns
+  test: clk_q
+  unit: ns
+  source: CLK to Q0 delay (not 8-bit serial; no invented min/max)
+- id: CLKQ_PLH_ns
+  test: clk_q
+  unit: ns
+  source: CLK to Q0 delay (not 8-bit serial; no invented min/max)
+- id: Q7_HIGH_V
+  test: serial_shift
+  unit: V
+  source: 8 CLK of A=B=H then Q7 (no invented min/max)
+- id: Q7_LOW_V
+  test: serial_shift
+  unit: V
+  source: 8 CLK of A=L then Q7 (no invented min/max)

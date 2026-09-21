@@ -8,10 +8,13 @@ import sys
 import tempfile
 from pathlib import Path
 
+import yaml
+
 from ate.core.new_product import (
     build_demo_steps,
     category_by_id,
     ensure_product,
+    ensure_version,
     load_categories,
     load_inventory,
     load_qualification_main,
@@ -194,8 +197,15 @@ def main() -> int:
     root = Path(out["root"])
     if "Ariff" not in str(root):
         raise AssertionError(f"ensure_product root must include operator: {root}")
-    if not (root / "_manifest" / "sheet_map.yaml").is_file():
-        raise AssertionError("ensure_product must write sheet_map")
+    sm_text = (root / "_manifest" / "sheet_map.yaml").read_text(encoding="utf-8")
+    if "FILL_ME" in sm_text:
+        raise AssertionError("ensure_product sheet_map must not write FILL_ME")
+    sm_data = yaml.safe_load(sm_text) or {}
+    if not sm_data.get("naming") or not sm_data.get("sample_size"):
+        raise AssertionError("ensure_product sheet_map must use RS622 outline keys")
+    for _key, entry in (sm_data.get("tests") or {}).items():
+        if isinstance(entry, dict) and not entry.get("fixture_mode"):
+            raise AssertionError("tracked sheet_map tests must include fixture_mode")
     if not (root / "Setup" / "DUT_1" / "graphs").is_dir():
         raise AssertionError("ensure_product must create DUT graph folders")
     again = ensure_product(
@@ -252,6 +262,73 @@ def main() -> int:
         raise AssertionError("RS3213 live family must be power")
     if ldo.get("family") != "power" or not ldo.get("live"):
         raise AssertionError("RS3213 campaign must load the power LDO suite")
+
+    try:
+        ensure_product(
+            category_id="logic",
+            part="RS1G08",
+            package="SOT23",
+            operator="All",
+            open_folder=False,
+            apply=False,
+            base=tmp,
+        )
+        raise AssertionError("All must not Create folders")
+    except ValueError:
+        pass
+
+    ariff = ensure_product(
+        category_id="logic",
+        part="RS1G08",
+        package="SOT23",
+        operator="Ariff",
+        sample_size=2,
+        open_folder=False,
+        apply=False,
+        base=tmp,
+    )
+    ariff_root = Path(ariff["root"])
+    marker = ariff_root / "sessions" / "ariff_only.txt"
+    marker.write_text("ariff", encoding="utf-8")
+    (ariff_root / "workbook" / "keep.xlsx").write_bytes(b"xlsx-marker")
+    chang = ensure_product(
+        category_id="logic",
+        part="RS1G08",
+        package="SOT23",
+        operator="ChangThong",
+        sample_size=2,
+        open_folder=False,
+        apply=False,
+        base=tmp,
+    )
+    chang_root = Path(chang["root"])
+    if ariff_root == chang_root:
+        raise AssertionError("two people on RS1G08 must be two operator folders")
+    if "Ariff" not in str(ariff_root) or "ChangThong" not in str(chang_root):
+        raise AssertionError(f"RS1G08 trees must include person folders: {ariff_root} {chang_root}")
+    if marker.read_text(encoding="utf-8") != "ariff":
+        raise AssertionError("second operator must not clobber the first person's sessions")
+    if list(ariff_root.rglob("*.py")) or list(chang_root.rglob("*.py")):
+        raise AssertionError("Create folders must not copy test Python into #Test_Database")
+    ver = ensure_version(
+        component="Logic",
+        part="RS1G08",
+        package="SOT23",
+        operator="Ariff",
+        version="Version_2",
+        copy_from_version="Version_1",
+        sample_size=2,
+        open_folder=False,
+        apply=False,
+        base=tmp,
+    )
+    v2 = Path(ver["root"])
+    if v2.name != "Version_2" or "Ariff" not in str(v2):
+        raise AssertionError(f"new Version must stay under that person: {v2}")
+    if list((v2 / "workbook").glob("*.xlsx")):
+        raise AssertionError("ensure_version must not clone xlsx")
+    if (chang_root.parent / "Version_2").exists():
+        raise AssertionError("new Version must not appear under the other operator")
 
     spec = TestSpec(
         id="demo_dmm",

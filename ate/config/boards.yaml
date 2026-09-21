@@ -34,6 +34,14 @@ families:
     SOT23:
       - LOGIC-SOT23-REV1
       - LOGIC-SOT23-REV2
+    SOT23-5:
+      - LOGIC-SOT23-REV1
+      - LOGIC-SOT23-REV2
+    SC70-5:
+      - LOGIC-SC70-REV1
+      - LOGIC-SOT23-REV1
+    SC70-6:
+      - LOGIC-SC70-REV1
     SOIC:
       - LOGIC-SOIC-REV1
     TSSOP14:

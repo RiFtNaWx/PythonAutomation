@@ -16,8 +16,8 @@ Two tracks. Pick one. Do not mix (do not keep a private unzip copy if you also g
 
 | Who | You get | Database |
 |-----|---------|----------|
-| **Run tests only** | Zip `ATE_Console_Try_*.zip`, double-click `START.bat` | Same SharePoint `#Test_Database` |
-| **Change the product** (vibe-code) | `git clone -b eugene-console` this repo, `python install.py`, `run_ate_app.bat` | Same folder. Never a second database |
+| **Run tests only** | Zip `ATE_Console_Try_*.zip`, double-click `START.bat` | Same OneDrive shortcut of `#Test_Database` |
+| **Change the product** (vibe-code) | `git clone -b eugene-console` this repo, double-click `START.bat` | Same folder. Never a second database |
 
 ## Step 1 -- You already have GitHub + Git + Python
 
@@ -27,22 +27,20 @@ Use the Github_Auto OneNote for: GitHub account, Company Portal Python (tick **A
 
 If Eugene has not added your GitHub user to `RiFtNaWx/PythonAutomation`, clone will fail. Send him your username.
 
-## Step 2 -- Point this PC at the shared lab folder
+## Step 2 -- Add OneDrive shortcut (not Sync)
 
-Everyone writes into OneDrive `#Test_Database`. Windows cannot use the https SharePoint URL as a folder.
+Everyone writes into the OneDrive shortcut of `#Test_Database`. Windows cannot use the https URL as a folder.
 
-1. Sync the SharePoint `#Test_Database` library in OneDrive until the folder exists on disk.
-2. Open `ate/config/cloud_db.txt` (zip: inside the unzip; git: in the clone).
-3. One line only = the **local** path, for example:
+Lab folder (everyone): [SharePoint Handover / Jianhong / #Test_Database](https://jumptechwin.sharepoint.com/sites/RD/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FRD%2FShared%20Documents%2FGeneral%2FHandover%2FJianhong%2F%23Test%5FDatabase&p=true&ga=1)
 
-```
-C:\Users\YOURNAME\#Test_Database
-```
+1. Open that URL. Click **Add shortcut to OneDrive** (not Sync, not drag-copy).
+2. If asked *Replace folder with your shortcut?* click **Replace**.
+3. Wait for Explorer under `OneDrive - JumpWin Tech\Research & Development - #Test_Database`. Right-click -> **Always keep on this device**.
+4. `START.bat` or `python -m ate.core.sync_cloud_db` writes `ate/config/cloud_db.txt` (one local path, not https).
 
-Not an `https://` link. Optional: paste the SharePoint https into `ate/config/sharepoint.url` so **Open central DB** can open the website if the folder is missing.
-
-**IMAGE B (capture):** File Explorer showing `C:\Users\...\ #Test_Database` with folders `OpAmp`, `Logic`, `Level` (or empty -- Apply campaign will create).
-**IMAGE C (capture):** Notepad of `cloud_db.txt` with that one path, no extra lines.
+**IMAGE A (capture):** SharePoint page with **Add shortcut to OneDrive** -- `docs/tutorial/images/09-sharepoint-testdb.png`
+**IMAGE B (capture):** Explorer OneDrive shortcut with OpAmp / Logic / Level -- `docs/tutorial/images/04-test-database-folder.png`
+**IMAGE C (capture):** Notepad of `cloud_db.txt` OneDrive path -- `docs/tutorial/images/06-cloud-db-txt.png`
 
 ## Step 3A -- Zip operators (no git)
 
@@ -282,7 +280,7 @@ Blast radius (edit only with a reason): `ate/core/database.py`, `runner.py`, `re
 | Add a **Version** | Type Version_N, Apply | Cloning another person's xlsx |
 | Enable tests on **this Version** | Tests page Save (Path A) | Shared parts yaml unless every operator |
 | New **measurement** | Path B TestSpec + `__init__.py` + measurements | `main.py`, `runner.py`, `input()` |
-| Wrap golden `test_*` | Path C then fill the scaffold | Calling empty wrap DEMO "done" |
+| Wrap golden `test_*` | Path C Remember + enable (pointer) | Rewriting the golden or `imported_*.py` |
 | Datasheet min/max | `ate/config/limits/<key>.yaml` | Catalog scrape |
 | Excel cell | campaign `sheet_map.yaml` | Hardcoded A91 |
 | UI | `ate/ui/web/` + bump `?v=` | Second nav / new CSS framework |
@@ -315,7 +313,7 @@ Fail: `sessions/run_log.txt`, `report.json`, worker window, F12. Table: VIBE_COD
 
 ## Step 6 -- Share (Github_Auto OneNote)
 
-`.\push` or green button. Title `feat:` / `fix:` / `config:`. Never commit `env.local` or `cloud_db.txt`.
+Author trees: [goldens/TUTORIAL.md](../../goldens/TUTORIAL.md). Import: `UPDATE_GOLDENS.bat`. Then `.\push` or green button. Safety gateway AST-checks first; mixed `goldens/` + `runner.py` in the same dirty tree is blocked. Title `feat:` / `fix:` / `config:`. Never commit `env.local` or `cloud_db.txt`.
 
 ## Page 3 do-not list
 
@@ -323,7 +321,7 @@ Fail: `sessions/run_log.txt`, `report.json`, worker window, F12. Table: VIBE_COD
 - Hardcoded photo cells
 - A13 / A14
 - `input()` in `TestSpec.run`
-- Treating Path A Save or Path C scaffold as a new filled test
+- Treating Path A Save as a new TestSpec, or Path C as a rewrite of the golden
 
 ---
 
@@ -337,7 +335,7 @@ Do not mix. Full page: repo `docs/VIBE_CODE.md`.
 |------|--------|-----------|
 | **A Customize** | Tests page tick existing ids, **Save this Version** | Setup shows that id on **this** operator Version |
 | **B Realize** | New Python TestSpec + yaml + limits | DEMO writes `measurements` `{id,value,unit}` |
-| **C Wrap then fill** | Wrap golden -> `imported_<id>.py` then fill like B | Scaffold `"fill body"` is **not** done |
+| **C Remember + trigger** | Tests **Remember + enable** -- pointer only, does not rewrite the golden | START runs the original `def test_*` |
 
 ## Path A -- this Version only
 
@@ -368,21 +366,23 @@ Worked example: `cin` / `cpd`.
 
 Do not edit `runner.py`. Check: `python -m ate.core.check_add_test`.
 
-## Path C -- wrap, then fill
+## Path C -- remember, do not rewrite
+
+Author recipe: [goldens/TUTORIAL.md](../../goldens/TUTORIAL.md).
 
 1. Tests page **Refresh scan**.
-2. Wrap + enable on this Version -> `imported_<id>.py` scaffold.
-3. Open the file. If summary is `imported scaffold -- fill body`, keep going (Path B fill).
-4. Example still-scaffold: `ate/tests/logic/imported_input_off_leakage.py`.
+2. **Remember + enable on this Version**. Stores `file:line` in `snippet_map.yaml`. Does **not** write `imported_<id>.py`.
+3. Change params/limits in the original golden. Keep `time.sleep`.
+4. Leftover A16: `ate/tests/logic/imported_input_off_leakage.py` may still say fill body. Do not copy that.
 
-Blocked rows still call `input()` in the golden. Rewrite to Continue first.
+`input()` / `Lim.*` rows stay blocked on START. Run those via that tree's `python main.py`, or Path B with `pause_hook`.
 
 ## Page 4 check
 
 - You can name which path you just used.
 - Path A did not add a `.py` file.
 - Path B DEMO shows a measurement id in STS PDF.
-- Path C wrap without fill is not called "shipped".
+- Path C Remember is a pointer, not a new `imported_*.py`.
 
 
 ---

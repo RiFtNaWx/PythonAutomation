@@ -1,6 +1,8 @@
-# RS29511 Logic (Soo) — fixture / campaign binding
-# Tree: #Test_Database/Logic/RS29511/SOIC/Version_1
-# Owner recipes: LabAutomation-1/Soo (reference only; do not import)
+# RS29511 hot-swappable I2C / SMBus buffer (Soo). Not a 3-state CMOS gate.
+# TEN/TDIS Path B: EN->READY (tIDLE / tDISABLE) in ate/tests/logic/oe_timing.py.
+# TP/TIDLE Path B: SDAIN->SDAOUT in ate/tests/logic/rs29511_prop.py (wraps routes).
+# ICC/READY/Cio Path B: ate/tests/logic/rs29511_dc.py (wraps routes). Not eugene CMOS IDD.
+# Do not wrap Soo logic_tests.test_ten / test_tp (copied 3-state / level-shifter recipes).
 
 part: RS29511
 model: RS29511
@@ -30,15 +32,18 @@ enabled_tests:
   - supply_current
   - output_voltage
   - cap_load
+gaps:
+  - Path A (not Path B)
 
 fixture_modes:
   LOGIC:
     label: "Logic board (RS29511 / Soo)"
     board_class: general
     checklist:
-      - "Logic fixture for RS29511 (Soo)"
-      - "PSU CH1 = VCC; AWG/MSO per TP/TIDLE/TDIS/TEN"
-      - "DMM required for IDD / VOUT / CapLoad"
+      - "I2C hot-swap buffer. EN high = connect after idle; EN low = isolate."
+      - "TEN/TDIS: 10k pull-up READY + SDA/SCL to VCC. AWG CH1=EN; MSO CH1=EN CH2=READY."
+      - "Not 3-state Y pull-down. TP/TIDLE Path B: EN=VCC jumper, AWG=SDA, MSO SDAIN/SDAOUT."
+      - "DMM wraps leftover: IDD / VOUT / CapLoad still Soo logic_tests."
     tests:
       - tp
       - tidle

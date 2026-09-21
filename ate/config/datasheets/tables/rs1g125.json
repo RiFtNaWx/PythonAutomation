@@ -1,0 +1,225 @@
+{
+  "part": "RS1G125",
+  "part_key": "rs1g125",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs1g125.yaml",
+    "truth_table": "ate/config/parts/rs1g125.yaml",
+    "extract": "ate/config/datasheets/text/rs1g125.txt",
+    "xlsx": "RS1G125/RS1G125XC5_Lab_Report.xlsx"
+  },
+  "specs": [
+    {
+      "id": "ICC_uA",
+      "unit": "uA",
+      "max": 1.0,
+      "test": "supply_current",
+      "source": "local:RS1G125_(RevA.6).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "IOZ_uA",
+      "unit": "uA",
+      "max": 10.0,
+      "test": "ioz",
+      "source": "See Lin RS1G126 recipe (3-state) / local PDF",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VCC_V",
+      "unit": "V",
+      "min": 1.65,
+      "max": 5.5,
+      "source": "local:RS1G125_(RevA.6).pdf",
+      "typ": null
+    },
+    {
+      "id": "VOH_1p65V",
+      "unit": "V",
+      "min": 1.2,
+      "test": "voh_load",
+      "source": "parts/rs1g125.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_2p0V",
+      "unit": "V",
+      "min": 1.6,
+      "test": "voh_load",
+      "source": "parts/rs1g125.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_2p3V",
+      "unit": "V",
+      "min": 1.9,
+      "test": "voh_load",
+      "source": "parts/rs1g125.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_3p0V",
+      "unit": "V",
+      "min": 2.4,
+      "test": "voh_load",
+      "source": "parts/rs1g125.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_3p3V",
+      "unit": "V",
+      "min": 2.5,
+      "test": "voh_load",
+      "source": "parts/rs1g125.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_4p5V",
+      "unit": "V",
+      "min": 3.8,
+      "test": "voh_load",
+      "source": "parts/rs1g125.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p0V",
+      "unit": "V",
+      "min": 4.2,
+      "test": "voh_load",
+      "source": "parts/rs1g125.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p5V",
+      "unit": "V",
+      "min": 4.8,
+      "test": "voh_load",
+      "source": "parts/rs1g125.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_1p65V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol_load",
+      "source": "parts/rs1g125.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_2p0V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol_load",
+      "source": "parts/rs1g125.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_2p3V",
+      "unit": "V",
+      "max": 0.3,
+      "test": "vol_load",
+      "source": "parts/rs1g125.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_3p0V",
+      "unit": "V",
+      "max": 0.4,
+      "test": "vol_load",
+      "source": "parts/rs1g125.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_3p3V",
+      "unit": "V",
+      "max": 0.55,
+      "test": "vol_load",
+      "source": "parts/rs1g125.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_4p5V",
+      "unit": "V",
+      "max": 0.55,
+      "test": "vol_load",
+      "source": "parts/rs1g125.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p0V",
+      "unit": "V",
+      "max": 0.5,
+      "test": "vol_load",
+      "source": "parts/rs1g125.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p5V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol_load",
+      "source": "parts/rs1g125.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "TEN_ns",
+      "unit": "ns",
+      "test": "ten",
+      "source": "Path B /OE->Y delay (no invented min/max; PDF tPZL image)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "TDIS_ns",
+      "unit": "ns",
+      "test": "tdis",
+      "source": "Path B /OE->Y delay (no invented min/max; PDF tPLZ image)",
+      "min": null,
+      "max": null,
+      "typ": null
+    }
+  ],
+  "truth_table": {
+    "status": "CONFIRMED",
+    "rows": [
+      {
+        "OE": "L",
+        "A": "H",
+        "Y": "H"
+      },
+      {
+        "OE": "L",
+        "A": "L",
+        "Y": "L"
+      },
+      {
+        "OE": "H",
+        "A": "X",
+        "Y": "Z"
+      }
+    ]
+  },
+  "voh_table": [],
+  "vol_table": [],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

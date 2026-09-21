@@ -1,0 +1,191 @@
+{
+  "part": "RS1G14",
+  "part_key": "rs1g14",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs1g14.yaml",
+    "truth_table": "ate/config/parts/rs1g14.yaml",
+    "extract": "ate/config/datasheets/text/rs1g14.txt",
+    "xlsx": "RS1G14/RS1G14XC5_Lab_Report.xlsx"
+  },
+  "specs": [
+    {
+      "id": "ICC_uA",
+      "unit": "uA",
+      "max": 1.0,
+      "test": "supply_current",
+      "source": "local:RS1G14_(RevA.3.1).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VCC_V",
+      "unit": "V",
+      "min": 1.65,
+      "max": 5.5,
+      "source": "local:RS1G14_(RevA.3.1).pdf",
+      "typ": null
+    },
+    {
+      "id": "VOH_1p65V",
+      "unit": "V",
+      "min": 1.2,
+      "test": "voh_load",
+      "source": "parts/rs1g14.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_2p0V",
+      "unit": "V",
+      "min": 1.6,
+      "test": "voh_load",
+      "source": "parts/rs1g14.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_2p3V",
+      "unit": "V",
+      "min": 1.9,
+      "test": "voh_load",
+      "source": "parts/rs1g14.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_3p0V",
+      "unit": "V",
+      "min": 2.4,
+      "test": "voh_load",
+      "source": "parts/rs1g14.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_3p3V",
+      "unit": "V",
+      "min": 2.5,
+      "test": "voh_load",
+      "source": "parts/rs1g14.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_4p5V",
+      "unit": "V",
+      "min": 3.8,
+      "test": "voh_load",
+      "source": "parts/rs1g14.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p0V",
+      "unit": "V",
+      "min": 4.2,
+      "test": "voh_load",
+      "source": "parts/rs1g14.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p5V",
+      "unit": "V",
+      "min": 4.8,
+      "test": "voh_load",
+      "source": "parts/rs1g14.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_1p65V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol_load",
+      "source": "parts/rs1g14.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_2p0V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol_load",
+      "source": "parts/rs1g14.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_2p3V",
+      "unit": "V",
+      "max": 0.3,
+      "test": "vol_load",
+      "source": "parts/rs1g14.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_3p0V",
+      "unit": "V",
+      "max": 0.4,
+      "test": "vol_load",
+      "source": "parts/rs1g14.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_3p3V",
+      "unit": "V",
+      "max": 0.55,
+      "test": "vol_load",
+      "source": "parts/rs1g14.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_4p5V",
+      "unit": "V",
+      "max": 0.55,
+      "test": "vol_load",
+      "source": "parts/rs1g14.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p0V",
+      "unit": "V",
+      "max": 0.5,
+      "test": "vol_load",
+      "source": "parts/rs1g14.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p5V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol_load",
+      "source": "parts/rs1g14.yaml vol_table",
+      "min": null,
+      "typ": null
+    }
+  ],
+  "truth_table": {
+    "status": "CONFIRMED",
+    "rows": [
+      {
+        "A": "H",
+        "Y": "L"
+      },
+      {
+        "A": "L",
+        "Y": "H"
+      }
+    ]
+  },
+  "voh_table": [],
+  "vol_table": [],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

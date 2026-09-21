@@ -1,25 +1,74 @@
-# RS2323 analog switch. English PDF in local Reference (not RS22X opamp).
-
 part: RS2323
 datasheet:
   lang: en
   source: local-reference
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS2323_(RevWeb).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs2323.txt
-  notes: Do not attach RS22X opamp. Fetched from www.run-ic.com/en/details/143/23.html into local Reference.
-
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS2323_(RevWeb).pdf'
+  extract: ate/config/datasheets/text/rs2323.txt
+  notes: Do not attach RS22X opamp. Fetched from www.run-ic.com/en/details/143/23.html
+    into local Reference.
 specs:
-  - id: IPLUS_uA
-    test: iplus
-    unit: uA
-    max: 1.0
-    source: parts/rs2323.yaml display_limit_ua
-  - id: VCC_V
-    unit: V
-    min: 1.8
-    max: 5.5
-    source: local:RS2323_(RevWeb).pdf recommended operating
-  - id: RON_ohm
-    unit: ohm
-    typ: 0.6
-    source: local:RS2323_(RevWeb).pdf Low ON-State Resistance
+- id: IPLUS_uA
+  test: iplus
+  unit: uA
+  max: 1.0
+  source: parts/rs2323.yaml display_limit_ua
+- id: VCC_V
+  unit: V
+  min: 1.8
+  max: 5.5
+  source: local:RS2323_(RevWeb).pdf recommended operating
+- id: RON_ohm
+  test: ron
+  unit: ohm
+  typ: 0.6
+  source: local:RS2323_(RevWeb).pdf Low ON-State Resistance (min/max still PDF image)
+- id: IOZ_uA
+  test: leakage_off
+  unit: uA
+  source: leakage_off worst
+- id: ION_uA
+  test: leakage_on
+  unit: uA
+  source: leakage_on worst
+- id: IIN_uA
+  test: input_leakage
+  unit: uA
+  source: input_leakage worst
+- id: TON_ns
+  test: ton_toff
+  unit: ns
+  typ: 50
+  source: local:RS2323_(RevWeb).pdf Typically 50ns (min/max PDF image)
+- id: TOFF_ns
+  test: ton_toff
+  unit: ns
+  typ: 50
+  source: local:RS2323_(RevWeb).pdf Typically 50ns (min/max PDF image)
+- id: CON_pF
+  test: con_coff
+  unit: pF
+  source: con_coff DMM CAP (no invented min/max)
+- id: COFF_pF
+  test: con_coff
+  unit: pF
+  source: con_coff DMM CAP (no invented min/max)
+- id: CIN_pF
+  test: con_coff
+  unit: pF
+  source: con_coff DMM CAP IN-GND (no invented min/max)
+- id: TBBM_ns
+  test: tbbm
+  unit: ns
+  source: tBBM NO-NC delay (banner has no number)
+- id: VTH_V
+  test: vth
+  unit: V
+  source: IN sweep until NO follows COM (no invented min/max)
+- id: ISO_dB
+  test: iso
+  unit: dB
+  source: 1 MHz high-Z Vcom/Vnc (no invented min/max; not 50 ohm RF image)
+- id: XTALK_dB
+  test: xtalk
+  unit: dB
+  source: 1 MHz high-Z Vcom2/Vcom1 (no invented min/max; not 50 ohm RF image)

@@ -9,6 +9,14 @@ owners:
   default_component: OpAmp
   default_package: TTSOP8
   parts: []
+- id: kevin
+  label: Kevin
+  role: observer
+  default_family: opamp
+  default_part: rs622
+  default_component: OpAmp
+  default_package: TTSOP8
+  parts: []
 - id: eugene
   label: Eugene
   default_family: opamp
@@ -18,8 +26,6 @@ owners:
   parts:
   - rs622
   - lm358
-  - rs1g07
-  - rs1g14
 - id: soo
   label: Soo
   default_family: logic
@@ -36,10 +42,24 @@ owners:
   default_package: SOT23
   parts:
   - rs1g08
-  - rs1g32
+  - rs1gt08
+  - rs1gt32
   - rs1gt32d
 - id: lim
-  label: Lim
+  label: SeeLim
+  alias_of: seelim
+  default_family: logic
+  default_part: rs2323
+  default_component: AnalogSwitch
+  default_package: SC70-5
+  parts:
+  - rs2323
+  - rs2227
+  - rs1g126
+  - rs1g97
+  task: RS1G126
+- id: seelim
+  label: SeeLim
   default_family: switch
   default_part: rs2323
   default_component: AnalogSwitch
@@ -49,15 +69,6 @@ owners:
   - rs2227
   - rs1g126
   - rs1g97
-  - rs1g125
-- id: seelim
-  label: SeeLim
-  default_family: switch
-  default_part: rs2323
-  default_component: AnalogSwitch
-  default_package: MSOP
-  parts:
-  - rs2323
 - id: changthong
   label: ChangThong
   default_family: level
@@ -72,5 +83,30 @@ owners:
   default_part: rs0204
   default_component: Level
   default_package: TSSOP14
+  parts: []
+- id: chun_tak
+  label: Chun Tak
+  default_family: logic
+  default_part: rs1gt34
+  default_component: Logic
+  default_package: SOT23-5
   parts:
-  - rs0204
+  - rs1gt34
+  task: RS1GT34
+- id: jianhong
+  label: JianHong
+  default_family: logic
+  default_part: rs1g07
+  default_component: Logic
+  default_package: SC70-5
+  parts: []
+  task: RS2227
+- id: abc
+  label: ABC
+  default_family: opamp
+  default_part: rs622
+  default_component: OpAmp
+  default_package: TTSOP8
+  parts:
+  - rs622
+  task: RS622

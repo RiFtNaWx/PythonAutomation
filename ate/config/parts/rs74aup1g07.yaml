@@ -1,4 +1,6 @@
 # RS74AUP1G07 open-drain buffer -- wait sample. Same DC family as RS1G07.
+# PDF unfound -- do not enable voh_load/vol_load (AUP is ~0.8-3.6 V).
+# vih_vil Path B: Ariff 1.8/2.5/3.3 only.
 
 part: RS74AUP1G07
 model: RS74AUP1G07
@@ -8,19 +10,25 @@ sample_size: 4
 year: "2026"
 part_key: rs74aup1g07
 product_class: logic
-vcc: 5.0
+vcc: 3.3
 current_limit: 0.10
+logic_inputs: 1
 timing:
   timeout_s: 4.0
   settle_s: 0.3
+vih_vil_vcc_list: [1.8, 2.5, 3.3]
 enabled_tests:
+  - vih_vil
   - supply_current
   - delta_supply_current
   - ioff_leakage
+gaps:
+  - wait sample / no Datasheet card
 fixture_modes:
   LOGIC:
     label: "Logic board (RS74AUP1G07)"
     board_class: general
     checklist:
-      - "Open-drain buffer. Wait sample / plan to MP."
-    tests: [supply_current, delta_supply_current, ioff_leakage]
+      - "Open-drain AUP buffer. Wait sample / plan to MP."
+      - "VIH/VIL at 1.8/2.5/3.3 only. No voh_load. No 5.5 V until PDF."
+    tests: [vih_vil, supply_current, delta_supply_current, ioff_leakage]

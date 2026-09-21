@@ -16,7 +16,7 @@ def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="ate_a17_tags_"))
     from ate.core import database as dbmod
     from ate.core import paths as pathmod
-    from ate.core.database import begin_session, end_session, record_step, set_context
+    from ate.core.database import begin_session, current_session, end_session, record_step, set_context
     from ate.core.datalog import archive_dir, report_path
     from ate.core.datasheet import _merge_specs
     from ate.core.specs import judge_value, load_part_specs
@@ -87,6 +87,21 @@ def main() -> int:
         if "project:A17-char" not in loaded["tags"]:
             errors.append("load_tags round-trip failed")
 
+        multi = save_tags(
+            labels=[
+                {"kind": "board", "value": "G11-REV2"},
+                {"kind": "board", "value": "G11-REV3"},
+                {"kind": "tag", "value": "keep-me"},
+            ],
+            ctx=ctx,
+        )
+        if len(multi.get("boards") or []) != 1 or multi["boards"][0] != "G11-REV3":
+            errors.append(f"save_tags must keep one board (last wins), got {multi.get('boards')}")
+        if "keep-me" not in (multi.get("tags") or []):
+            errors.append("save_tags one-board collapse must keep free tags")
+        if not (multi.get("central_board") or {}).get("ok"):
+            errors.append("save_tags must remember board in central _ate")
+
         vocab = list_boards(family="opamp", package="TTSOP8", ctx=ctx)
         if not vocab:
             errors.append("list_boards empty for opamp/TTSOP8")
@@ -96,6 +111,10 @@ def main() -> int:
             errors.append("list_boards empty for power/SOT23-5")
         if any("G11" in x for x in pwr_boards):
             errors.append("power board vocab must not fall back to OpAmp G11")
+
+        logic_sc70 = list_boards(family="logic", package="SC70-5", ctx=ctx)
+        if "LOGIC-SC70-REV1" not in logic_sc70:
+            errors.append(f"logic SC70-5 must list LOGIC-SC70-REV1, got {logic_sc70}")
 
         from ate.core.tags import list_label_catalog
 
@@ -203,6 +222,13 @@ def main() -> int:
             errors.append("rs622 limits yaml missing VOS_mV max 3")
 
         begin_session({"unit_index": 1, "dut_indices": [1, 2], "run_label": "a17check"})
+        sess = current_session() or {}
+        sess_tags = (sess.get("params") or {}).get("tags") or []
+        ctx_tags = (sess.get("context") or {}).get("tags") or []
+        if "project:imported" not in sess_tags:
+            errors.append("START params must stamp campaign tags")
+        if "project:imported" not in ctx_tags:
+            errors.append("START context missing campaign tags")
         record_step(
             "ort",
             success=True,
@@ -211,6 +237,27 @@ def main() -> int:
             dut=1,
             measurements=[{"id": "demo_v", "unit": "V", "min": -1, "max": 1, "value": 0.1}],
         )
+        record_step(
+            "voh_load",
+            success=True,
+            summary="csv points",
+            fixture_mode="LOGIC",
+            dut=1,
+            measurements=[{"id": "VOH_2p0V", "unit": "V", "value": 1.61}],
+            data={"rows": [{"VCC": 2.0, "Measured": 1.61}, {"VCC": 3.3, "Measured": 2.91}]},
+        )
+        csv_pts = ctx.sessions_dir() / "points" / "voh_load_DUT1.csv"
+        if not csv_pts.is_file():
+            errors.append("sessions/points/voh_load_DUT1.csv missing after record_step")
+        else:
+            csv_body = csv_pts.read_text(encoding="utf-8")
+            if "VCC" not in csv_body or "1.61" not in csv_body:
+                errors.append("points csv must have numeric VCC/Measured rows")
+            if "PASS" in csv_body or "FAIL" in csv_body:
+                errors.append("points csv must be numbers only, not PASS/FAIL")
+        svg_pts = ctx.sessions_dir() / "points" / "voh_load_DUT1.svg"
+        if not svg_pts.is_file() or "<svg" not in svg_pts.read_text(encoding="utf-8"):
+            errors.append("sessions/points/voh_load_DUT1.svg plot missing after record_step")
         record_step(
             "gbw",
             success=True,

@@ -72,14 +72,8 @@ def _check_part(
         return errors
     data = yaml.safe_load(sm_path.read_text(encoding="utf-8")) or {}
     tests = data.get("tests") or {}
-    allow = set(enabled)
-    sheets = {t.lab_sheet: t.id for t in all_tests() if t.lab_sheet and t.id in allow}
-    for key, entry in tests.items() if isinstance(tests, dict) else []:
-        if not isinstance(entry, dict):
-            continue
-        sheet = entry.get("excel_sheet")
-        if sheet and sheet not in sheets:
-            errors.append(f"{part_key}: sheet_map {key}->{sheet} has no enabled lab_sheet")
+    # excel_sheet may be a tracking alias (VOX / ICC / Iplus), not TestSpec.lab_sheet.
+    # Require the sheet on the workbook, not name equality with lab_sheet.
 
     xlsx = ctx.lab_report_path()
     if not xlsx.is_file():
@@ -117,7 +111,7 @@ def check_logic_campaign() -> list[str]:
     need = [
         ("Logic", "RS29511", "SOIC", "Version_1", "Soo"),
         ("Logic", "RS1G08", "SOT23", "Version_1", "Ariff"),
-        ("Logic", "RS0204", "TSSOP14", "Version_1", "ChangThong"),
+        ("Level", "RS0204", "TSSOP14", "Version_1", "ChangThong"),
     ]
     for component, part, package, version, operator in need:
         root = find_campaign_root(component, part, package, version, operator=operator)
@@ -128,7 +122,7 @@ def check_logic_campaign() -> list[str]:
 
     errors += _check_part("rs29511", "Logic", "RS29511", "SOIC", "Version_1", operator="Soo")
     errors += _check_part("rs1g08", "Logic", "RS1G08", "SOT23", "Version_1", operator="Ariff")
-    errors += _check_part("rs0204", "Logic", "RS0204", "TSSOP14", "Version_1", operator="ChangThong")
+    errors += _check_part("rs0204", "Level", "RS0204", "TSSOP14", "Version_1", operator="ChangThong")
 
     # Probe Ariff + RS0204 ids registered when Logic loads
     load_family("logic")

@@ -2,16 +2,64 @@ part: RS1G126
 datasheet:
   lang: en
   source: local-reference
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1G126_(RevA.4).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1g126.txt
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS1G126_(RevA.4).pdf'
+  extract: ate/config/datasheets/text/rs1g126.txt
 specs:
-- id: ICC_uA
-  unit: uA
-  max: 1.0
-  test: supply_current
-  source: local:RS1G126_(RevA.4).pdf
 - id: VCC_V
   unit: V
   min: 1.65
   max: 5.5
   source: local:RS1G126_(RevA.4).pdf
+- id: ICC_uA
+  unit: uA
+  max: 1.0
+  test: icc
+  source: SeeLim limits.py ICC_LIMIT_UA / PDF 9.2
+- id: DELTA_ICC_uA
+  unit: uA
+  max: 500.0
+  test: delta_icc
+  source: SeeLim limits.py DELTA_ICC_LIMIT_UA
+- id: II_uA
+  unit: uA
+  max: 1.0
+  test: ii
+  source: SeeLim limits.py II_LIMIT_UA
+- id: IOFF_uA
+  unit: uA
+  max: 1.0
+  test: ioff
+  source: SeeLim limits.py IOFF_LIMIT_UA
+- id: IOZ_uA
+  unit: uA
+  max: 10.0
+  test: ioz
+  source: SeeLim RS1G126 current_tests / PDF 9.2
+- id: TEN_ns
+  unit: ns
+  test: ten
+  source: Path B OE->Y delay (no invented min/max; PDF tPZH image)
+- id: TDIS_ns
+  unit: ns
+  test: tdis
+  source: Path B OE->Y delay (no invented min/max; PDF tPHZ image)
+- id: VOH_4p5V_32mA
+  unit: V
+  min: 3.8
+  pass_mode: min_only
+  test: voh
+  source: CONFIRMED Full load grid @4.5V -32mA
+- id: VOL_4p5V_32mA
+  unit: V
+  max: 0.55
+  pass_mode: max_only
+  test: vol
+  source: CONFIRMED Full load grid @4.5V +32mA
+- id: VOH_min_leftover
+  unit: V
+  min: 1.2
+  source: PDF VOH leftover -- not in SeeLim tree
+- id: VOL_max_leftover
+  unit: V
+  max: 0.45
+  source: PDF VOL leftover -- not in SeeLim tree

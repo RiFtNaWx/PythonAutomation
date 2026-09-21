@@ -36,14 +36,23 @@ def _latest_image(folder: Path) -> Path | None:
     return files[0]
 
 
-def paste_session_photos(session: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Paste latest graphs/screenshots for every sheet_map test with real anchors."""
+def paste_session_photos(
+    session: dict[str, Any] | None = None,
+    *,
+    workbook_path: Path | None = None,
+    ctx: Any = None,
+) -> dict[str, Any]:
+    """Paste latest graphs/screenshots for every sheet_map test with real anchors.
+
+    DEMO / fill writes onto *_filled.xlsx / *_demo.xlsx when workbook_path is the copy.
+    Live golden is not the default when that path is passed.
+    """
     from ate.core.database import get_context
     from ate.reporting.lab_report import place_mapped_photos
     from ate.reporting.photo_layout import parse_photo_key
 
-    ctx = get_context()
-    sm = ctx.load_sheet_map()
+    used = ctx or get_context()
+    sm = used.load_sheet_map() if hasattr(used, "load_sheet_map") else {}
     tests = sm.get("tests") if isinstance(sm, dict) else {}
     if not isinstance(tests, dict):
         return {"pasted": 0, "skipped": 0, "errors": ["no sheet_map tests"]}
@@ -51,22 +60,17 @@ def paste_session_photos(session: dict[str, Any] | None = None) -> dict[str, Any
     pasted = 0
     skipped = 0
     errors: list[str] = []
-    sample = max(1, int(ctx.sample_size or 4))
+    sample = max(1, int(getattr(used, "sample_size", None) or 4))
+    dest = Path(workbook_path) if workbook_path else None
 
     for key, entry in tests.items():
         if not isinstance(entry, dict):
             continue
-        photos = entry.get("paste", {}).get("photos") if isinstance(entry.get("paste"), dict) else None
-        if photos is None:
-            photos = entry.get("paste.photos")  # unlikely
+        paste_block = entry.get("paste")
+        photos = paste_block.get("photos") if isinstance(paste_block, dict) else None
         if not isinstance(photos, dict) or not photos:
-            # also accept entry["paste"]["photos"] already handled; try nested
-            paste_block = entry.get("paste")
-            if isinstance(paste_block, dict):
-                photos = paste_block.get("photos")
-            if not isinstance(photos, dict) or not photos:
-                skipped += 1
-                continue
+            skipped += 1
+            continue
         folder = str(entry.get("folder") or key)
         for pkey, cell in photos.items():
             if not _is_real_cell(cell):
@@ -82,20 +86,28 @@ def paste_session_photos(session: dict[str, Any] | None = None) -> dict[str, Any
                 continue
             ch = str(meta["channel"])
             pol = meta.get("polarity")
-            graph_dir = ctx.graph_dir(folder, unit)
-            shot_dir = ctx.screenshot_dir(folder, unit)
-            img = _latest_image(graph_dir) or _latest_image(shot_dir)
+            graph_dir = used.graph_dir(folder, unit) if hasattr(used, "graph_dir") else None
+            shot_dir = used.screenshot_dir(folder, unit) if hasattr(used, "screenshot_dir") else None
+            img = None
+            if graph_dir:
+                img = _latest_image(graph_dir)
+            if img is None and shot_dir:
+                img = _latest_image(shot_dir)
             if img is None:
                 skipped += 1
                 continue
             try:
-                place_mapped_photos(
+                kwargs = dict(
                     test_key=str(key),
                     photo_path=img,
                     unit_index=unit,
                     channel=ch,
                     polarity=pol,
                 )
+                if dest is not None:
+                    place_mapped_photos(dest, **kwargs)
+                else:
+                    place_mapped_photos(**kwargs)
                 pasted += 1
             except Exception as exc:
                 errors.append(f"{key}/{pkey}: {exc}")

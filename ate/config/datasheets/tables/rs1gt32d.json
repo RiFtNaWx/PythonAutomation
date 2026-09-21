@@ -1,0 +1,170 @@
+{
+  "part": "RS1GT32D",
+  "part_key": "rs1gt32d",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs1gt32d.yaml",
+    "truth_table": "ate/config/parts/rs1gt32d.yaml",
+    "extract": "ate/config/datasheets/text/rs1gt32d.txt",
+    "xlsx": "RS1GT32D/RS1GT32D高低温测试-20251222.xlsx"
+  },
+  "specs": [
+    {
+      "id": "VOH_2p0V",
+      "unit": "V",
+      "min": 1.6,
+      "test": "voh_load",
+      "source": "parts/rs1gt32d.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_3p3V",
+      "unit": "V",
+      "min": 2.5,
+      "test": "voh_load",
+      "source": "parts/rs1gt32d.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_4p5V",
+      "unit": "V",
+      "min": 3.8,
+      "test": "voh_load",
+      "source": "parts/rs1gt32d.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p0V",
+      "unit": "V",
+      "min": 4.2,
+      "test": "voh_load",
+      "source": "parts/rs1gt32d.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_5p5V",
+      "unit": "V",
+      "min": 4.8,
+      "test": "voh_load",
+      "source": "parts/rs1gt32d.yaml voh_table",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_2p0V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol_load",
+      "source": "parts/rs1gt32d.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_3p3V",
+      "unit": "V",
+      "max": 0.55,
+      "test": "vol_load",
+      "source": "parts/rs1gt32d.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_4p5V",
+      "unit": "V",
+      "max": 0.55,
+      "test": "vol_load",
+      "source": "parts/rs1gt32d.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p0V",
+      "unit": "V",
+      "max": 0.5,
+      "test": "vol_load",
+      "source": "parts/rs1gt32d.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p5V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol_load",
+      "source": "parts/rs1gt32d.yaml vol_table",
+      "min": null,
+      "typ": null
+    }
+  ],
+  "truth_table": {},
+  "voh_table": [
+    {
+      "vcc": 2.0,
+      "vref": 0.08,
+      "spec_min": 1.6,
+      "ioh_a": 0.008
+    },
+    {
+      "vcc": 3.3,
+      "vref": 0.24,
+      "spec_min": 2.5,
+      "ioh_a": 0.024
+    },
+    {
+      "vcc": 4.5,
+      "vref": 0.32,
+      "spec_min": 3.8,
+      "ioh_a": 0.032
+    },
+    {
+      "vcc": 5.0,
+      "vref": 0.32,
+      "spec_min": 4.2,
+      "ioh_a": 0.032
+    },
+    {
+      "vcc": 5.5,
+      "vref": 0.32,
+      "spec_min": 4.8,
+      "ioh_a": 0.032
+    }
+  ],
+  "vol_table": [
+    {
+      "vcc": 2.0,
+      "vref": 4.92,
+      "spec_max": 0.45,
+      "iol_a": 0.008
+    },
+    {
+      "vcc": 3.3,
+      "vref": 4.76,
+      "spec_max": 0.55,
+      "iol_a": 0.024
+    },
+    {
+      "vcc": 4.5,
+      "vref": 4.68,
+      "spec_max": 0.55,
+      "iol_a": 0.032
+    },
+    {
+      "vcc": 5.0,
+      "vref": 4.68,
+      "spec_max": 0.5,
+      "iol_a": 0.032
+    },
+    {
+      "vcc": 5.5,
+      "vref": 4.68,
+      "spec_max": 0.45,
+      "iol_a": 0.032
+    }
+  ],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

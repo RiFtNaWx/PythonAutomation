@@ -1,8 +1,13 @@
 ﻿# ATE plug-in checklist (one-prompt scale)
 
-Companion to `ATE_MODULAR.md`. Fill **every** slot below when adding a family
-or a new campaign. Do not invent instruments. Do not clone GitHub into the
-test tree (`Github_Auto/` is a team git helper, not ingest).
+Companion to `ATE_MODULAR.md`. **Vibe-coders / agents: start at repo-root `AGENTS.md`**
+(where to change files, add a person, add a version, blast radius). Copy-paste
+prompts: `docs/PROMPT_GUIDE.md`. This page is the slot list when you are
+already adding a family or campaign.
+
+Fill **every** slot below when adding a family or a new campaign. Do not invent
+instruments. Do not clone GitHub into the test tree (`Github_Auto/` is a team
+git helper, not ingest).
 
 ## Code slots
 
@@ -19,7 +24,9 @@ test tree (`Github_Auto/` is a team git helper, not ingest).
    and/or a package under `ate/tests/<family>/` (pkgutil discovery). Worker
    `set_family` / UI rail read `known_families()`.
 4. **Optional part yaml** — `ate/config/parts/<key>.yaml` (fixture modes, gain
-   boards, sample_size). Only if the part needs bench defaults.
+   boards, sample_size). Electrical min/typ/max live in
+   `ate/config/limits/<key>.yaml`. Return measurements from `run()`. Only if
+   the part needs bench defaults.
 5. **Worker restart** — ingest calls `refresh_family_table()` in-process. If
    the family rail is stale, `restart_ate_app.bat` (ports **8766** worker,
    **5174** UI). **8765 is AirGPT — leave it alone.**
@@ -62,9 +69,10 @@ Operator is a person folder (Eugene / Ariff / …). Top-right **All** is view-on
 7. **Workbook xlsx** — live lab report under `workbook/`. Import an existing
    file from Setup (RPC `import_workbook`); do **not** use an upload wizard.
 8. **`_manifest/sheet_map.yaml`** — folder ↔ Excel sheet ↔ paste anchors.
-   Import may **stub** this from sheet names (`FILL_ME` paste cells). An
-   operator must fill real cells. A map that already has anchors is not
-   overwritten without a `.bak_*` backup.
+   Same outline keys as RS622 TTSOP8 (`fixture_mode`, `automated`,
+   `dut_iterations`, `naming`). Known numeric cells come from
+   `ate/core/campaign_outline.py`. Import upgrades in place; it does **not**
+   write FILL_ME. Omit `paste.photos` until measured.
 9. **`_manifest/test_catalog.yaml`** — operator conditions / recipes (not
    invented by import).
 
@@ -135,28 +143,28 @@ One Logic family rail; differences live in YAML:
 ## How to extend (names, tests, corners)
 
 Do **not** edit `runner.py` to add a product. Full no-code wizard stays parked.
-**F23 / A16** adds Setup detect/wrap/copy/+Version/+Session (not a code editor).
+Precise Path A/B/C + debug: `docs/VIBE_CODE.md`. Check: `python -m ate.core.check_add_test`.
 
-1. **New person / operator** -- add a row in `ate/config/owners.yaml` (`id`, `label`, `default_family`, `default_part`, `default_component`, `default_package`, `parts`). Reloads on Setup; top-right Operator dropdown.
-2. **New part in an existing family** -- `ate/config/parts/<key>.yaml` (`enabled_tests`, `vcc`, optional `vcc_sweep_list` or `vcc_sweep`, optional `vccb`, `fixture_modes`, `timing`). Create campaign folders under `#Test_Database/{Component}/{Part}/{Package}/{Operator}/Version_N/`. Or Setup **+ Version** for the next `Version_N`.
-3. **New test in an existing family** -- preferred engineer path: `register(TestSpec(...))` in that family's package + add the id to the part's `enabled_tests`. Restart/reload worker. Run page shows a checkbox.
-4. **Detect / wrap from golden** -- Setup **Detected tests**: AST-scans `ate/tests` + paths in `ate/config/golden_roots.yaml` (missing dirs skipped). Tick wrap-ready rows -> **Wrap + enable on part** writes `ate/tests/<family>/imported_<id>.py`. Rows that call `input()` stay **blocked**. Check: `python -m ate.core.check_test_detect`.
-5. **Copy tests between parts** -- same family only: Setup **Copy tests from part** -> **Copy to current part** appends `enabled_tests` (refuses cross-family, e.g. RS0204 dual-rail onto RS1G07).
-6. **+ Session** -- writes a new `sessions/session_*.json` run record without START / VISA. Discover -> Open Session still required for instruments.
-7. **Dropdown corners** -- if the yaml has `vcc_sweep_list` / `vcc_sweep` (or `controls:` list with `id` / `choices`), Setup shows a **Run conditions** select. Dual-rail parts also get VCCB. OpAmp keeps locked gain boards; Logic/Analog SW do not show G11.
-8. **New family** -- Setup -> Import family, or drop `ate/tests/<family>/` + `extra_families.yaml` with optional `label:` for the rail name. Worker `set_family` / left rail pick it up after refresh.
-9. **Campaign tree** -- `{Component}` folder switches family. Names with underscores (`demo_ingest`) match the family key.
-10. **Tags + session datalog (A17)** -- Tags page / chips write `_manifest/tags.yaml` + `TAGS.txt` (grep). Boards: `ate/config/boards.yaml`. Rolling STS JSON: `sessions/report.json` + `archive/`. Session-end paste via `paste.photos`. See `AGENTS.md`. Checks: `python -m ate.core.check_tags_datalog`, `check_ui_contract`, `ate.reporting.check_golden_workbook`.
+1. **New person / operator** -- Setup Save person, or a row in `ate/config/owners.yaml`.
+2. **New part in an existing family** -- `ate/config/parts/<key>.yaml` then Create folders / Apply.
+3. **Path B realize a new test** -- `register(TestSpec)` in `ate/tests/<family>/` + `__init__.py` import + `measurements` + part `enabled_tests` + limits `specs[].id` match. Idle-restart worker. Do not edit `runner.py`.
+4. **Path A customize this Version** -- Tests page **Save this Version** writes `_manifest/test_catalog.yaml`. Catalog wins over part yaml. Does not invent a TestSpec.
+5. **Path C remember + trigger** -- Tests page Remember + enable stores `file:line` in `snippet_map.yaml` and START calls that function. No new `imported_<id>.py`. Rows with `input()` or `Lim`/`Ariff`/`Soo` stay blocked. Vendor goldens stay Path B. Check: `python -m ate.core.check_test_detect`.
+6. **Copy tests between people/parts** -- parked. Same family only if ever unparked. Never RS0204 ids onto RS1G07.
+7. **Dropdown corners** -- part yaml `vcc_sweep_list` / `vccb` -> Setup Run conditions.
+8. **New family** -- Setup Import family, or `ate/tests/<family>/` + `extra_families.yaml`.
+9. **Campaign tree** -- `{Component}` folder switches family.
+10. **Tags + STS** -- see `AGENTS.md`. Checks: `check_tags_datalog`, `check_ui_contract`.
 
-Authoring contract for new bodies:
+Authoring contract for Path B bodies:
 
 ```python
 def run(instr, params: RunParams) -> dict:
     # power_on_protected; params.pause_hook for Continue; never input()
-    return {"summary": "...", "data": {}}
+    return {"summary": "...", "data": {}, "measurements": [{"id": "FOO_uA", "value": 0.8, "unit": "uA"}]}
 ```
 
-Raw `def test_foo(instr, ...):` is golden-source only until wrapped into `TestSpec`.
+Raw `def test_foo(instr, ...):` is golden-source only until wrapped (Path C) and filled (Path B).
 
 ## New product + DEMO (tracking sheet, not website catalog)
 

@@ -7,6 +7,7 @@ from typing import Optional
 
 from openpyxl import load_workbook
 from openpyxl.drawing.image import Image as XLImage
+from openpyxl.utils import get_column_letter
 
 from ate.core.paths import artifact_name, screenshot_dir
 from ate.reporting.photo_layout import photo_anchor
@@ -45,6 +46,29 @@ def ensure_screenshot_dir(test_folder: str = "", dut_index: int | None = None) -
     return dest
 
 
+def _photo_box_px(ws, anchor_cell: str, default_w: int, default_h: int) -> tuple[int, int]:
+    """Fit the image to the merged photo box. 4-col DUT grid or 8-col CHA|CHB pair."""
+    try:
+        cell = ws[anchor_cell]
+        w_cols, h_rows = 4, 10
+        for mr in ws.merged_cells.ranges:
+            if mr.min_row == cell.row and mr.min_col == cell.column:
+                w_cols = mr.max_col - mr.min_col + 1
+                h_rows = mr.max_row - mr.min_row + 1
+                break
+        widths = []
+        for col in range(cell.column, cell.column + w_cols):
+            dim = ws.column_dimensions[get_column_letter(col)].width
+            widths.append(float(dim) if dim else 16.0)
+        col_w = sum(widths) / max(1, len(widths))
+        row_h = float(ws.row_dimensions[cell.row].height or 20.4)
+        px_w = int(w_cols * col_w * 7 * 0.92)
+        px_h = int(h_rows * row_h * 1.33 * 0.90)
+        return max(80, px_w), max(60, px_h)
+    except Exception:
+        return default_w, default_h
+
+
 def embed_photo(
     ws,
     image_path: str | Path,
@@ -56,6 +80,8 @@ def embed_photo(
     path = Path(image_path)
     if not path.is_file():
         raise FileNotFoundError(path)
+    box_w, box_h = _photo_box_px(ws, anchor_cell, max_width, max_height)
+    max_width, max_height = box_w, box_h
     img = XLImage(str(path))
     if img.width and img.width > max_width:
         scale = max_width / float(img.width)

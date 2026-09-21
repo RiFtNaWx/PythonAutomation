@@ -222,6 +222,12 @@ def _run(instr, params: RunParams):
             f"f-3dB={raw.get('F_3dB_kHz', '?')} kHz "
             f"VOUT@1k={raw.get('VOUT_1k_mV', '?')} mV{net}{label}"
         ),
+        "data": {
+            "GBW_MHz": gbw_mhz,
+            "F_3dB_kHz": raw.get("F_3dB_kHz"),
+            "VOUT_1k_mV": raw.get("VOUT_1k_mV"),
+        },
+        "measurements": [{"id": "GBW_MHz", "value": gbw_mhz, "unit": "MHz"}],
         "GBW_MHz": gbw_mhz,
         "F_3dB_kHz": raw.get("F_3dB_kHz"),
         "VOUT_1k_mV": raw.get("VOUT_1k_mV"),

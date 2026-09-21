@@ -1,13 +1,14 @@
-﻿"""Copy an existing lab xlsx into a campaign workbook/ and stub sheet_map.
+﻿"""Copy an existing lab xlsx into a campaign workbook/ and outline sheet_map.
 
-Paste cells are never guessed — stubs use FILL_ME for the operator.
-A sheet_map that already has real Excel anchors is left intact (backed
-up first if we must rewrite a stub).
+Known numeric cells come from ate.core.campaign_outline (RS622-shaped).
+Do not write FILL_ME. Do not invent photo cells. A map that already has
+real paste.values is upgraded in place, not replaced.
 """
 from __future__ import annotations
 
 import re
 import shutil
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -17,11 +18,6 @@ import yaml
 MYT = timezone(timedelta(hours=8))
 _CELL_RE = re.compile(r"^[A-Z]{1,3}\d{1,5}$")
 _FILL_TOKENS = {"FILL_ME", "STUB", "TODO", "TBD", ""}
-
-
-def _folder_key(sheet: str) -> str:
-    raw = re.sub(r"[^\w\-]+", "", (sheet or "").replace(" ", ""))
-    return raw or "Sheet"
 
 
 def _is_real_cell(value: Any) -> bool:
@@ -87,49 +83,42 @@ def _pick_xlsx_dialog() -> str:
     return str(path or "")
 
 
-def _stub_sheet_map(ctx, dest_name: str, sheets: list[str]) -> dict[str, Any]:
-    tests: dict[str, Any] = {}
-    used: set[str] = set()
-    for name in sheets:
-        key = _folder_key(name)
-        base = key
-        n = 2
-        while key in used:
-            key = f"{base}{n}"
-            n += 1
-        used.add(key)
-        tests[key] = {
-            "folder": key,
-            "excel_sheet": name,
-            "fixture_mode": "FILL_ME",
-            "automated": False,
-            "dut_iterations": int(ctx.sample_size or 4),
-            "paste": {
-                "results": "FILL_ME",
-                "setup_text": "FILL_ME",
-                "photos": "FILL_ME",
-            },
-        }
-    return {
-        "component": ctx.component,
-        "part": ctx.part,
-        "package": ctx.package,
-        "version": ctx.version,
-        "sample_size": int(ctx.sample_size or 4),
-        "workbook": {"path": f"../workbook/{dest_name}"},
-        "naming": {
-            "screenshot": "{TEST}_{DUT}_{VARIANT}_{TIMESTAMP}.jpg",
-            "graph": "{TEST}_{DUT}_{VARIANT}_{TIMESTAMP}.png",
-        },
-        "tests": tests,
-    }
+def _outline_sheet_map(ctx, dest_name: str, sheets: list[str], xlsx: Path) -> dict[str, Any]:
+    from ate.core.campaign_outline import campaign_header, upgrade_sheet_map
+    from ate.core.database import family_for_component
+
+    existing = ctx.load_sheet_map() if hasattr(ctx, "load_sheet_map") else {}
+    if not isinstance(existing, dict) or not existing:
+        existing = campaign_header(
+            component=ctx.component,
+            part=ctx.part,
+            package=ctx.package,
+            version=ctx.version,
+            sample_size=int(ctx.sample_size or 4),
+            workbook_name=dest_name,
+            operator=str(getattr(ctx, "operator", "") or ""),
+        )
+    else:
+        existing = deepcopy(existing)
+    existing["workbook"] = {"path": f"../workbook/{dest_name}"}
+    existing.setdefault("component", ctx.component)
+    existing.setdefault("part", ctx.part)
+    existing.setdefault("package", ctx.package)
+    existing.setdefault("version", ctx.version)
+    fam = family_for_component(ctx.component)
+    return upgrade_sheet_map(
+        existing,
+        family=fam,
+        sample=int(ctx.sample_size or 4),
+        sheets=sheets,
+        xlsx=xlsx,
+    )
 
 
-def _write_stub_yaml(path: Path, data: dict[str, Any]) -> None:
+def _write_outline_yaml(path: Path, data: dict[str, Any]) -> None:
     header = (
-        "# STUB sheet_map — scaffolded from workbook sheet names.\n"
-        "# Replace every FILL_ME with a real Excel anchor (e.g. B3).\n"
-        "# Do not invent paste cells; leave FILL_ME until the operator measures the sheet.\n"
+        "# Campaign outline (RS622 keys). Known paste.values live in campaign_outline.py.\n"
+        "# Omit paste.photos until measured. Do not write FILL_ME.\n"
     )
     body = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -182,18 +171,19 @@ def import_workbook(
     sm_path = ctx.sheet_map_path()
     existing = ctx.load_sheet_map()
     map_backup = None
-    if existing and sheet_map_has_paste_anchors(existing):
+    outlined = _outline_sheet_map(ctx, name, sheets, dest)
+    if existing and existing == outlined:
         action = "left_intact"
-        note = "Existing sheet_map has paste anchors — not overwritten."
-    elif existing:
-        map_backup = _backup(sm_path)
-        _write_stub_yaml(sm_path, _stub_sheet_map(ctx, name, sheets))
-        action = "stub_replaced"
-        note = "Previous stub/empty sheet_map backed up; new stub written from sheet names."
+        note = "Existing sheet_map already matches campaign outline."
     else:
-        _write_stub_yaml(sm_path, _stub_sheet_map(ctx, name, sheets))
-        action = "stub_created"
-        note = "Stub sheet_map written from sheet names (FILL_ME paste cells)."
+        if existing:
+            map_backup = _backup(sm_path)
+        _write_outline_yaml(sm_path, outlined)
+        action = "outlined"
+        note = (
+            "sheet_map upgraded to RS622 outline. Known numeric cells attached; "
+            "photos omitted until measured."
+        )
 
     created = ctx.ensure_tree()
     return {

@@ -18,6 +18,7 @@ class OperatorGate:
         self._events: dict[str, threading.Event] = {}
         self._responses: dict[str, OperatorResponse] = {}
         self._pending: Optional[OperatorPrompt] = None
+        self.auto_continue = False
 
     def pending(self) -> Optional[dict[str, Any]]:
         """Current prompt waiting for Continue (survives get_events drain / refresh)."""
@@ -38,6 +39,15 @@ class OperatorGate:
         test_tag: str = "",
     ) -> bool:
         """Emit prompt and block. Returns True if Continue, False if Abort/timeout."""
+        if self.auto_continue:
+            if self._emit:
+                self._emit(
+                    {
+                        "type": "log",
+                        "payload": {"text": f"SIM auto-continue: {title}\n", "level": "info"},
+                    }
+                )
+            return True
         prompt_id = str(uuid.uuid4())
         if checklist is not None:
             items = list(checklist)

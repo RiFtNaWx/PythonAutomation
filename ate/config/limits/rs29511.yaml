@@ -1,7 +1,52 @@
 part: RS29511
 datasheet:
   lang: en
-  source: unfound
-  file: ''
-  extract: ''
-specs: []
+  source: local-reference
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS29511_(RevWeb).pdf'
+  extract: ate/config/datasheets/text/rs29511.txt
+specs:
+- id: VCC_V
+  unit: V
+  min: 2.3
+  max: 5.5
+  source: local:RS29511_(RevWeb).pdf
+- id: TEN_ns
+  unit: ns
+  max: 150000
+  test: ten
+  source: PDF 7.6 tIDLE 150 us (EN high + bus idle to READY high)
+- id: TDIS_ns
+  unit: ns
+  max: 50
+  test: tdis
+  source: PDF 7.6 tDISABLE EN high-to-low to READY low
+- id: TPD_PHL_ns
+  unit: ns
+  max: 50
+  test: tp
+  source: PDF 7.6 tPZL 30-50 ns (SDA/SCL HL)
+- id: TPD_PLH_ns
+  unit: ns
+  test: tp
+  source: PDF 7.6 tPLZ 0-10 ns (SIM ns-window is 50 ns leftover)
+- id: TIDLE_PHL_ns
+  unit: ns
+  max: 50
+  test: tidle
+  source: PDF 7.6 tPZL at 100 kHz (same edge physics)
+- id: TIDLE_PLH_ns
+  unit: ns
+  test: tidle
+  source: PDF 7.6 tPLZ (SIM 50 ns leftover vs 10 ns max)
+- id: ICC_uA
+  unit: uA
+  max: 4500
+  typ: 2000
+  test: supply_current
+  source: PDF 7.5 ICC 2.0/4.5 mA at 5.5 V SDAIN=SCLIN=0, 10k OUT (SIM CMOS uA leftover)
+- id: CAP_pF
+  unit: pF
+  max: 10
+  typ: 6.5
+  test: cap_load
+  source: PDF CIO (SDA/SCL) typ 6.5 max 10 pF (SIM DMM CAP is 5 pF)

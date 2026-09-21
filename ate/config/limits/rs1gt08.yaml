@@ -2,8 +2,8 @@ part: RS1GT08
 datasheet:
   lang: en
   source: local-reference
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1GT08_(RevA.2.1).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1gt08.txt
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS1GT08_(RevA.2.1).pdf'
+  extract: ate/config/datasheets/text/rs1gt08.txt
 specs:
 - id: ICC_uA
   unit: uA
@@ -65,3 +65,13 @@ specs:
   max: 0.45
   test: vol_load
   source: parts/rs1gt08.yaml vol_table
+- id: CIN_pF
+  unit: pF
+  max: 6.0
+  test: cin
+  source: GT-family CIN (RS1GT34 table)
+- id: CPD_pF
+  unit: pF
+  max: 25.0
+  test: cpd
+  source: GT-family CPD (RS1GT34 table)

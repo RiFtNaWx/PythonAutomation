@@ -18,7 +18,7 @@ from typing import Any
 from urllib.parse import quote
 
 _KEY_RE = re.compile(
-    r"^(?:(?P<pol>pos|neg)_)?u(?P<unit>\d+)_ch(?P<ch>[ab])$",
+    r"^(?:(?P<pol>pos|neg)_)?(?:t(?P<trial>\d+)_)?u(?P<unit>\d+)_ch(?P<ch>[ab])$",
     re.IGNORECASE,
 )
 _CELL_RE = re.compile(r"^[A-Z]{1,3}[1-9][0-9]{0,3}$")
@@ -52,12 +52,18 @@ def parse_photo_key(key: str) -> dict[str, Any] | None:
     unit = int(m.group("unit"))
     ch = "CHA" if m.group("ch").upper() == "A" else "CHB"
     polarity = pol.upper() if pol else None
+    trial = m.group("trial")
+    raw = str(key).strip()
+    ck = canonical_key(unit, ch, polarity)
+    if trial:
+        ck = f"t{int(trial)}_{ck}"
     return {
-        "key": canonical_key(unit, ch, polarity),
-        "raw": str(key).strip(),
+        "key": ck,
+        "raw": raw,
         "unit": unit,
         "channel": ch,
         "polarity": polarity,
+        "trial": int(trial) if trial else None,
     }
 
 
@@ -104,6 +110,29 @@ def photos_map(test_key: str, sheet_map: dict[str, Any] | None = None) -> dict[s
     return out
 
 
+def _discover_live(test_key: str) -> dict[str, str]:
+    """Merged photo boxes on the campaign xlsx. Never writes the book."""
+    try:
+        ctx = _ctx()
+        path = ctx.lab_report_path()
+        if not path.is_file():
+            return {}
+        entry = ctx.test_entry(test_key) or {}
+        sheet = str(entry.get("excel_sheet") or test_key)
+        from openpyxl import load_workbook
+        from ate.reporting.golden_layout import discover_photo_anchors
+
+        wb = load_workbook(path, data_only=False)
+        try:
+            if sheet not in wb.sheetnames:
+                return {}
+            return discover_photo_anchors(wb[sheet])
+        finally:
+            wb.close()
+    except Exception:
+        return {}
+
+
 def photo_anchor(
     test_key: str,
     unit: int,
@@ -118,6 +147,9 @@ def photo_anchor(
             return grid[key]
     except KeyError:
         grid = {}
+    live = _discover_live(test_key)
+    if key in live:
+        return live[key]
     if str(test_key).upper() in {"ORT", "OVERLOAD"} or polarity:
         from ate.reporting.sheet_layout import ort_photo_anchor_map
 

@@ -2,8 +2,8 @@ part: RS358
 datasheet:
   lang: en
   source: local-reference
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS35X_(RevC.3).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs358.txt
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS35X_(RevC.3).pdf'
+  extract: ate/config/datasheets/text/rs358.txt
 specs:
 - id: VOS_mV
   unit: mV
@@ -20,6 +20,10 @@ specs:
   typ: 0.5
   test: slew
   source: local:RS35X_(RevC.3).pdf
+- id: SETTLE_VPP_V
+  test: settling
+  unit: V
+  source: BUFFER CHAN2 VPP of 2 Vpp square. Photo/cursor leftover -- not 0.1% SETTLE_us.
 - id: IQ_uA
   unit: uA
   typ: 80.0

@@ -17,6 +17,27 @@ from ate.core.paths import CONFIG_DIR, PARTS_DIR, TEST_DB_ROOT
 
 MYT = timezone(timedelta(hours=8))
 _PART_KEY_RE = re.compile(r"[^a-z0-9]+")
+INVENTORY_PATH: Path | None = None
+_NOT_LAB_PIC = frozenset({"", "rs", "all", "kevin", "ate"})
+_DEFAULT_SHEET = {
+    "opamp": "General Op-Amp",
+    "logic": "Logic Series",
+    "analog_switch": "Analog Switch",
+    "level": "Level Shifters",
+    "power": "Linear Regulator",
+}
+
+
+def inventory_file() -> Path:
+    return Path(INVENTORY_PATH) if INVENTORY_PATH is not None else CONFIG_DIR / "inventory.yaml"
+
+
+def lab_pic_id(raw: str) -> str:
+    """Tracking PIC if it is a lab person. RS / All / Kevin are not lab owners."""
+    p = str(raw or "").strip()
+    if p.lower() in _NOT_LAB_PIC:
+        return ""
+    return p
 
 
 def load_categories() -> list[dict[str, Any]]:
@@ -27,7 +48,7 @@ def load_categories() -> list[dict[str, Any]]:
 
 
 def load_inventory() -> list[dict[str, Any]]:
-    path = CONFIG_DIR / "inventory.yaml"
+    path = inventory_file()
     if not path.is_file():
         return []
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -47,16 +68,50 @@ SHEET_CLASS_CATEGORY = {
 
 
 def _inventory_meta() -> dict[str, Any]:
-    path = CONFIG_DIR / "inventory.yaml"
+    path = inventory_file()
     if not path.is_file():
         return {}
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     return data if isinstance(data, dict) else {}
 
 
+def _expand_inventory_path(raw: str) -> Path:
+    from ate.core.paths import expand_user_path, resolve_portable
+
+    s = str(raw or "").strip()
+    if not s:
+        return Path()
+    try:
+        return expand_user_path(s)
+    except ValueError:
+        hit = resolve_portable(s)
+        return hit if hit is not None else Path(s)
+
+
 def reports_root() -> Path:
+    """Product Testing Report drop, else shared #Test_Database/_ate/goldens."""
+    from ate.core.paths import TEST_DB_ROOT, expand_user_path
+
     raw = str(_inventory_meta().get("reports_root") or "").strip()
-    return Path(raw) if raw else Path()
+    if raw:
+        try:
+            p = expand_user_path(raw)
+        except ValueError:
+            p = Path()
+        if p.is_dir():
+            return p
+    goldens = Path(TEST_DB_ROOT) / "_ate" / "goldens"
+    if goldens.is_dir():
+        return goldens
+    fallback = Path.home() / "Downloads" / "Product Testing Report"
+    if fallback.is_dir():
+        return fallback
+    return _expand_inventory_path(raw) if raw else fallback
+
+
+def reports_zip() -> Path:
+    raw = str(_inventory_meta().get("reports_zip") or "").strip()
+    return _expand_inventory_path(raw) if raw else Path()
 
 
 def qualification_xlsx() -> Path | None:
@@ -64,7 +119,7 @@ def qualification_xlsx() -> Path | None:
     for key in ("qualification_xlsx",):
         raw = str(meta.get(key) or "").strip()
         if raw:
-            p = Path(raw)
+            p = _expand_inventory_path(raw)
             if p.is_file():
                 return p
     root = reports_root()
@@ -272,24 +327,33 @@ def _tracked_sheet_map(
     operator: str,
     pk: str,
     family: str,
+    sample: int = 4,
 ) -> str:
-    rows = _test_track_rows(pk, family)
-    lines = [
-        f"component: {cat['component']}",
-        f"part: {part}",
-        f"package: {package}",
-        f"operator: {operator}",
-        f"version: Version_1",
-        "tests:",
-    ]
-    if not rows:
-        lines.append("  {}")
-    else:
-        for tid, folder in rows:
-            lines.append(f"  {tid}:")
-            lines.append(f"    folder: {folder}")
-            lines.append(f"    excel_sheet: {folder}")
-    return "\n".join(lines) + "\n"
+    from ate.core.campaign_outline import campaign_header, outline_test, _infer_mode
+    from ate.core.registry import get as reg_get
+
+    data = campaign_header(
+        component=str(cat["component"]),
+        part=part,
+        package=package,
+        version="Version_1",
+        sample_size=int(sample or 4),
+        workbook_name=f"{part}_Lab_Report.xlsx",
+        operator=operator,
+    )
+    tests: dict[str, Any] = {}
+    for tid, folder in _test_track_rows(pk, family):
+        spec = reg_get(tid)
+        mode = str(getattr(spec, "fixture_mode", "") or "") or _infer_mode(tid, family)
+        tests[tid] = outline_test(
+            folder=folder or tid,
+            excel_sheet=folder or tid,
+            fixture_mode=mode,
+            sample=int(sample or 4),
+            automated=True,
+        )
+    data["tests"] = tests
+    return yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
 
 
 def _tracked_catalog(pk: str) -> str:
@@ -368,17 +432,6 @@ def _stub_part_yaml(cat: dict[str, Any], part: str, package: str, model: str, sa
     )
 
 
-def _stub_sheet_map(cat: dict[str, Any], part: str, package: str, operator: str) -> str:
-    return (
-        f"component: {cat['component']}\n"
-        f"part: {part}\n"
-        f"package: {package}\n"
-        f"operator: {operator}\n"
-        f"version: Version_1\n"
-        f"tests: {{}}\n"
-    )
-
-
 def next_version_name(existing: list[str] | None = None) -> str:
     """Return next Version_N from existing campaign folder names."""
     from ate.core.database import _VERSION_RE
@@ -423,7 +476,7 @@ def ensure_version(
     base: Optional[Path] = None,
 ) -> dict[str, Any]:
     """Create next (or named) Version_N under operator. Does not clone xlsx."""
-    from ate.core.database import get_context, remember_operator, set_context
+    from ate.core.database import get_context, invalidate_tree_cache, remember_operator, set_context
 
     ctx = get_context()
     component = str(component or ctx.component or "").strip() or "OpAmp"
@@ -473,9 +526,22 @@ def ensure_version(
                 created.append(str(dest))
                 continue
         if name == "sheet_map.yaml":
+            from ate.core.campaign_outline import campaign_header
+
             dest.write_text(
-                f"component: {component}\npart: {part}\npackage: {package}\n"
-                f"operator: {op}\nversion: {ver}\ntests: {{}}\n",
+                yaml.safe_dump(
+                    campaign_header(
+                        component=component,
+                        part=part,
+                        package=package,
+                        version=ver,
+                        sample_size=sample,
+                        workbook_name=f"{part}_Lab_Report.xlsx",
+                        operator=op,
+                    ),
+                    sort_keys=False,
+                    allow_unicode=True,
+                ),
                 encoding="utf-8",
             )
         else:
@@ -499,6 +565,7 @@ def ensure_version(
             os.startfile(str(root))
         except OSError:
             pass
+    invalidate_tree_cache()
     return {
         "ok": True,
         "root": str(root),
@@ -595,7 +662,7 @@ def ensure_product(
             created.append(str(alt))
 
     sm = root / "_manifest" / "sheet_map.yaml"
-    if _write_if_missing(sm, _tracked_sheet_map(cat, part, package, op, pk, family)):
+    if _write_if_missing(sm, _tracked_sheet_map(cat, part, package, op, pk, family, sample)):
         created.append(str(sm))
     tc = root / "_manifest" / "test_catalog.yaml"
     if _write_if_missing(tc, _tracked_catalog(pk)):
@@ -645,9 +712,12 @@ def ensure_product(
     if ingested and ingested.get("workbook"):
         note = (
             f"{note} Workbook copied to campaign workbook/. "
-            "Photo/result paste uses sheet_map (FILL_ME until measured). "
+            "Photo/result paste uses campaign_outline known cells; omit photos until measured. "
             "DEMO does not stamp PASS."
         )
+    from ate.core.database import invalidate_tree_cache
+
+    invalidate_tree_cache()
     return {
         "ok": True,
         "root": str(root),
@@ -861,4 +931,385 @@ def run_demo(test_ids: list[str], params: dict[str, Any] | None = None) -> dict[
         "steps": steps,
         "samples": samples,
         "note": "Demo only. Mock numbers in sessions/ + DUT graphs/demo_sample.json. Lab xlsx not stamped PASS.",
+    }
+
+
+def _category_id_for_sku(raw_cat: str, component: str = "") -> str:
+    """Map inventory/part labels to run_ic category id for ensure_product."""
+    cat = str(raw_cat or "").strip().lower()
+    if cat in ("switch", "lim", "analog sw", "analogsw"):
+        return "analog_switch"
+    if cat:
+        try:
+            category_by_id(cat)
+            return cat
+        except ValueError:
+            pass
+    from ate.core.database import family_for_component
+
+    fam = family_for_component(component)
+    if fam == "switch":
+        return "analog_switch"
+    return fam or "opamp"
+
+
+def resolve_sku(code: str) -> dict[str, Any] | None:
+    """Match a product code to inventory or parts/*.yaml. None = unmatched (no scrape)."""
+    raw = str(code or "").strip()
+    if not raw:
+        return None
+    pk = part_key_for(raw)
+    inv = _inventory_match(raw) or _inventory_match(pk)
+    if inv is None:
+        for row in load_inventory():
+            part = str(row.get("part") or "").strip()
+            if part and part_key_for(part) == pk:
+                inv = row
+                break
+    if inv is not None:
+        part = str(inv.get("part") or "").strip().upper()
+        return {
+            "code": raw,
+            "part_key": part_key_for(part) or pk,
+            "part": part,
+            "package": str(inv.get("package") or "SOT23").strip() or "SOT23",
+            "model": str(inv.get("model") or part).strip(),
+            "category_id": _category_id_for_sku(str(inv.get("category") or "")),
+            "source": "inventory",
+        }
+    data = _load_part_raw(pk)
+    if not data:
+        return None
+    part = str(data.get("part") or pk).strip().upper()
+    component = str(data.get("component") or "").strip()
+    return {
+        "code": raw,
+        "part_key": pk,
+        "part": part,
+        "package": str(data.get("package") or "SOT23").strip() or "SOT23",
+        "model": str(data.get("model") or part).strip(),
+        "category_id": _category_id_for_sku(
+            str(data.get("product_class") or ""), component
+        ),
+        "source": "parts_yaml",
+    }
+
+
+def assign_owner_products(
+    *,
+    label: str,
+    parts: list[str] | None = None,
+    unassign: list[str] | None = None,
+    replace_parts: bool = False,
+    base: Optional[Path] = None,
+    sample_size: int = 4,
+) -> dict[str, Any]:
+    """Upsert owners.yaml parts: + ensure_product Version_1 for this operator only.
+
+    Matched codes create sibling folders. Unmatched are reported. Never copies
+    another operator's workbook/sessions. Never scrapes en.run-ic.com.
+    """
+    from ate.core.database import (
+        replace_owner_parts,
+        require_write_operator,
+        unassign_owner_parts,
+        upsert_owner,
+    )
+
+    name = require_write_operator(label)
+    codes = [str(c).strip() for c in (parts or []) if str(c).strip()]
+    drop_raw = [str(c).strip() for c in (unassign or []) if str(c).strip()]
+    drop_keys = [part_key_for(c) for c in drop_raw if part_key_for(c)]
+
+    matched: list[dict[str, Any]] = []
+    unmatched: list[str] = []
+    seen_pk: set[str] = set()
+    for code in codes:
+        resolved = resolve_sku(code)
+        if resolved is None:
+            unmatched.append(code)
+            continue
+        pk = str(resolved["part_key"])
+        if pk in seen_pk:
+            continue
+        seen_pk.add(pk)
+        matched.append(resolved)
+
+    keys = [str(m["part_key"]) for m in matched]
+    defaults: dict[str, Any] = {}
+    if matched:
+        first = matched[0]
+        defaults = {
+            "default_family": (
+                "switch"
+                if first["category_id"] == "analog_switch"
+                else str(first["category_id"])
+            ),
+            "default_part": first["part_key"],
+            "default_component": str(
+                category_by_id(first["category_id"]).get("component") or ""
+            ),
+            "default_package": first["package"],
+            "task": first["part"],
+        }
+
+    if replace_parts:
+        owner_res = replace_owner_parts(label=name, parts=keys, **defaults)
+    else:
+        owner_res = upsert_owner(
+            label=name,
+            parts=keys,
+            update_defaults=True,
+            **defaults,
+        )
+        if drop_keys:
+            owner_res = unassign_owner_parts(name, drop_keys)
+
+    ensured: list[dict[str, Any]] = []
+    roots: list[str] = []
+    for m in matched:
+        out = ensure_product(
+            category_id=str(m["category_id"]),
+            part=str(m["part"]),
+            package=str(m["package"]),
+            model=str(m.get("model") or ""),
+            sample_size=int(sample_size or 4),
+            operator=name,
+            open_folder=False,
+            apply=False,
+            base=base,
+        )
+        root = str(out.get("root") or "")
+        ensured.append(
+            {
+                "part_key": m["part_key"],
+                "part": m["part"],
+                "package": m["package"],
+                "root": root,
+                "source": m["source"],
+            }
+        )
+        if root:
+            roots.append(root)
+
+    return {
+        "owner": owner_res.get("owner"),
+        "action": owner_res.get("action"),
+        "owners": owner_res.get("owners"),
+        "matched": matched,
+        "unmatched": unmatched,
+        "ensured": ensured,
+        "roots": roots,
+        "unassigned": list(
+            owner_res.get("unassigned") or (drop_keys if drop_keys else [])
+        ),
+    }
+
+
+def _flow_part_line(line: str) -> dict[str, Any] | None:
+    raw = str(line or "").strip()
+    if not raw.startswith("- {") or "part:" not in raw:
+        return None
+    try:
+        data = yaml.safe_load(raw[1:].strip())
+    except yaml.YAMLError:
+        return None
+    if isinstance(data, dict) and data.get("part"):
+        return data
+    return None
+
+
+def register_tracking_sku(
+    *,
+    part: str,
+    package: str,
+    category: str = "",
+    model: str = "",
+    pic: str = "",
+    sheet_class: str = "",
+    create: bool = False,
+) -> dict[str, Any]:
+    """Set empty inventory pic, or append one tracking row. Never clobbers pic. No scrape."""
+    path = inventory_file()
+    part_u = str(part or "").strip().upper()
+    pkg = str(package or "").strip() or "SOT23"
+    pic_id = str(pic or "").strip().lower()
+    cat = _category_id_for_sku(str(category or "") or "opamp")
+    model_s = str(model or "").strip() or part_u
+    if not part_u:
+        raise ValueError("part is required")
+    if not path.is_file():
+        if not create:
+            raise ValueError("inventory.yaml missing")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("parts:\n", encoding="utf-8")
+    text = path.read_text(encoding="utf-8")
+    claimed = False
+    created = False
+    existing_pic = ""
+    matched = False
+    out_lines: list[str] = []
+    for line in text.splitlines(keepends=True):
+        row = _flow_part_line(line)
+        if row is None:
+            out_lines.append(line)
+            continue
+        if str(row.get("part") or "").upper() != part_u:
+            out_lines.append(line)
+            continue
+        row_pkg = str(row.get("package") or "").strip()
+        if pkg and row_pkg and row_pkg != pkg:
+            out_lines.append(line)
+            continue
+        matched = True
+        cur = lab_pic_id(str(row.get("pic") or ""))
+        if cur:
+            existing_pic = existing_pic or cur
+            out_lines.append(line)
+            continue
+        if pic_id and "pic:" not in line:
+            idx = line.rfind("}")
+            if idx >= 0:
+                line = line[:idx] + f", pic: {pic_id}" + line[idx:]
+                claimed = True
+                existing_pic = pic_id
+        out_lines.append(line)
+        if not row_pkg:
+            pkg = pkg or "SOT23"
+        else:
+            pkg = row_pkg
+        if row.get("category"):
+            cat = _category_id_for_sku(str(row.get("category") or cat))
+        if row.get("model"):
+            model_s = str(row.get("model") or model_s)
+    if not matched:
+        if not create:
+            raise ValueError(
+                f"{part_u} {pkg} is not on the tracking sheet. "
+                "Use Create on this board -- no website scrape."
+            )
+        sheet = str(sheet_class or "").strip() or _DEFAULT_SHEET.get(cat, "General Op-Amp")
+        extra = ", ate_suite: logic" if cat == "level" else ""
+        newline = (
+            f'  - {{part: {part_u}, sheet_class: "{sheet}", category: {cat}, '
+            f"package: {pkg}, model: {model_s}{extra}, pic: {pic_id}, "
+            f'remark: "board register"}}\n'
+        )
+        last_i = -1
+        for i, line in enumerate(out_lines):
+            if _flow_part_line(line) is not None:
+                last_i = i
+        if last_i >= 0:
+            out_lines = out_lines[: last_i + 1] + [newline] + out_lines[last_i + 1 :]
+        else:
+            if out_lines and not str(out_lines[-1]).endswith("\n"):
+                out_lines.append("\n")
+            out_lines.append(newline)
+        created = True
+        claimed = bool(pic_id)
+        existing_pic = pic_id
+    path.write_text("".join(out_lines), encoding="utf-8")
+    return {
+        "part": part_u,
+        "package": pkg,
+        "category": cat,
+        "model": model_s,
+        "pic": existing_pic,
+        "claimed": claimed,
+        "created": created,
+    }
+
+
+def claim_sku(
+    *,
+    label: str,
+    part: str,
+    package: str = "",
+    category: str = "",
+    model: str = "",
+    create: bool = False,
+    sample_size: int = 4,
+    base: Optional[Path] = None,
+) -> dict[str, Any]:
+    """Pick up or register a SKU: owners.yaml + Version_1 + empty tracking pic.
+
+    Does not steal an existing tracking PIC. Does not copy another operator.
+    """
+    from ate.core.database import owner_id_from_label, require_write_operator, upsert_owner
+
+    name = require_write_operator(label)
+    part_u = str(part or "").strip().upper()
+    if not part_u:
+        raise ValueError("part is required")
+    pkg = str(package or "").strip()
+    model_s = str(model or "").strip() or part_u
+    cat = _category_id_for_sku(str(category or "") or "opamp")
+    exact: dict[str, Any] | None = None
+    for row in load_inventory():
+        if str(row.get("part") or "").upper() != part_u:
+            continue
+        row_pkg = str(row.get("package") or "").strip()
+        if pkg and row_pkg and row_pkg != pkg:
+            continue
+        exact = row
+        if pkg and row_pkg == pkg:
+            break
+    if exact is None and not create:
+        raise ValueError(
+            f"{part_u} {pkg or ''} is not on the tracking sheet. "
+            "Use Create on this board (class + package) -- no website scrape."
+        )
+    if exact is not None:
+        pkg = pkg or str(exact.get("package") or "").strip() or "SOT23"
+        cat = _category_id_for_sku(str(exact.get("category") or cat))
+        model_s = str(exact.get("model") or model_s)
+    else:
+        pkg = pkg or "SOT23"
+    inv_res = register_tracking_sku(
+        part=part_u,
+        package=pkg,
+        category=cat,
+        model=model_s,
+        pic=owner_id_from_label(name),
+        sheet_class=str((exact or {}).get("sheet_class") or ""),
+        create=create and exact is None,
+    )
+    use_pkg = str(inv_res.get("package") or pkg or "SOT23")
+    use_cat = _category_id_for_sku(str(inv_res.get("category") or cat or "opamp"))
+    use_model = str(inv_res.get("model") or model_s)
+    out = ensure_product(
+        category_id=use_cat,
+        part=part_u,
+        package=use_pkg,
+        model=use_model,
+        sample_size=int(sample_size or 4),
+        operator=name,
+        open_folder=False,
+        apply=False,
+        base=base,
+    )
+    fam = "switch" if use_cat == "analog_switch" else use_cat
+    owner_res = upsert_owner(
+        label=name,
+        parts=[part_key_for(part_u)],
+        default_family=fam,
+        default_part=part_key_for(part_u),
+        default_component=str(out.get("component") or ""),
+        default_package=use_pkg,
+        task=part_u,
+        update_defaults=True,
+    )
+    return {
+        "operator": name,
+        "part": part_u,
+        "package": use_pkg,
+        "category": use_cat,
+        "model": use_model,
+        "root": str(out.get("root") or ""),
+        "component": out.get("component"),
+        "pic": inv_res.get("pic"),
+        "pic_claimed": bool(inv_res.get("claimed")),
+        "inventory_created": bool(inv_res.get("created")),
+        "owner": owner_res.get("owner"),
+        "action": owner_res.get("action"),
     }

@@ -1,0 +1,245 @@
+{
+  "part": "RS622",
+  "part_key": "rs622",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs622.yaml",
+    "truth_table": "ate/config/parts/rs622.yaml",
+    "extract": "ate/config/datasheets/text/rs622.txt",
+    "xlsx": "RS622/RS622XK_Lab_Report.xlsx"
+  },
+  "specs": [
+    {
+      "id": "VOS_mV",
+      "test": "vos_sweep",
+      "unit": "mV",
+      "typ": 0.7,
+      "max": 3.0,
+      "source": "en.run-ic.com",
+      "min": null
+    },
+    {
+      "id": "GAIN_VV",
+      "test": "ac_gain_check",
+      "unit": "V/V",
+      "typ": 201.0,
+      "source": "G201 closed-loop Av (research board). Not datasheet AOL_dB.",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "GBW_MHz",
+      "test": "gbw",
+      "unit": "MHz",
+      "typ": 7.0,
+      "source": "en.run-ic.com",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "IQ_uA",
+      "unit": "uA",
+      "typ": 600.0,
+      "max": 800.0,
+      "source": "RS62X RevC.3 table 7.4 (per amplifier)",
+      "min": null
+    },
+    {
+      "id": "SR_Vus",
+      "test": "slew",
+      "unit": "V/us",
+      "typ": 3.7,
+      "source": "RS62X RevC.3 banner (extract shows 3.7V/s = 3.7 V/us)",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "OS_VCC",
+      "unit": "V",
+      "min": -0.9,
+      "max": -0.2,
+      "source": "STS8200 RS622",
+      "typ": null
+    },
+    {
+      "id": "OS_OUTA",
+      "unit": "V",
+      "min": -0.9,
+      "max": -0.2,
+      "source": "STS8200 RS622",
+      "typ": null
+    },
+    {
+      "id": "IDD_5V",
+      "unit": "mA",
+      "max": 6.0,
+      "source": "STS8200 RS622",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "IEE_5V",
+      "unit": "mA",
+      "min": -6.0,
+      "source": "STS8200 RS622",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "IDD_36V",
+      "unit": "mA",
+      "max": 10.0,
+      "source": "STS8200 RS622",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "IEE_36V",
+      "unit": "mA",
+      "min": -10.0,
+      "source": "STS8200 RS622",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "EN_1kHz_nVrtHz",
+      "unit": "nV/rtHz",
+      "typ": 11.0,
+      "source": "RS62X RevC.3 table 7.4",
+      "notes": "Spot density at 1 kHz. Not measured by the 0.1-10 Hz Vpp slot.",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "EN_10kHz_nVrtHz",
+      "unit": "nV/rtHz",
+      "typ": 7.5,
+      "source": "RS62X RevC.3 table 7.4",
+      "notes": "Spot density at 10 kHz. Spectrum / FFT, not this capture.",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "VN_IN_PP_uV",
+      "test": "noise",
+      "unit": "uV",
+      "source": "0.1-10 Hz input-referred Vpp (lab Noise sheet). PDF has no 0.1-10 Hz limit.",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "SETTLE_VPP_V",
+      "test": "settling",
+      "unit": "V",
+      "source": "BUFFER CHAN2 VPP of 2 Vpp square. Photo/cursor leftover -- not 0.1% SETTLE_us.",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "PSRR_dB",
+      "test": "psrr",
+      "unit": "dB",
+      "min": 78.0,
+      "typ": 93.0,
+      "source": "RS62X RevC.3 table 7.4 (Vs=2.5V to 5.5V, 25C)",
+      "max": null
+    },
+    {
+      "id": "CMRR_dB",
+      "test": "cmrr",
+      "unit": "dB",
+      "min": 74.0,
+      "typ": 92.0,
+      "source": "RS62X RevC.3 table 7.4 (Vs=5.5V, Vcm=-0.1V to 4V, 25C)",
+      "max": null
+    },
+    {
+      "id": "AOL_dB",
+      "test": "aol",
+      "unit": "dB",
+      "min": 96.0,
+      "typ": 102.0,
+      "source": "RS62X RevC.3 table 7.4 (RL=2k, 25C)",
+      "max": null
+    },
+    {
+      "id": "POWERON_ns",
+      "test": "power_on_time",
+      "unit": "ns",
+      "source": "MSO rail-to-VOUT delay (no invented min/max)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_V",
+      "test": "vohl",
+      "unit": "V",
+      "source": "BUFFER rail swing DMM near +rail (no invented min/max; RS62X extract has no VOH table)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_V",
+      "test": "vohl",
+      "unit": "V",
+      "source": "BUFFER rail swing DMM near -rail (no invented min/max; RS62X extract has no VOL table)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "OVERSHOOT",
+      "test": "sssr",
+      "unit": "",
+      "source": "MSO CH2 OVERshoot (raw). No invented min/max",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "LSSR_VPP_V",
+      "test": "lssr",
+      "unit": "V",
+      "source": "MSO CH2 VPP gate (photo test). No invented min/max",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "NPR_VPP_V",
+      "test": "no_phase_reversal",
+      "unit": "V",
+      "source": "MSO CH2 VPP gate (photo test). No invented min/max",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "ORT_POS_us",
+      "test": "ort",
+      "unit": "us",
+      "source": "MSO RRDelay G_NEG100 POS. Extract 0.5 s is garbled; no invented min/max",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "ORT_NEG_us",
+      "test": "ort",
+      "unit": "us",
+      "source": "MSO FFDelay G_NEG100 NEG. Extract 0.5 s is garbled; no invented min/max",
+      "min": null,
+      "max": null,
+      "typ": null
+    }
+  ],
+  "truth_table": {},
+  "voh_table": [],
+  "vol_table": [],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

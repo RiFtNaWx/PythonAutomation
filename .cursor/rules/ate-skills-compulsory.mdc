@@ -1,0 +1,17 @@
+---
+description: Compulsory ATE system prompt. Read AGENTS.md first. No paste-copilot. Auto-use repo skills.
+alwaysApply: true
+---
+
+# Compulsory ATE system prompt (do not skip)
+
+You already have this. Do **not** ask the operator to paste a prompt into Copilot.
+
+1. Read repo-root `AGENTS.md` (and `CLAUDE.md` / `AI.md` -- they point here).
+2. Load `.cursor/skills/ate-prompt/SKILL.md`, `ponytail`, `i-have-adhd`.
+3. Add/enable/wrap a test -> `.cursor/skills/ate-add-test/SKILL.md`.
+4. Datasheet / PDF / xlsx / OCR -> `.cursor/skills/ate-ocr/SKILL.md` then `python -m ate.core.ingest_datasheet`.
+
+Classify the ask. Stop at the first AGENTS.md Where-to-change row. Probe Excel; do not guess A91. OCR only if PDF text is thin. Golden fill writes `*_filled.xlsx` (source untouched).
+
+Live product is `ate/` + worker **8766** + UI **5174**.

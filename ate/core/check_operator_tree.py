@@ -33,6 +33,21 @@ def main() -> int:
         raise AssertionError("All must raise for writes")
     except ValueError:
         pass
+    try:
+        require_write_operator("kevin")
+        raise AssertionError("kevin observer must raise for writes")
+    except ValueError:
+        pass
+    try:
+        require_write_operator("ate")
+        raise AssertionError("ATE must raise for writes")
+    except ValueError:
+        pass
+    try:
+        require_write_operator("ATE")
+        raise AssertionError("ATE must raise for writes")
+    except ValueError:
+        pass
     if require_write_operator("ariff") != "Ariff":
         raise AssertionError("ariff id must map to Ariff label")
     if require_write_operator("Eugene") != "Eugene":
@@ -118,6 +133,7 @@ def main() -> int:
         from ate.core import database as dbmod
 
         old_owners = dbmod.OWNERS_PATH
+        old_cloud = dbmod.CLOUD_PEOPLE_PATH
         tmp_owners = tmp / "owners.yaml"
         tmp_owners.write_text(
             yaml.safe_dump(
@@ -148,6 +164,7 @@ def main() -> int:
             encoding="utf-8",
         )
         dbmod.OWNERS_PATH = tmp_owners
+        dbmod.CLOUD_PEOPLE_PATH = tmp / "_ate" / "people.yaml"
         try:
             created = dbmod.upsert_owner(
                 label="JaneCheck",
@@ -179,16 +196,43 @@ def main() -> int:
                 raise AssertionError("All must not be upserted")
             except ValueError:
                 pass
-            gone = dbmod.remove_owner("JaneCheck")
+            try:
+                dbmod.remove_owner("JaneCheck")
+                raise AssertionError("remove_owner without phrase must refuse")
+            except ValueError:
+                pass
+            ids_still = {str(r.get("id")) for r in dbmod.load_owners()}
+            if "janecheck" not in ids_still:
+                raise AssertionError("wrong/missing phrase must leave yaml row")
+            jane_dir = tmp / "Logic" / "RS1G08" / "SC70-5" / "JaneCheck" / "Version_1"
+            jane_dir.mkdir(parents=True)
+            (jane_dir / "sessions").mkdir(exist_ok=True)
+            eugene_dir = tmp / "Logic" / "RS1G08" / "SC70-5" / "Eugene" / "Version_1"
+            eugene_dir.mkdir(parents=True)
+            old_root = dbmod.TEST_DB_ROOT
+            dbmod.TEST_DB_ROOT = tmp
+            try:
+                gone = dbmod.remove_owner(
+                    "JaneCheck",
+                    confirm_text="FORGET JaneCheck",
+                    delete_folders=True,
+                )
+            finally:
+                dbmod.TEST_DB_ROOT = old_root
             if not gone.get("removed"):
                 raise AssertionError("remove_owner must return removed row")
             ids = {str(r.get("id")) for r in dbmod.load_owners()}
             if "janecheck" in ids:
                 raise AssertionError("remove_owner left yaml row")
+            if jane_dir.exists():
+                raise AssertionError("wipe must delete this person's folder")
+            if not eugene_dir.exists():
+                raise AssertionError("wipe must not delete Eugene")
             if not tmp_owners.is_file():
                 raise AssertionError("remove_owner must keep owners.yaml")
         finally:
             dbmod.OWNERS_PATH = old_owners
+            dbmod.CLOUD_PEOPLE_PATH = old_cloud
 
         print(
             f"OK operator-tree: migrate+list_tree; label={require_write_operator('changthong')}; "

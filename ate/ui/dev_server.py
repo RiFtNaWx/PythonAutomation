@@ -1,7 +1,7 @@
 """Serve liquid-glass UI + ensure worker is reachable. Tauri wraps this later."""
 from __future__ import annotations
 
-import functools
+import os
 import http.server
 import socketserver
 import threading
@@ -24,7 +24,8 @@ def main() -> None:
     httpd = socketserver.ThreadingTCPServer(("127.0.0.1", PORT), Handler)
     httpd.daemon_threads = True
     print(f"ATE UI http://127.0.0.1:{PORT}")
-    threading.Timer(0.6, lambda: webbrowser.open(f"http://127.0.0.1:{PORT}")).start()
+    if os.environ.get("ATE_OPEN_BROWSER", "1") != "0":
+        threading.Timer(0.6, lambda: webbrowser.open(f"http://127.0.0.1:{PORT}")).start()
     httpd.serve_forever()
 
 

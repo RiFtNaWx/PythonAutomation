@@ -202,6 +202,13 @@ def _measure_edge(
             f"{variant} CH1 Vpp={vin} expected ~{vpp} V "
             "(probe on GND / wrong channel / AWG off)"
         )
+    vout_stats = read_measure_statistics(scope, "VPP", "CHAN2", as_mv_per_s=False)
+    vout = vout_stats.get("current")
+    if vout is None or abs(float(vout)) < 0.4 * vpp:
+        raise RuntimeError(
+            f"{variant} CH2 Vpp={vout} expected ~{vpp} V "
+            "(BUFFER VOUT probe / DUT not in socket)"
+        )
 
     # Measure:ITEM opens the right-hand menu; original Eugene SR MOFF before the photo.
     try:
@@ -241,6 +248,7 @@ def _measure_edge(
         "slew_item": slew_item,
         "slew": slew_stats,
         "vpp_ch1": vpp_stats,
+        "vpp_ch2": vout_stats,
         "screenshot": str(final),
         "screenshot_name": Path(final).name,
     }
@@ -327,6 +335,8 @@ def _run(instr, params: RunParams):
         pos_2v = next((r for r in records if r["step_id"] == "pos_2v"), {})
         neg_1v = next((r for r in records if r["step_id"] == "neg_1v"), {})
         neg_2v = next((r for r in records if r["step_id"] == "neg_2v"), {})
+        sr_vals = [v for r in records if (v := _sr_mv(r)) is not None]
+        sr_typ = sum(sr_vals) / len(sr_vals) if sr_vals else None
 
         return {
             "summary": (
@@ -334,6 +344,11 @@ def _run(instr, params: RunParams):
                 f"@2V={_sr_mv(pos_2v) or 0:.4f}  "
                 f"SR- @1V={_sr_mv(neg_1v) or 0:.4f}  "
                 f"@2V={_sr_mv(neg_2v) or 0:.4f} MV/s"
+            ),
+            "measurements": (
+                [{"id": "SR_Vus", "value": sr_typ, "unit": "V/us"}]
+                if sr_typ is not None
+                else []
             ),
             "channel": channel,
             "SR_positive_1Vpp_MV_s": _sr_mv(pos_1v),

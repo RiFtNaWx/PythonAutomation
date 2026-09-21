@@ -1,0 +1,17 @@
+---
+description: UI scans and triggers original test snippets. Do not rewrite Python in the console.
+alwaysApply: true
+---
+
+# Snippet pointer (do not rewrite)
+
+The operator UI is a trigger. Original files stay the source of truth.
+
+- Test body: `ate/tests/<family>/*.py` `register(TestSpec)` (Path B)
+- Params: `ate/config/parts/<key>.yaml`
+- Limits / thresholds: `ate/config/limits/<key>.yaml`
+- Golden `def test_*`: remember `file:lineno:fn` in `ate/config/snippet_map.yaml`
+
+Detect scan persists pointers. Remember + enable START-triggers that function. Do **not** write a new `imported_<id>.py`. Do not hardcode test lists or min/max in `app.js`. `input()` or `Lim`/`Ariff`/`Soo` = blocked; those goldens stay Path B.
+
+A16 leftover `imported_input_off_leakage.py` may still exist. Do not treat that DEMO as done. Do not edit `runner.py` for this.

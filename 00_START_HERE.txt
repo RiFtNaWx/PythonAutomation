@@ -1,0 +1,29 @@
+ATE -- start here
+================
+
+Click START.bat (this folder). Browser: http://127.0.0.1:5174
+Stale page: Ctrl+F5. Guide: docs\tutorial\ATE_TUTORIAL.html
+
+Lab folder (everyone, not a private copy):
+  1. Open ate\config\sharepoint.url (Handover / Jianhong / #Test_Database).
+  2. Click Add shortcut to OneDrive. If asked Replace, click Replace.
+  3. Right-click the folder -> Always keep on this device.
+  4. START.bat writes ate\config\cloud_db.txt. Do not type https.
+     Do not type C:\Users\YOURNAME\#Test_Database. That method is retired.
+     If the folder is missing, the console still opens. Setup -> Choose folder.
+
+Do not click SharePoint Sync if you already have another RD shortcut.
+Do not drag-copy #Test_Database.
+
+Ignore the rest of this folder unless you are changing the product:
+  TRY_ATE.bat          old name, just calls START.bat
+  restart_*.bat        engineers, after code edits, idle only
+  run_ate_worker.bat   engineers
+  force_continue.bat  debug
+  push.bat             git (safety gateway first)
+  UPDATE_GOLDENS.bat   copy author trees into goldens/ then verify
+  main.py / opa_tests.py / logic_tests.py  legacy wrap source, not the console
+  docs\epics docs\tickets docs\subagents_findings  agent notes
+
+Change the product: read AGENTS.md then docs\VIBE_CODE.md.
+Zip operators: only START.bat + TRY.txt + the tutorial. Do not edit Python.

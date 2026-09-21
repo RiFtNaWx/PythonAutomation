@@ -14,6 +14,7 @@ from ate.reporting.lab_report import (
     place_ort_photos,
     save_named_screenshot,
     update_summary_status,
+    write_ort_result,
 )
 
 MYT = timezone(timedelta(hours=8))
@@ -44,10 +45,11 @@ def _run(instr, params: RunParams):
     from configurations import current_limit
     from generator_setup import setup_square, stop_output
     from psu_setup import power_off, power_on_protected
+    from scope_setup import measure_delay, set_threshold
 
     psu, gen, scope = instr.psu, instr.gen, instr.scope
     vcc = params.vcc
-    unit = params.unit_index
+    unit = int(params.unit_index or 1)
     ch = (params.channel or "CHA").upper()
     out_dir = ensure_screenshot_dir("ORT", unit)
     ts = datetime.now(MYT).strftime("%Y-%m-%d_%H%M%S")
@@ -62,6 +64,9 @@ def _run(instr, params: RunParams):
         setup_square(gen, 1, 1000, 0.2, -0.1)
         apply_scope_preset(scope, ORT_POS_PRESET)
         time.sleep(0.8)
+        set_threshold(scope, 1)
+        set_threshold(scope, 2)
+        ort_pos_us = abs(measure_delay(scope, "RRDelay", 1, 2)) * 1e6
         capture_jpeg(scope, pos_tmp)
         pos_path = save_named_screenshot(
             "ORT", unit=unit, variant="POS", source_bytes_path=pos_tmp, channel=ch
@@ -77,6 +82,9 @@ def _run(instr, params: RunParams):
         except Exception:
             pass
         time.sleep(0.8)
+        set_threshold(scope, 1)
+        set_threshold(scope, 2)
+        ort_neg_us = abs(measure_delay(scope, "FFDelay", 1, 2)) * 1e6
         capture_jpeg(scope, neg_tmp)
         neg_path = save_named_screenshot(
             "ORT", unit=unit, variant="NEG", source_bytes_path=neg_tmp, channel=ch
@@ -95,6 +103,15 @@ def _run(instr, params: RunParams):
             excel_msg = f"embedded in {lab.name} ({ch} 16-box grid)"
         except Exception as exc:
             excel_msg = f"Excel update skipped: {exc}"
+        try:
+            write_ort_result(
+                lab, unit_index=unit, polarity="POS", channel=ch, value_us=ort_pos_us
+            )
+            write_ort_result(
+                lab, unit_index=unit, polarity="NEG", channel=ch, value_us=ort_neg_us
+            )
+        except Exception:
+            pass
 
         for tmp in (pos_tmp, neg_tmp):
             try:
@@ -104,9 +121,16 @@ def _run(instr, params: RunParams):
                 pass
 
         return {
-            "summary": f"ORT photos → Test_Database; {excel_msg}",
+            "summary": (
+                f"ORT POS={ort_pos_us:.3g} us NEG={ort_neg_us:.3g} us; {excel_msg}"
+            ),
             "screenshots": [str(pos_path), str(neg_path)],
             "lab_sheet": "ORT",
+            "data": {"ORT_POS_us": ort_pos_us, "ORT_NEG_us": ort_neg_us},
+            "measurements": [
+                {"id": "ORT_POS_us", "value": round(ort_pos_us, 4), "unit": "us"},
+                {"id": "ORT_NEG_us", "value": round(ort_neg_us, 4), "unit": "us"},
+            ],
         }
     finally:
         try:
@@ -125,7 +149,7 @@ register(
         fixture_mode="G_NEG100",
         lab_sheet="ORT",
         run=_run,
-        notes="LabAutomation_14.7 test_ORT + RS622XK ORT photo boxes",
+        notes="MSO delay on G_NEG100 POS/NEG squares + photo boxes. No invented min/max (extract 0.5 s is garbled).",
         fixed_steps=[
             {"id": "pos", "label": "ORT+ POS edge", "phase": "measure"},
             {"id": "neg", "label": "ORT− NEG edge", "phase": "measure"},

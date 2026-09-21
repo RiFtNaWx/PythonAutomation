@@ -292,8 +292,13 @@ def detect_module(changed_files):
     modules = []
     seen = set()
     for filepath in changed_files:
-        basename = os.path.basename(filepath)
-        module = mapping.get(basename, "general")
+        posix = filepath.replace("\\", "/")
+        if posix == "goldens" or posix.startswith("goldens/"):
+            basename = "goldens"
+            module = "goldens"
+        else:
+            basename = os.path.basename(filepath)
+            module = mapping.get(basename, "general")
         if module not in seen:
             seen.add(module)
             modules.append(module)
@@ -729,6 +734,42 @@ def main():
             changed_files.append(filepath)
 
         module = detect_module(changed_files)
+
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if repo_root not in sys.path:
+            sys.path.insert(0, repo_root)
+        try:
+            from ate.core.golden_gateway import verify_push
+        except ImportError as exc:
+            print("SAFETY GATEWAY could not load ate.core.golden_gateway")
+            print(f"  {exc}")
+            print("Fix: run Github_Auto/git-push.bat so venv Python sees this repo.")
+            input("Press Enter to close...")
+            sys.exit(1)
+        porcelain = []
+        for line in (status.stdout or "").splitlines():
+            if not line.strip():
+                continue
+            filepath = line[3:].strip()
+            if " -> " in filepath:
+                filepath = filepath.split(" -> ", 1)[1]
+            porcelain.append(filepath)
+        gate = verify_push(porcelain)
+        if gate.hints:
+            print("Gateway hints:")
+            for hint in gate.hints:
+                print(f"  - {hint}")
+        if not gate.ok:
+            print("=" * 50)
+            print(" SAFETY GATEWAY blocked this push.")
+            print(" Fix the named file only. Do not edit runner.py to 'make it work'.")
+            print("=" * 50)
+            for issue in gate.issues:
+                print(f"  - {issue}")
+            input("Press Enter to close...")
+            sys.exit(1)
+        if porcelain:
+            print("Safety gateway green (syntax + no goldens/blast mix in this working tree).")
 
         if has_local:
             print("New file changes detected — generating summary...")

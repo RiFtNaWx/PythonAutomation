@@ -22,6 +22,11 @@ _LABEL_VOCAB_PREAMBLE = (
     "# Not a #Test_Database folder axis. Campaign tokens stay in _manifest/tags.yaml.\n"
     "\n"
 )
+_CENTRAL_BOARDS_PREAMBLE = (
+    "# Fixture board names by product class. Shared via #Test_Database/_ate.\n"
+    "# One board per campaign. Do not share OpAmp boards into Logic.\n"
+    "\n"
+)
 
 
 def _norm_tag(raw: str) -> str:
@@ -96,6 +101,72 @@ def _labels_from_stored(data: dict[str, Any]) -> list[dict[str, str]]:
     return labels
 
 
+def _collapse_one_board(labels: list[dict[str, str]]) -> list[dict[str, str]]:
+    """A campaign has at most one fixture board. Last board wins; others stay tags."""
+    boards = [x for x in labels if str(x.get("kind") or "") == "board"]
+    others = [x for x in labels if str(x.get("kind") or "") != "board"]
+    if boards:
+        others.append(boards[-1])
+    return others
+
+
+def central_boards_path() -> Path:
+    return Path(TEST_DB_ROOT) / "_ate" / "boards.yaml"
+
+
+def load_central_boards() -> dict[str, list[str]]:
+    path = central_boards_path()
+    if not path.is_file():
+        return {}
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except OSError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    fams = data.get("families") if isinstance(data.get("families"), dict) else {}
+    out: dict[str, list[str]] = {}
+    for key, rows in fams.items():
+        fam = _family_key(str(key))
+        if not fam or not isinstance(rows, list):
+            continue
+        seen: set[str] = set()
+        clean: list[str] = []
+        for raw in rows:
+            v = str(raw or "").strip()
+            if not v or v.lower() in seen:
+                continue
+            seen.add(v.lower())
+            clean.append(v)
+        out[fam] = clean
+    return out
+
+
+def remember_board_central(family: str, board: str) -> dict[str, Any]:
+    """Persist a board name under #Test_Database/_ate for this product class only."""
+    fam = _family_key(family)
+    name = str(board or "").strip()
+    if not fam or not name:
+        return {"ok": False, "reason": "need family and board"}
+    try:
+        _norm_tag(name)
+    except ValueError as exc:
+        return {"ok": False, "reason": str(exc)}
+    stored = load_central_boards()
+    rows = list(stored.get(fam) or [])
+    if not any(str(x).lower() == name.lower() for x in rows):
+        rows.append(name)
+    stored[fam] = rows
+    path = central_boards_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"families": stored}
+    path.write_text(
+        _CENTRAL_BOARDS_PREAMBLE + yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    return {"ok": True, "family": fam, "board": name, "path": str(path), "count": len(rows)}
+
+
 def tags_yaml_path(ctx) -> Path:
     return ctx.manifest_dir() / "tags.yaml"
 
@@ -114,7 +185,7 @@ def load_tags(ctx=None) -> dict[str, Any]:
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     if not isinstance(data, dict):
         return {"tags": [], "boards": [], "labels": []}
-    labels = _labels_from_stored(data)
+    labels = _collapse_one_board(_labels_from_stored(data))
     boards = [x["value"] for x in labels if x["kind"] == "board"]
     tags = [_token(x["kind"], x["value"]) for x in labels]
     return {"tags": tags, "boards": boards, "labels": labels}
@@ -142,6 +213,7 @@ def save_tags(
         extra: list[Any] = list(tag_list)
         extra.extend({"kind": "board", "value": str(b)} for b in board_list)
         parsed = _normalize_labels(extra)
+    parsed = _collapse_one_board(parsed)
     clean_boards = [x["value"] for x in parsed if x["kind"] == "board"]
     clean_tags = [_token(x["kind"], x["value"]) for x in parsed]
     payload = {"tags": clean_tags, "boards": clean_boards, "labels": parsed}
@@ -155,12 +227,19 @@ def save_tags(
     tpath.write_text("\n".join(clean_tags) + ("\n" if clean_tags else ""), encoding="utf-8")
     excel = sync_tags_to_workbook(c, clean_tags)
     remembered = remember_labels(parsed, scope=remember_scope, ctx=c)
+    central = {}
+    if clean_boards:
+        from ate.core.database import family_for_component
+
+        fam = family_for_component(getattr(c, "component", "") or "")
+        central = remember_board_central(fam, clean_boards[-1])
     return {
         **payload,
         "tags_yaml": str(ypath),
         "tags_txt": str(tpath),
         "root": str(c.root()),
         "remember_scope": remembered.get("scope") or "campaign",
+        "central_board": central,
         **excel,
     }
 
@@ -386,6 +465,7 @@ def list_boards(
     package: str = "",
     ctx=None,
 ) -> list[str]:
+    """Board names for this product class only. Never mixes OpAmp into Logic."""
     from ate.core.database import family_for_component, get_context
 
     c = ctx or get_context()
@@ -396,13 +476,38 @@ def list_boards(
     families = _load_boards_yaml().get("families") or {}
     fam_block = families.get(fam) or {}
     if not isinstance(fam_block, dict):
-        return []
+        fam_block = {}
     rows = fam_block.get(pkg) if pkg and pkg not in _SKIP_FAM_KEYS else None
     if not isinstance(rows, list):
         rows = fam_block.get("default") or []
     if not isinstance(rows, list):
-        return []
-    return [str(x) for x in rows if str(x).strip()]
+        rows = []
+    out: list[str] = []
+    seen: set[str] = set()
+
+    def add(raw: str) -> None:
+        v = str(raw or "").strip()
+        if not v:
+            return
+        key = v.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        out.append(v)
+
+    for x in rows:
+        add(str(x))
+    for x in load_central_boards().get(fam) or []:
+        add(str(x))
+    # Same product class only -- never pour OpAmp boards into Logic/Power.
+    component = str(getattr(c, "component", "") or "").strip()
+    if component:
+        ctx_fam = _family_key(family_for_component(component) or "")
+        if ctx_fam == fam:
+            for lab in _scan_labels(component):
+                if str(lab.get("kind") or "") == "board":
+                    add(str(lab.get("value") or ""))
+    return out
 
 
 def _kind_values_from_yaml(fam: str, kind: str, package: str) -> list[str]:
@@ -477,13 +582,27 @@ def list_label_vocab(
     stored = load_stored_vocab()
     campaign = load_tags(c) if c else {"labels": []}
     _merge_kind_values(values, list(campaign.get("labels") or []))
-    _merge_kind_values(values, list((stored.get("families") or {}).get(fam) or []))
-    _merge_kind_values(values, list(stored.get("all") or []))
+    # Board vocab is class-local. Do not pour "all products" boards into board:.
+    fam_labs = list((stored.get("families") or {}).get(fam) or [])
+    _merge_kind_values(values, fam_labs)
+    non_board_all = [
+        x for x in list(stored.get("all") or []) if str(x.get("kind") or "") != "board"
+    ]
+    _merge_kind_values(values, non_board_all)
     want = str(scan or "all").strip().lower()
     if want in ("family", "all"):
         _merge_kind_values(values, _scan_labels(getattr(c, "component", "") or ""))
     if want == "all":
-        _merge_kind_values(values, _scan_labels(""))
+        # Free tags / other kinds may scan all; boards stay family-only above.
+        extra = [
+            x
+            for x in _scan_labels("")
+            if str(x.get("kind") or "") != "board"
+        ]
+        _merge_kind_values(values, extra)
+    # Prefer full list_boards (config + central + class scan) for board values.
+    if fam:
+        values["board"] = list_boards(family=fam, package=pkg, ctx=c)
     return {
         "family": fam,
         "values": values,

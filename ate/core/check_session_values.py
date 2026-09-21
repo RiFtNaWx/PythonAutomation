@@ -275,6 +275,173 @@ def main() -> int:
     if res5.get("status") == "error":
         errors.append(f"merged cell must skip not crash, got {res5}")
 
+    from ate.core.datalog import _step_key
+
+    if _step_key({"test_id": "vos_sweep", "dut": 1}) != _step_key(
+        {"test_id": "vos_sweep", "dut": 1, "channel": "CHA"}
+    ):
+        errors.append("DEMO/live vos must merge: empty channel is CHA")
+
+    wb10 = load_workbook(xlsx)
+    if "IDD" not in wb10.sheetnames:
+        wb10.create_sheet("IDD")
+    wb10["IDD"]["D10"] = None
+    wb10.save(xlsx)
+    wb10.close()
+
+    class _IddCtx:
+        def lab_report_path(self):
+            return xlsx
+
+        def load_sheet_map(self):
+            return {
+                "tests": {
+                    "IDD": {
+                        "excel_sheet": "IDD",
+                        "folder": "IDD",
+                        "paste": {"values": {"ICC_uA": "D10"}},
+                    }
+                }
+            }
+
+    res6 = fill_workbook_from_report(
+        report={
+            "steps": [
+                {
+                    "test_id": "supply_current",
+                    "dut": 1,
+                    "measurements": [{"id": "ICC_uA", "value": 0.8}],
+                }
+            ]
+        },
+        workbook_path=xlsx,
+        ctx=_IddCtx(),
+    )
+    if res6.get("filled", 0) < 1:
+        errors.append(f"IDD sheet must match supply_current, got {res6}")
+    else:
+        wb11 = load_workbook(xlsx, data_only=False)
+        if wb11["IDD"]["D10"].value != 0.8:
+            errors.append(f"IDD!D10={wb11['IDD']['D10'].value!r} want 0.8")
+        wb11.close()
+
+    res7 = fill_workbook_from_report(
+        report={
+            "steps": [
+                {
+                    "test_id": "supply_current",
+                    "dut": 1,
+                    "measurements": [{"id": "ICC_uA", "value": 1.2}],
+                }
+            ]
+        },
+        workbook_path=xlsx,
+        ctx=_IddCtx(),
+        demo=True,
+    )
+    sidecar = xlsx.with_name(xlsx.stem + "_demo.xlsx")
+    if res7.get("status") == "error":
+        errors.append(f"demo fill error: {res7}")
+    elif not sidecar.is_file():
+        errors.append("demo fill must write *_demo.xlsx")
+    else:
+        wb_live = load_workbook(xlsx, data_only=False)
+        if wb_live["IDD"]["D10"].value != 0.8:
+            errors.append(
+                f"demo fill must not change live xlsx, D10={wb_live['IDD']['D10'].value!r}"
+            )
+        wb_live.close()
+        wb_demo = load_workbook(sidecar, data_only=False)
+        if wb_demo["IDD"]["D10"].value != 1.2:
+            errors.append(f"demo xlsx D10={wb_demo['IDD']['D10'].value!r} want 1.2")
+        wb_demo.close()
+
+    class _NarCtx:
+        part_key = "rs622"
+
+        def lab_report_path(self):
+            return xlsx
+
+        def load_sheet_map(self):
+            return {
+                "tests": {
+                    "slew": {
+                        "excel_sheet": "Slew Rate",
+                        "folder": "Slew Rate",
+                        "paste": {
+                            "values": {"SR_Vus": "D20"},
+                            "narrative": {
+                                "conditions": "B3",
+                                "datasheet": "B8",
+                                "conclusion": "B15",
+                                "circuitry": "B4",
+                            },
+                        },
+                    }
+                }
+            }
+
+    wb_n = load_workbook(xlsx)
+    if "Slew Rate" not in wb_n.sheetnames:
+        ws_n = wb_n.create_sheet("Slew Rate")
+    else:
+        ws_n = wb_n["Slew Rate"]
+    ws_n["A3"] = "Test Conditions"
+    ws_n["B3"] = "#VALUE!"
+    ws_n["A4"] = "Test Circuitry"
+    ws_n["B4"] = "#VALUE!"
+    ws_n["A8"] = "Datasheet"
+    ws_n["B8"] = "#VALUE!"
+    ws_n["A15"] = "Test Conclusion"
+    ws_n["B15"] = None
+    ws_n["D20"] = None
+    wb_n.save(xlsx)
+    wb_n.close()
+    res8 = fill_workbook_from_report(
+        report={
+            "steps": [
+                {
+                    "test_id": "slew",
+                    "dut": 1,
+                    "channel": "CHA",
+                    "measurements": [{"id": "SR_Vus", "value": 4.05, "unit": "V/us"}],
+                }
+            ]
+        },
+        workbook_path=xlsx,
+        ctx=_NarCtx(),
+        copy_golden=True,
+    )
+    filled_path = xlsx.with_name(xlsx.stem + "_filled.xlsx")
+    if res8.get("status") == "error":
+        errors.append(f"narrative fill error: {res8}")
+    elif not filled_path.is_file():
+        errors.append("copy_golden narrative fill must write *_filled.xlsx")
+    else:
+        live_n = load_workbook(xlsx, data_only=False)
+        if str(live_n["Slew Rate"]["B8"].value or "").strip().upper() != "#VALUE!":
+            errors.append(
+                f"narrative fill must not mutate golden source, B8={live_n['Slew Rate']['B8'].value!r}"
+            )
+        live_n.close()
+        filled_n = load_workbook(filled_path, data_only=False)
+        ds = str(filled_n["Slew Rate"]["B8"].value or "")
+        if "SR_Vus" not in ds or "3.7" not in ds:
+            errors.append(f"filled datasheet must crawl SR_Vus typ 3.7, got {ds!r}")
+        conc = str(filled_n["Slew Rate"]["B15"].value or "")
+        if "4.05" not in conc or "SR_Vus" not in conc:
+            errors.append(f"filled conclusion must use measured 4.05, got {conc!r}")
+        if str(filled_n["Slew Rate"]["B4"].value or "").strip().upper() == "#VALUE!":
+            errors.append("filled circuitry must clear #VALUE!")
+        cond = str(filled_n["Slew Rate"]["B3"].value or "")
+        if "BUFFER" not in cond.upper() and "buffer" not in cond.lower() and "10" not in cond:
+            errors.append(f"filled conditions must use BUFFER checklist, got {cond!r}")
+        if filled_n["Slew Rate"]["D20"].value != 4.05:
+            errors.append(f"filled D20={filled_n['Slew Rate']['D20'].value!r} want 4.05")
+        if filled_n["Slew Rate"]["D20"].comment is None:
+            errors.append("filled number cell must have an ATE comment")
+        filled_n.close()
+
     if errors:
         print("FAIL check_session_values:")
         for e in errors:

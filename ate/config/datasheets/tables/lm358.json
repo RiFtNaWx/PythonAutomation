@@ -1,0 +1,70 @@
+{
+  "part": "LM358",
+  "part_key": "lm358",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/lm358.yaml",
+    "truth_table": "ate/config/parts/lm358.yaml",
+    "extract": "ate/config/datasheets/text/lm358.txt",
+    "xlsx": "LM358/Training_LM358测试报告.xlsx"
+  },
+  "specs": [
+    {
+      "id": "VOS_mV",
+      "unit": "mV",
+      "typ": 0.8,
+      "test": "vos_sweep",
+      "source": "local:RS35X_(RevC.3).pdf",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "GBW_MHz",
+      "unit": "MHz",
+      "typ": 1.1,
+      "test": "gbw",
+      "source": "local:RS35X_(RevC.3).pdf",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "SR_Vus",
+      "unit": "V/us",
+      "typ": 0.5,
+      "test": "slew",
+      "source": "local:RS35X_(RevC.3).pdf",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "SETTLE_VPP_V",
+      "test": "settling",
+      "unit": "V",
+      "source": "BUFFER CHAN2 VPP of 2 Vpp square. Photo/cursor leftover -- not 0.1% SETTLE_us.",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "IQ_uA",
+      "unit": "uA",
+      "typ": 80.0,
+      "source": "local:RS35X_(RevC.3).pdf",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "VCC_V",
+      "unit": "V",
+      "min": 0.2,
+      "max": 5.5,
+      "source": "local:RS35X_(RevC.3).pdf",
+      "typ": null
+    }
+  ],
+  "truth_table": {},
+  "voh_table": [],
+  "vol_table": [],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

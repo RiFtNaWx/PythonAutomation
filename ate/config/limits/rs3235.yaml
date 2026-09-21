@@ -1,14 +1,33 @@
-# RS3235 LDO. Same as RS3213 -- do not use RS32X opamp PDF.
-
 part: RS3235
 datasheet:
   lang: en
-  source: unfound
+  source: local-reference
   notes: No LDO PDF locally. VOUT typ from part yaml.
-
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS3235_(RevWeb).pdf'
+  extract: ate/config/datasheets/text/rs3235.txt
 specs:
-  - id: VOUT_V
-    test: iq
-    unit: V
-    typ: 3.3
-    source: parts/rs3235.yaml vout_nominal
+- id: VOUT_V
+  test: iq
+  unit: V
+  typ: 3.3
+  source: parts/rs3235.yaml vout_nominal
+- id: VINMIN_V
+  test: vinmin
+  unit: V
+  source: DMM first VIN where VOUT >= 0.98*VOUT_nom (SIM follows PSU CH1; leftover)
+- id: LIR_mV
+  test: lir
+  unit: mV
+  source: abs dVOUT across VIN_LIR sweep (unspec; no fake PDF)
+- id: LOR_mV
+  test: lor
+  unit: mV
+  source: abs dVOUT across load_lor (unspec; no fake PDF)
+- id: IOUTMAX_V
+  test: ioutmax
+  unit: V
+  source: min VOUT under load_iout (unspec; no fake Iout max A)
+- id: IEN_uA
+  test: enable_current
+  unit: uA
+  source: worst DMM IEN (unspec; no fake PDF)

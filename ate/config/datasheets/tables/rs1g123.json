@@ -1,0 +1,40 @@
+{
+  "part": "RS1G123",
+  "part_key": "rs1g123",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs1g123.yaml",
+    "truth_table": "ate/config/parts/rs1g123.yaml",
+    "extract": "ate/config/datasheets/text/rs1g123.txt",
+    "xlsx": ""
+  },
+  "specs": [
+    {
+      "id": "VCC_V",
+      "unit": "V",
+      "min": 2.0,
+      "max": 5.5,
+      "source": "local:RS1G123_(RevA.1).pdf",
+      "typ": null
+    },
+    {
+      "id": "PULSE_ns",
+      "test": "pulse_width",
+      "unit": "ns",
+      "source": "Q pulse vs board RC (no invented min/max)",
+      "min": null,
+      "max": null,
+      "typ": null
+    }
+  ],
+  "truth_table": {
+    "status": "UNCONFIRMED",
+    "kind": "sequential_functional",
+    "note": "extract function table glyph-garbled; Datasheet card needed. Do not invent rows.",
+    "rows": []
+  },
+  "voh_table": [],
+  "vol_table": [],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

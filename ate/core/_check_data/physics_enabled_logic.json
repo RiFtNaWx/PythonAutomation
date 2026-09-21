@@ -1,0 +1,1472 @@
+{
+  "n": 202,
+  "realized": 195,
+  "leftover": 7,
+  "rows": [
+    {
+      "part_key": "rs0204",
+      "test_id": "vih",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "vil",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "voh",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "vol",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "il",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "tpd",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "tp_rs0204",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "tsu",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "th",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "fmax",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "tr",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "tf",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "tsk",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "cpd",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "tw",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0302",
+      "test_id": "i2c_ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0302.py"
+    },
+    {
+      "part_key": "rs0302",
+      "test_id": "i2c_ron",
+      "status": "LEFTOVER",
+      "why": "10 mA platform; datasheet 64 mA leftover",
+      "file": "ate/tests/logic/rs0302.py"
+    },
+    {
+      "part_key": "rs0302",
+      "test_id": "i2c_cioff",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/rs0302.py"
+    },
+    {
+      "part_key": "rs164",
+      "test_id": "cin",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs164",
+      "test_id": "cpd",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs164",
+      "test_id": "ioff_leakage",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs164",
+      "test_id": "clk_q",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/clk_q.py"
+    },
+    {
+      "part_key": "rs164",
+      "test_id": "serial_shift",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/serial_shift.py"
+    },
+    {
+      "part_key": "rs164",
+      "test_id": "supply_current",
+      "status": "REALIZED",
+      "why": "eugene_cap IDD Path B",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g00",
+      "test_id": "tp",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g00",
+      "test_id": "supply_current",
+      "status": "LEFTOVER",
+      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g00",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g00",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g00",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g02",
+      "test_id": "tp",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g02",
+      "test_id": "supply_current",
+      "status": "LEFTOVER",
+      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g02",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g02",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g02",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g04",
+      "test_id": "tp",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g04",
+      "test_id": "supply_current",
+      "status": "LEFTOVER",
+      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g04",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g04",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g04",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g07",
+      "test_id": "cin",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs1g07",
+      "test_id": "cpd",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs1g07",
+      "test_id": "supply_current",
+      "status": "REALIZED",
+      "why": "eugene_cap IDD Path B",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g07",
+      "test_id": "delta_supply_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g07",
+      "test_id": "ioff_leakage",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g07",
+      "test_id": "input_leakage_sweep",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g07",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g07",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g07",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g07",
+      "test_id": "delta_icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g07",
+      "test_id": "vol",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "vih_vil",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "voh_load",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "vol_load",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "delta_supply_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "off_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "input_thresholds",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "ioff_leakage",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "input_leakage_sweep",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "supply_current_sweep",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "delta_icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "voh",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g08",
+      "test_id": "vol",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g123",
+      "test_id": "cin",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs1g123",
+      "test_id": "cpd",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs1g123",
+      "test_id": "ioff_leakage",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g123",
+      "test_id": "pulse_width",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/pulse_width.py"
+    },
+    {
+      "part_key": "rs1g123",
+      "test_id": "supply_current",
+      "status": "REALIZED",
+      "why": "eugene_cap IDD Path B",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "vih_vil",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "voh_load",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "vol_load",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "tp",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "ten",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/oe_timing.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "tdis",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/oe_timing.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "supply_current",
+      "status": "REALIZED",
+      "why": "eugene_cap IDD Path B",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "delta_icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "ioz",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "voh",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g125",
+      "test_id": "vol",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g126",
+      "test_id": "ten",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/oe_timing.py"
+    },
+    {
+      "part_key": "rs1g126",
+      "test_id": "tdis",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/oe_timing.py"
+    },
+    {
+      "part_key": "rs1g126",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g126",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g126",
+      "test_id": "delta_icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g126",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g126",
+      "test_id": "ioff",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/seelim_dc.py"
+    },
+    {
+      "part_key": "rs1g126",
+      "test_id": "voh",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g126",
+      "test_id": "vol",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g126",
+      "test_id": "ioz",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g14",
+      "test_id": "supply_current",
+      "status": "REALIZED",
+      "why": "eugene_cap IDD Path B",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g14",
+      "test_id": "delta_supply_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g14",
+      "test_id": "ioff_leakage",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g14",
+      "test_id": "input_leakage_sweep",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g14",
+      "test_id": "vth",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g14",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g14",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g14",
+      "test_id": "delta_icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g14",
+      "test_id": "voh",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g14",
+      "test_id": "vol",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "vih_vil",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "voh_load",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "vol_load",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "delta_supply_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "off_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "input_thresholds",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "ioff_leakage",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "input_leakage_sweep",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "supply_current_sweep",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "delta_icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "voh",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g32",
+      "test_id": "vol",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g74",
+      "test_id": "cin",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs1g74",
+      "test_id": "cpd",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs1g74",
+      "test_id": "ioff_leakage",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1g74",
+      "test_id": "clk_q",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/clk_q.py"
+    },
+    {
+      "part_key": "rs1g74",
+      "test_id": "supply_current",
+      "status": "REALIZED",
+      "why": "eugene_cap IDD Path B",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g86",
+      "test_id": "tp",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g86",
+      "test_id": "supply_current",
+      "status": "LEFTOVER",
+      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g86",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g86",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g86",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g97",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g97",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g97",
+      "test_id": "delta_icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g97",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g97",
+      "test_id": "voh",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1g97",
+      "test_id": "vol",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "vih_vil",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "voh_load",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "vol_load",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "cin",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "cpd",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "delta_supply_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "off_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "delta_icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "voh",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt08",
+      "test_id": "vol",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "vih_vil",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "voh_load",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "vol_load",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "cin",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "cpd",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "delta_supply_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "off_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "supply_current_sweep",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "delta_icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "voh",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt32",
+      "test_id": "vol",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt32d",
+      "test_id": "vih_vil",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32d",
+      "test_id": "voh_load",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32d",
+      "test_id": "vol_load",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32d",
+      "test_id": "delta_supply_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32d",
+      "test_id": "off_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32d",
+      "test_id": "input_thresholds",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32d",
+      "test_id": "ioff_leakage",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32d",
+      "test_id": "input_leakage_sweep",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32d",
+      "test_id": "supply_current_sweep",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs1gt32d",
+      "test_id": "cin",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs1gt32d",
+      "test_id": "cpd",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/eugene_cap.py"
+    },
+    {
+      "part_key": "rs1gt32d",
+      "test_id": "tp",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1gt34",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt34",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt34",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt34",
+      "test_id": "voh",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt34",
+      "test_id": "vol",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs1gt34",
+      "test_id": "delta_icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs29511",
+      "test_id": "tp",
+      "status": "REALIZED",
+      "why": "Path B SDAIN->SDAOUT; SIM 50 ns cannot prove tPLZ 10 ns",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs29511",
+      "test_id": "tidle",
+      "status": "REALIZED",
+      "why": "Path B same edges at 100 kHz; SIM 50 ns leftover vs tPLZ 10 ns",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs29511",
+      "test_id": "tdis",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/oe_timing.py"
+    },
+    {
+      "part_key": "rs29511",
+      "test_id": "ten",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/oe_timing.py"
+    },
+    {
+      "part_key": "rs29511",
+      "test_id": "supply_current",
+      "status": "REALIZED",
+      "why": "Path B ICC SDAIN=0 + 10k OUT; SIM CMOS uA not 2.0/4.5 mA PDF",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs29511",
+      "test_id": "output_voltage",
+      "status": "REALIZED",
+      "why": "Path B READY 10k pull-up idle high",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs29511",
+      "test_id": "cap_load",
+      "status": "REALIZED",
+      "why": "Path B DMM CAP SDAIN; SIM 5 pF vs CIO typ 6.5 leftover",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs2g08",
+      "test_id": "tp",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs2g08",
+      "test_id": "supply_current",
+      "status": "LEFTOVER",
+      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs2g08",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs2g08",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs2g08",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs2g32",
+      "test_id": "tp",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs2g32",
+      "test_id": "supply_current",
+      "status": "LEFTOVER",
+      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs2g32",
+      "test_id": "input_threshold",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs2g32",
+      "test_id": "icc",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs2g32",
+      "test_id": "ii",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
+    },
+    {
+      "part_key": "rs74aup1g07",
+      "test_id": "vih_vil",
+      "status": "REALIZED",
+      "why": "Ariff Path B VIH/VIL at 1.8/2.5/3.3; VOH/VOL stay disabled until PDF",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs74aup1g07",
+      "test_id": "supply_current",
+      "status": "REALIZED",
+      "why": "eugene_cap IDD Path B",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs74aup1g07",
+      "test_id": "delta_supply_current",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    },
+    {
+      "part_key": "rs74aup1g07",
+      "test_id": "ioff_leakage",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/ariff_dc.py"
+    }
+  ],
+  "leftover_named": [
+    {
+      "part_key": "rs0302",
+      "test_id": "i2c_ron",
+      "status": "LEFTOVER",
+      "why": "10 mA platform; datasheet 64 mA leftover",
+      "file": "ate/tests/logic/rs0302.py"
+    },
+    {
+      "part_key": "rs1g00",
+      "test_id": "supply_current",
+      "status": "LEFTOVER",
+      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g02",
+      "test_id": "supply_current",
+      "status": "LEFTOVER",
+      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g04",
+      "test_id": "supply_current",
+      "status": "LEFTOVER",
+      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs1g86",
+      "test_id": "supply_current",
+      "status": "LEFTOVER",
+      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs2g08",
+      "test_id": "supply_current",
+      "status": "LEFTOVER",
+      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "file": "ate/tests/logic/wraps.py"
+    },
+    {
+      "part_key": "rs2g32",
+      "test_id": "supply_current",
+      "status": "LEFTOVER",
+      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "file": "ate/tests/logic/wraps.py"
+    }
+  ]
+}

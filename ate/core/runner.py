@@ -1,6 +1,7 @@
-"""Headless modular runner — DUT + fixture gates + live timeline."""
+"""Headless modular runner -- DUT + fixture gates + live timeline."""
 from __future__ import annotations
 
+import sys
 import threading
 import time
 from dataclasses import dataclass, field, replace
@@ -16,15 +17,41 @@ from ate.core.database import (
 )
 from ate.core.paths import RESEARCH_EXCEL_PATH
 from ate.core.registry import TestSpec, group_by_fixture, load_family
-from ate.core.timeline import Timeline, build_plan, short_batch_tag, short_test_tag
-from ate.drivers.mso5072 import capture_jpeg, is_visa_poison
+from ate.core.timeline import Timeline, build_plan, short_batch_tag, short_test_tag, walk_pairs
 from ate.fixture.modes import mode_gain, mode_checklist
 from ate.fixture.operator import OperatorGate
 from ate.fixture.stm_bridge import StmBridge
-from ate.instruments.discovery import find_instruments
+from ate.instruments.discovery import find_instruments, visa_backend_name, visa_inventory
 from ate.instruments.session import Instruments
 
 MYT = timezone(timedelta(hours=8))
+
+
+def _stdio_replace_errors() -> None:
+    """Windows cp1252 print of approx/Chinese must not kill a TestSpec."""
+    for stream in (sys.stdout, sys.stderr):
+        rec = getattr(stream, "reconfigure", None)
+        if rec is None:
+            continue
+        try:
+            rec(errors="replace")
+        except Exception:
+            pass
+
+
+_stdio_replace_errors()
+
+
+def _visa_poison(exc: BaseException | str) -> bool:
+    from ate.drivers.mso5072 import is_visa_poison
+
+    return is_visa_poison(exc)
+
+
+def _visa_bus_error(exc: BaseException | str) -> bool:
+    """PSU/AWG/DMM TMO or SYSTEM_ERROR. MSO JPEG TMO is excluded by is_visa_poison."""
+    msg = str(exc)
+    return "VI_ERROR" in msg or "-1073807" in msg
 
 
 def ensure_screenshot_dir(test_folder: str = "ORT", dut_index: int | None = None):
@@ -48,6 +75,7 @@ class RunParams:
     part: str = "rs622"
     channel: str = "CHA"
     channels: list[str] = field(default_factory=list)
+    walk_order: str = "channel"  # channel = probes first; dut = socket first
     run_batch_id: str = ""  # shared across CHA/CHB for one DUT run → one JSON
     run_label: str = ""  # operator name for this run (e.g. G11_1k_10k)
     gain_profile: str = "default"  # ate/config/parts gain_profiles key
@@ -55,8 +83,25 @@ class RunParams:
     ri: str = ""  # RI network label
     current_limit_a: float = 0.10
     vccb: Optional[float] = None  # dual-rail Logic; None = part yaml
+    vcc_start: float = 0.0
+    vcc_stop: float = 5.0
+    vcc_step: float = 0.5
+    freq_start: float = 1.0  # MHz (CIN default 1/5/10)
+    freq_stop: float = 10.0
+    freq_step: float = 4.0
+    # Recipe (PRD-004): this Version test_params overlay; empty = use start/stop/step / part yaml
+    vcc_list: list[float] = field(default_factory=list)
+    logic_inputs: Optional[int] = None
+    levels: list[float] = field(default_factory=list)
+    rails: dict[str, Any] = field(default_factory=dict)
+    settle_s: Optional[float] = None
+    timeout_s: Optional[float] = None
+    dwell_s: Optional[float] = None
+    vin_step: Optional[float] = None  # VIH/VIL VIN trip; None = 0.01 V
+    test_params: dict[str, dict[str, Any]] = field(default_factory=dict)
     progress_hook: Optional[Callable[..., None]] = field(default=None, repr=False)
     pause_hook: Optional[Callable[[str], bool]] = field(default=None, repr=False)
+    auto_continue: bool = False  # DEMO / headless checks only; START must stay False
 
     def resolved_duts(self) -> list[int]:
         if self.dut_indices:
@@ -64,12 +109,98 @@ class RunParams:
         return [int(self.unit_index)]
 
     def resolved_channels(self) -> list[str]:
-        order = ("CHA", "CHB")
+        from ate.core.specs import normalize_probe_channels
+
         if self.channels:
-            picked = {str(c).upper() for c in self.channels}
-            return [c for c in order if c in picked] or ["CHA"]
-        ch = (self.channel or "CHA").upper()
-        return [ch if ch in order else "CHA"]
+            picked = normalize_probe_channels(self.channels)
+            return picked or ["CHA"]
+        picked = normalize_probe_channels([self.channel or "CHA"])
+        return picked or ["CHA"]
+
+    def resolved_walk_order(self) -> str:
+        raw = str(self.walk_order or "channel").strip().lower()
+        return "dut" if raw.startswith("dut") else "channel"
+
+    def resolved_vcc_sweep(self) -> list[float]:
+        from ate.core.param_defaults import vcc_sweep_points
+
+        if self.vcc_list:
+            return [float(v) for v in self.vcc_list]
+        return vcc_sweep_points(self.vcc_start, self.vcc_stop, self.vcc_step)
+
+    def resolved_freq_hz(self) -> list[float]:
+        from ate.core.param_defaults import vcc_sweep_points
+
+        start = float(self.freq_start or 1.0)
+        stop = float(self.freq_stop or 10.0)
+        step = float(self.freq_step or 4.0)
+        # ponytail: CIN golden is 1/5/10 MHz; 1..10 / 4 maps to that trio.
+        if abs(start - 1.0) < 1e-9 and abs(stop - 10.0) < 1e-9 and abs(step - 4.0) < 1e-9:
+            return [1e6, 5e6, 10e6]
+        return [round(mhz * 1e6) for mhz in vcc_sweep_points(start, stop, step)]
+
+    def overlay_for(self, test_id: str) -> "RunParams":
+        """This Version's test_params.yaml (or START payload) wins for one TestSpec."""
+        raw = self.test_params.get(str(test_id or "").strip().lower()) or {}
+        if not isinstance(raw, dict) or not raw:
+            return self
+        kw: dict[str, Any] = {}
+        for key in (
+            "vcc",
+            "vccb",
+            "vcc_start",
+            "vcc_stop",
+            "vcc_step",
+            "freq_hz",
+            "freq_start",
+            "freq_stop",
+            "freq_step",
+            "amp_vpp",
+            "settle_s",
+            "timeout_s",
+            "dwell_s",
+            "vin_step",
+        ):
+            if raw.get(key) in (None, ""):
+                continue
+            try:
+                kw[key] = float(raw[key])
+            except (TypeError, ValueError):
+                pass
+        if raw.get("n_repeats") not in (None, ""):
+            try:
+                kw["n_repeats"] = int(raw["n_repeats"])
+            except (TypeError, ValueError):
+                pass
+        if raw.get("logic_inputs") not in (None, ""):
+            try:
+                kw["logic_inputs"] = int(raw["logic_inputs"])
+            except (TypeError, ValueError):
+                pass
+        vcc_list = raw.get("vcc_list")
+        if isinstance(vcc_list, list) and vcc_list:
+            pts: list[float] = []
+            for v in vcc_list:
+                try:
+                    pts.append(float(v))
+                except (TypeError, ValueError):
+                    pass
+            if pts:
+                kw["vcc_list"] = pts
+        levels = raw.get("levels")
+        if isinstance(levels, list) and levels:
+            lv: list[float] = []
+            for v in levels:
+                try:
+                    lv.append(float(v))
+                except (TypeError, ValueError):
+                    pass
+            if lv:
+                kw["levels"] = lv
+        rails = raw.get("rails")
+        if isinstance(rails, dict) and rails:
+            kw["rails"] = dict(rails)
+        return replace(self, **kw) if kw else self
 
     def resolved_lab_report(self) -> str:
         if self.lab_report:
@@ -89,6 +220,47 @@ class StepResult:
     fixture_mode: str = ""
 
 
+def _apply_part_dual_channel(specs: list[Any], part: str) -> list[Any]:
+    """Honor recipe.dual_channel_continue (2Gxx CHA then CHB). Not OpAmp-hardcoded."""
+    key = str(part or "").strip().lower()
+    if not key or not specs:
+        return list(specs)
+    try:
+        from ate.tests.logic.product_model import (
+            apply_dual_channel_continue,
+            has_product_model,
+            load_product_model,
+        )
+    except Exception:
+        return list(specs)
+    if not has_product_model(key):
+        return list(specs)
+    model = load_product_model(key)
+    if model is None:
+        return list(specs)
+    return apply_dual_channel_continue(list(specs), model)
+
+
+def _merge_part_channels(channels: list[str], part: str) -> list[str]:
+    key = str(part or "").strip().lower()
+    if not key:
+        return list(channels) or ["CHA"]
+    try:
+        from ate.tests.logic.product_model import (
+            has_product_model,
+            load_product_model,
+            merge_recipe_channels,
+        )
+    except Exception:
+        return list(channels) or ["CHA"]
+    if not has_product_model(key):
+        return list(channels) or ["CHA"]
+    model = load_product_model(key)
+    if model is None:
+        return list(channels) or ["CHA"]
+    return merge_recipe_channels(model, channels) or ["CHA"]
+
+
 class ATECore:
     """Thread-safe bench orchestrator for Tauri / CLI clients."""
 
@@ -105,13 +277,12 @@ class ATECore:
         self._mapping: dict[str, str] = {}
         self._timeline: Optional[Timeline] = None
         self._last_run_results: list[StepResult] = []
+        self._last_run_error: str = ""
+        self._async_claimed = False
+        self._run_epoch = 0
         self.gate = OperatorGate(emit=self._emit)
         self.stm = StmBridge(enabled=stm_enabled)
         self._family = load_family()
-        try:
-            get_context().ensure_tree()
-        except Exception:
-            pass
 
     def _log(self, text: str) -> None:
         print(text)
@@ -158,34 +329,101 @@ class ATECore:
         with self._lock:
             return self._busy
 
+    @property
+    def last_run_error(self) -> str:
+        return self._last_run_error
+
+    def claim_async_run(self) -> None:
+        """Mark busy before the run thread starts so UI cannot miss the run."""
+        with self._lock:
+            if self._busy:
+                raise RuntimeError("Runner busy.")
+            self._busy = True
+            self._cancel_requested = False
+            self._last_run_error = ""
+            self._async_claimed = True
+            self._run_epoch += 1
+
+    @property
+    def run_epoch(self) -> int:
+        return int(getattr(self, "_run_epoch", 0) or 0)
+
+    @property
+    def simulated(self) -> bool:
+        return bool(self._instr is not None and getattr(self._instr, "_simulated", False))
+
+    @property
+    def visa_backend(self) -> str:
+        if self.simulated:
+            return "sim"
+        return visa_backend_name()
+
+    def bench_preflight(self) -> dict[str, Any]:
+        """USB *IDN vs SIM. Does not turn PSU ON. Does not assume powered output."""
+        inv = visa_inventory(force=True)
+        self._log(
+            f"Preflight mode={inv.get('mode')} reason={inv.get('reason')} "
+            f"keep={inv.get('keep')} skip={inv.get('skip')} map={inv.get('mapping')}"
+        )
+        return inv
+
     def discover(self) -> dict[str, str]:
-        self._mapping = find_instruments()
-        self._log(f"Discovered: {self._mapping}")
+        self._mapping = find_instruments(force=True)
+        self._log(f"Discovered ({visa_backend_name()}): {self._mapping}")
         return dict(self._mapping)
 
-    def open_session(self) -> dict[str, str]:
+    def open_session(self, *, sim: bool = False) -> dict[str, str]:
         if self._instr is not None:
             self.close_session()
-        # Always re-scan — stale Discover can miss DP832 if USB was busy
-        self._mapping = find_instruments()
-        self._log("Opening instrument session…")
-        self._instr = Instruments(self._mapping or None)
+        if sim:
+            self._instr = Instruments.simulated()
+            self._mapping = dict(self._instr.inst_map)
+            self.gate.auto_continue = False
+            self._log("SIM session open (no USB) -- fake SCPI for MSO/PSU/AWG/DMM")
+            from ate.instruments.sim import loopback_check
+
+            lb = loopback_check(
+                psu=self._instr.psu,
+                awg=self._instr.gen,
+                scope=self._instr.scope,
+                dmm=self._instr.dmm,
+            )
+            self._log(f"SIM loopback: {lb}")
+            if not lb.get("ok"):
+                failed = [c["id"] for c in (lb.get("checks") or []) if not c.get("ok")]
+                self.close_session()
+                raise RuntimeError(f"SIM loopback failed (signal not received): {failed}")
+            return dict(self._mapping)
+        self.gate.auto_continue = False
+        # Reuse Discover cache (15s). Empty cache is not "already scanned".
+        # Do not force-rescan just because MSO is missing -- Logic needs PSU/DMM only.
+        mapped = find_instruments()
+        if not mapped:
+            mapped = find_instruments(force=True)
+        self._mapping = mapped
+        self._log(f"Opening instrument session ({visa_backend_name()})…")
+        self._instr = Instruments(self._mapping)
         self._mapping = dict(self._instr.inst_map)
-        missing = [k for k in ("MSO", "PSU", "AWG") if k not in self._mapping]
+        missing = [k for k in ("MSO", "PSU", "AWG", "DMM") if k not in self._mapping]
         if missing:
-            self._log(f"WARNING missing: {missing} -- check USB / close Ultra Sigma")
-        if "DMM" not in self._mapping:
-            self._log("WARNING DMM not found -- Logic IDD/VOUT/cap_load and OpAmp VOL need it")
-        self._log(f"Session open: {list(self._mapping)}")
+            self._log(
+                f"not on bus (START fails only if a test needs them): {missing}"
+            )
+        self._log(f"Session open ({visa_backend_name()}): {list(self._mapping)}")
         return dict(self._mapping)
 
     def close_session(self) -> None:
         if self._instr is None:
             return
         try:
+            self._safe_idle_for_operator(reason="session close")
+        except Exception as exc:
+            self._log(f"idle before close: {exc}")
+        try:
             self._instr.close_all()
         finally:
             self._instr = None
+            self.gate.auto_continue = False
             self._log("Session closed.")
 
     def capture_screenshot(self, prefix: str = "manual", test_key: str = "ORT") -> str:
@@ -195,8 +433,10 @@ class ATECore:
         out = ensure_screenshot_dir(test_key, None)
         ts = datetime.now(MYT).strftime("%Y-%m-%d_%H%M%S")
         path = out / f"{prefix}_{ts}.jpg"
-        self._log(f"MSO5072 JPEG → {path}")
+        self._log(f"MSO5072 JPEG -> {path}")
         self._log(f"DB context: {ctx.component}/{ctx.part}/{ctx.package}/{ctx.version}")
+        from ate.drivers.mso5072 import capture_jpeg
+
         return capture_jpeg(self._instr.scope, path)
 
     def operator_respond(self, data: dict) -> None:
@@ -247,24 +487,54 @@ class ATECore:
         self._emit_timeline()
 
     def run_sequence(self, test_ids: list[str], params: RunParams) -> list[StepResult]:
-        if self._instr is None:
-            raise RuntimeError("Open Session first.")
         with self._lock:
-            if self._busy:
+            async_hold = bool(getattr(self, "_async_claimed", False))
+            if async_hold:
+                self._async_claimed = False
+            elif self._busy:
                 raise RuntimeError("Runner busy.")
-            self._busy = True
-            self._cancel_requested = False
+            else:
+                self._busy = True
+                self._cancel_requested = False
         results: list[StepResult] = []
         status = "completed"
+        self._last_run_error = ""
+        orig_sleep = time.sleep
+        sim = bool(self._instr is not None and getattr(self._instr, "_simulated", False))
+        self.gate.auto_continue = bool(params.auto_continue)
         try:
+            if self._instr is None:
+                raise RuntimeError("Open Session first.")
+            if sim:
+                # DEMO / Open SIM: skip instrument dwell so the plan is not a sleep loop.
+                time.sleep = lambda *_a, **_k: None
+            if self.gate.auto_continue:
+                self._log("DEMO auto-continue (no operator Continue)")
+            elif sim:
+                self._log("SIM START: operator Continue required (not DEMO)")
             ctx = get_context()
             ctx.ensure_tree()
             if not params.lab_report:
-                params = replace(params, lab_report=str(ctx.lab_report_path()))
+                from ate.tests.logic.excel_lock import (
+                    bind_golden_auto,
+                    coerce_golden_auto_lab_report,
+                )
+
+                _ = bind_golden_auto  # Open Session / START golden_auto Version bind
+                params = replace(
+                    params,
+                    lab_report=coerce_golden_auto_lab_report(
+                        ctx, str(ctx.lab_report_path())
+                    ),
+                )
 
             duts = params.resolved_duts()
-            channels = params.resolved_channels()
-            batches = group_by_fixture(test_ids)
+            channels = _merge_part_channels(params.resolved_channels(), params.part)
+            walk = params.resolved_walk_order()
+            batches = [
+                (mode, _apply_part_dual_channel(list(specs), params.part))
+                for mode, specs in group_by_fixture(test_ids)
+            ]
             gains = {m: mode_gain(m, params.part) for m, _ in batches}
             plan = [
                 {"mode": m, "tests": [s.id for s in specs], "gain": gains[m]}
@@ -276,6 +546,7 @@ class ATECore:
                 batches=batches,
                 gains=gains,
                 channels=channels,
+                walk_order=walk,
             )
             self._timeline = Timeline(
                 entries=entries,
@@ -290,13 +561,14 @@ class ATECore:
             self._log(f"Lab report: {params.lab_report}")
             self._log(f"Channels: {channels}")
             self._log(
-                f"Plan: category → channel → DUTs "
-                f"({len(batches)} cat × {len(channels)} ch × {len(duts)} DUT) "
+                f"Plan: category -> "
+                f"{'DUT then channel' if walk == 'dut' else 'channel then DUTs'} "
+                f"({len(batches)} cat x {len(channels)} ch x {len(duts)} DUT) "
                 f"= {len(entries)} timeline steps"
             )
             self._log(
                 "Fixture batches: "
-                + " → ".join(f"{m}×{len(s)}" for m, s in batches)
+                + " -> ".join(f"{m}x{len(s)}" for m, s in batches)
             )
 
             begin_session(
@@ -306,9 +578,12 @@ class ATECore:
                         "unit_index", "part", "reset_before_run",
                         "run_label", "gain_profile", "rf", "ri", "gain",
                         "current_limit_a", "vccb",
+                        "vcc_start", "vcc_stop", "vcc_step",
+                        "freq_start", "freq_stop", "freq_step",
                     )},
                     "dut_indices": duts,
                     "channels": channels,
+                    "walk_order": walk,
                     "lab_report": params.lab_report,
                     "test_ids": list(test_ids),
                 },
@@ -325,6 +600,7 @@ class ATECore:
             multi_dut = len(duts) > 1
             single_dut_installed = False
             last_channel: str | None = None
+            prev_dut: int | None = None
 
             for mode, specs in batches:
                 if self._abort_if_cancelled(results):
@@ -348,11 +624,11 @@ class ATECore:
                     self._timeline.mark(
                         cfg_entry.id,
                         "skipped",
-                        f"{mode} auto — same config",
+                        f"{mode} auto -- same config",
                         finish=True,
                     )
                     self._emit_timeline()
-                    self._log(f"Config {mode} already confirmed — auto-continue")
+                    self._log(f"Config {mode} already confirmed -- auto-continue")
                 elif cfg_entry is not None and not stm.get("auto_ack"):
                     self._timeline.mark(cfg_entry.id, "waiting", start=True)
                     self._emit_timeline()
@@ -367,7 +643,7 @@ class ATECore:
                     g11_profile = bool(params.rf and params.ri and mode == "G11")
                     cfg_title = f"{tag} · board {mode}"
                     if g11_profile and params.run_label:
-                        cfg_title = f"{tag} · board {mode} — {params.run_label}"
+                        cfg_title = f"{tag} · board {mode} -- {params.run_label}"
                     cfg_extra = (
                         [
                             f"Run: {params.run_label}" if params.run_label else "GBW G11",
@@ -416,7 +692,7 @@ class ATECore:
                 dual_mode = any(getattr(s, "dual_channel", True) for s in specs)
                 mode_chans = channels if dual_mode else [channels[0]]
 
-                for channel in mode_chans:
+                for channel, dut in walk_pairs(mode_chans, duts, walk):
                     if self._abort_if_cancelled(results):
                         status = "aborted"
                         break
@@ -445,16 +721,16 @@ class ATECore:
                                 None,
                             )
                         if ch_entry is not None:
-                            ch_name = (
-                                "Channel A" if channel == "CHA" else "Channel B"
-                            )
+                            from ate.core.specs import channel_prompt_label
+
+                            ch_name = channel_prompt_label(channel)
                             scope = "all DUTs" if multi_dut else f"DUT #{duts[0]}"
                             self._timeline.mark(ch_entry.id, "waiting", start=True)
                             self._emit_timeline()
                             self._progress(
                                 "",
                                 "waiting_operator",
-                                f"{ch_name} — {scope}",
+                                f"{ch_name} -- {scope}",
                                 kind="channel_change",
                                 channel=channel,
                                 timeline_id=ch_entry.id,
@@ -481,302 +757,311 @@ class ATECore:
                             )
                             self._emit_timeline()
                             self._log(
-                                f"{ch_name} confirmed — starting {scope} pass"
+                                f"{ch_name} confirmed -- starting {scope} pass"
                             )
 
                     if status == "aborted":
                         break
 
                     last_channel = channel
-                    prev_dut: int | None = None
 
-                    for dut in duts:
-                        if self._abort_if_cancelled(results):
+                    if self._abort_if_cancelled(results):
+                        status = "aborted"
+                        break
+                    if dut not in dut_batch_ids:
+                        dut_batch_ids[dut] = datetime.now(MYT).strftime(
+                            "%Y-%m-%d_%H%M%S"
+                        )
+                    dut_run_id = dut_batch_ids[dut]
+
+                    ask_dut = multi_dut or not single_dut_installed
+                    dut_entry = next(
+                        (
+                            e
+                            for e in self._timeline.entries
+                            if e.kind == "dut_change"
+                            and e.dut == dut
+                            and e.channel == channel
+                            and e.fixture_mode == mode
+                            and e.status == "pending"
+                        ),
+                        None,
+                    )
+                    if (
+                        ask_dut
+                        and dut_entry is not None
+                        and (prev_dut is None or dut != prev_dut)
+                    ):
+                        is_change = prev_dut is not None
+                        self._timeline.mark(dut_entry.id, "waiting", start=True)
+                        self._emit_timeline()
+                        self._progress(
+                            "",
+                            "waiting_operator",
+                            f"{'Change' if is_change else 'Install'} DUT_{dut}",
+                            kind="dut_change",
+                            dut=dut,
+                            channel=channel,
+                            timeline_id=dut_entry.id,
+                        )
+                        title = f"{tag} · DUT #{dut} · {channel}"
+                        checklist = (
+                            [
+                                "Bench SAFE: PSU OFF, AWG OFF @ 1 kHz, scope STOP",
+                                f"Remove DUT #{prev_dut}",
+                                f"Install DUT #{dut}",
+                                "Confirm pin-1 orientation",
+                                "Then Continue (power comes back for the test)",
+                            ]
+                            if is_change
+                            else [
+                                "Bench SAFE: PSU OFF, AWG OFF @ 1 kHz, scope STOP",
+                                f"Install DUT #{dut} in the socket",
+                                "Confirm pin-1 orientation",
+                                "Then Continue (power comes back for the test)",
+                            ]
+                        )
+                        ok = self._ask_operator(
+                            title=title,
+                            kind="dut_change",
+                            dut_index=dut,
+                            test_tag=tag,
+                            next_hint=dut_entry.next_hint,
+                            timeline_id=dut_entry.id,
+                            checklist=checklist,
+                        )
+                        if not ok:
                             status = "aborted"
-                            break
-                        if dut not in dut_batch_ids:
-                            dut_batch_ids[dut] = datetime.now(MYT).strftime(
-                                "%Y-%m-%d_%H%M%S"
+                            self._timeline.mark(
+                                dut_entry.id, "skipped", "Aborted", finish=True
                             )
-                        dut_run_id = dut_batch_ids[dut]
+                            self._abort_remaining(
+                                results, "Aborted at DUT prompt"
+                            )
+                            break
+                        self._timeline.mark(
+                            dut_entry.id, "done", "DUT ready", finish=True
+                        )
+                        self._emit_timeline()
+                        self._log(f"DUT_{dut} confirmed ({channel})")
+                        if not multi_dut:
+                            single_dut_installed = True
+                    prev_dut = dut
 
-                        ask_dut = multi_dut or not single_dut_installed
-                        dut_entry = next(
+                    for spec in specs:
+                        use_ch = (
+                            channel
+                            if getattr(spec, "dual_channel", True)
+                            else channels[0]
+                        )
+                        if (
+                            not getattr(spec, "dual_channel", True)
+                            and channel != mode_chans[0]
+                        ):
+                            continue
+
+                        batch_params = replace(
+                            params,
+                            gain=(
+                                float(params.gain)
+                                if (params.rf and params.ri and mode == "G11")
+                                else mode_gain(mode, params.part)
+                            ),
+                            run_label=params.run_label if mode == "G11" else "",
+                            rf=params.rf if mode == "G11" else "",
+                            ri=params.ri if mode == "G11" else "",
+                            unit_index=dut,
+                            channel=use_ch,
+                            run_batch_id=dut_run_id,
+                        )
+
+                        def _hook(
+                            substep: str,
+                            st: str,
+                            msg: str,
+                            *,
+                            _spec=spec,
+                            _dut=dut,
+                            _ch=use_ch,
+                        ) -> None:
+                            self._progress(
+                                _spec.id,
+                                st,
+                                msg,
+                                dut=_dut,
+                                channel=_ch,
+                                substep=substep,
+                                fixture_mode=_spec.fixture_mode,
+                            )
+
+                        def _pause(
+                            title: str,
+                            *,
+                            _dut=dut,
+                            _spec=spec,
+                            checklist: list | None = None,
+                        ) -> bool:
+                            # Path B FAIL popup uses format_fail_lines via this checklist.
+                            if _spec.id == "gbw":
+                                self._log(
+                                    f"GBW checkpoint (auto-continue): {title}"
+                                )
+                                return True
+                            items = [str(x) for x in (checklist or []) if str(x).strip()]
+                            if not items:
+                                items = [
+                                    "Confirm AWG CH1 output is ON",
+                                    "Scope CH1=IN+, CH2=VOUT",
+                                    "Then Continue",
+                                ]
+                            return self._ask_operator(
+                                title=title,
+                                kind="config_change",
+                                dut_index=_dut,
+                                test_tag=short_test_tag(_spec),
+                                park_scope="MSO" in _spec.required_instruments,
+                                checklist=items,
+                            )
+
+                        batch_params.progress_hook = _hook
+                        batch_params.pause_hook = _pause
+
+                        test_entry = next(
                             (
                                 e
                                 for e in self._timeline.entries
-                                if e.kind == "dut_change"
+                                if e.kind == "test"
                                 and e.dut == dut
-                                and e.channel == channel
+                                and e.test_id == spec.id
+                                and e.channel == use_ch
                                 and e.fixture_mode == mode
                                 and e.status == "pending"
                             ),
                             None,
                         )
-                        if (
-                            ask_dut
-                            and dut_entry is not None
-                            and (prev_dut is None or dut != prev_dut)
-                        ):
-                            is_change = prev_dut is not None
-                            self._timeline.mark(dut_entry.id, "waiting", start=True)
+                        if test_entry is not None:
+                            self._timeline.mark(
+                                test_entry.id, "running", start=True
+                            )
                             self._emit_timeline()
-                            self._progress(
-                                "",
-                                "waiting_operator",
-                                f"{'Change' if is_change else 'Install'} DUT_{dut}",
-                                kind="dut_change",
-                                dut=dut,
-                                channel=channel,
-                                timeline_id=dut_entry.id,
+
+                        if "MSO" in spec.required_instruments and self._instr.scope is not None:
+                            try:
+                                from scope_setup import recover_scope_session
+
+                                recover_scope_session(self._instr.scope)
+                                time.sleep(0.5 if dut and dut > 1 else 0.2)
+                            except Exception as exc:
+                                self._log(f"scope recover DUT_{dut}: {exc}")
+
+                        if self._abort_if_cancelled(results):
+                            status = "aborted"
+                            break
+
+                        step = self._run_one(spec, batch_params, dut=dut)
+                        if "MSO" in spec.required_instruments and self._instr.scope is not None:
+                            try:
+                                from scope_setup import park_scope_idle
+
+                                park_scope_idle(self._instr.scope, clear=True)
+                                time.sleep(0.35)
+                            except Exception as exc:
+                                self._log(f"scope park post-test: {exc}")
+                        results.append(step)
+
+                        arts = []
+                        if isinstance(step.data, dict):
+                            for key in ("screenshot", "screenshots", "artifacts"):
+                                val = step.data.get(key)
+                                if isinstance(val, str):
+                                    arts.append({"path": val})
+                                elif isinstance(val, list):
+                                    arts.extend(
+                                        {"path": p} if isinstance(p, str) else p
+                                        for p in val
+                                    )
+                        from ate.core.specs import (
+                            any_fail,
+                            measurements_from_result,
+                            mock_demo_measurements,
+                        )
+
+                        ctx = get_context()
+                        meas = measurements_from_result(
+                            step.data,
+                            test_id=step.test_id,
+                            part_key=str(ctx.part_key or ""),
+                        )
+                        if not meas and self.simulated:
+                            meas = mock_demo_measurements(
+                                step.test_id,
+                                part_key=str(ctx.part_key or ""),
                             )
-                            title = f"{tag} · DUT #{dut} · {channel}"
-                            checklist = (
-                                [
-                                    "Bench SAFE: PSU OFF, AWG OFF @ 1 kHz, scope STOP",
-                                    f"Remove DUT #{prev_dut}",
-                                    f"Install DUT #{dut}",
-                                    "Confirm pin-1 orientation",
-                                    "Then Continue (power comes back for the test)",
-                                ]
-                                if is_change
-                                else [
-                                    "Bench SAFE: PSU OFF, AWG OFF @ 1 kHz, scope STOP",
-                                    f"Install DUT #{dut} in the socket",
-                                    "Confirm pin-1 orientation",
-                                    "Then Continue (power comes back for the test)",
-                                ]
+                        ok = bool(step.success)
+                        if any_fail(meas):
+                            ok = False
+                            self._log(
+                                f"SPEC FAIL DUT_{dut} {spec.id}: "
+                                + ", ".join(
+                                    f"{m.get('id')}={m.get('value')} "
+                                    f"min={m.get('min')} max={m.get('max')}"
+                                    for m in meas
+                                    if m.get("result") == "fail"
+                                )
                             )
+                        step.success = ok
+                        record_step(
+                            step.test_id,
+                            success=ok,
+                            summary=step.summary,
+                            error=step.error,
+                            fixture_mode=spec.fixture_mode,
+                            artifacts=arts or None,
+                            measurements=meas or None,
+                            dut=step.dut if step.dut is not None else dut,
+                            channel=use_ch,
+                            data=step.data if isinstance(step.data, dict) else None,
+                        )
+                        if test_entry is not None:
+                            self._timeline.mark(
+                                test_entry.id,
+                                "done" if ok else "fail",
+                                step.summary or step.error,
+                                finish=True,
+                            )
+                            self._emit_timeline()
+
+                        if not step.success:
+                            err = step.error or step.summary or "failed"
+                            st = short_test_tag(spec)
+                            self._log(
+                                f"FAIL DUT_{dut} {use_ch} {spec.id}: {err}"
+                            )
+                            if _visa_poison(err):
+                                self._log(
+                                    "VISA SYSTEM_ERROR after retry -- "
+                                    "auto-continue next unit (no Continue popup)"
+                                )
+                                continue
                             ok = self._ask_operator(
-                                title=title,
+                                title=f"{st} · DUT #{dut} {use_ch} FAILED",
                                 kind="dut_change",
                                 dut_index=dut,
-                                test_tag=tag,
-                                next_hint=dut_entry.next_hint,
-                                timeline_id=dut_entry.id,
-                                checklist=checklist,
+                                test_tag=st,
+                                park_scope="MSO" in spec.required_instruments,
+                                checklist=[
+                                    f"Error: {err[:180]}",
+                                    "Bench is SAFE IDLE (PSU/AWG OFF)",
+                                    "Continue -> next DUT, or Abort to stop",
+                                ],
+                                next_hint="Continue to next unit, or Abort",
                             )
                             if not ok:
                                 status = "aborted"
-                                self._timeline.mark(
-                                    dut_entry.id, "skipped", "Aborted", finish=True
-                                )
                                 self._abort_remaining(
-                                    results, "Aborted at DUT prompt"
+                                    results, "Aborted after DUT fail"
                                 )
                                 break
-                            self._timeline.mark(
-                                dut_entry.id, "done", "DUT ready", finish=True
-                            )
-                            self._emit_timeline()
-                            self._log(f"DUT_{dut} confirmed ({channel})")
-                            if not multi_dut:
-                                single_dut_installed = True
-                        prev_dut = dut
-
-                        for spec in specs:
-                            use_ch = (
-                                channel
-                                if getattr(spec, "dual_channel", True)
-                                else channels[0]
-                            )
-                            if (
-                                not getattr(spec, "dual_channel", True)
-                                and channel != mode_chans[0]
-                            ):
-                                continue
-
-                            batch_params = replace(
-                                params,
-                                gain=(
-                                    float(params.gain)
-                                    if (params.rf and params.ri and mode == "G11")
-                                    else mode_gain(mode, params.part)
-                                ),
-                                run_label=params.run_label if mode == "G11" else "",
-                                rf=params.rf if mode == "G11" else "",
-                                ri=params.ri if mode == "G11" else "",
-                                unit_index=dut,
-                                channel=use_ch,
-                                run_batch_id=dut_run_id,
-                            )
-
-                            def _hook(
-                                substep: str,
-                                st: str,
-                                msg: str,
-                                *,
-                                _spec=spec,
-                                _dut=dut,
-                                _ch=use_ch,
-                            ) -> None:
-                                self._progress(
-                                    _spec.id,
-                                    st,
-                                    msg,
-                                    dut=_dut,
-                                    channel=_ch,
-                                    substep=substep,
-                                    fixture_mode=_spec.fixture_mode,
-                                )
-
-                            def _pause(
-                                title: str,
-                                *,
-                                _dut=dut,
-                                _spec=spec,
-                            ) -> bool:
-                                if _spec.id == "gbw":
-                                    self._log(
-                                        f"GBW checkpoint (auto-continue): {title}"
-                                    )
-                                    return True
-                                return self._ask_operator(
-                                    title=title,
-                                    kind="config_change",
-                                    dut_index=_dut,
-                                    test_tag=short_test_tag(_spec),
-                                    checklist=[
-                                        "Confirm AWG CH1 output is ON",
-                                        "Scope CH1=IN+, CH2=VOUT",
-                                        "Then Continue",
-                                    ],
-                                )
-
-                            batch_params.progress_hook = _hook
-                            batch_params.pause_hook = _pause
-
-                            test_entry = next(
-                                (
-                                    e
-                                    for e in self._timeline.entries
-                                    if e.kind == "test"
-                                    and e.dut == dut
-                                    and e.test_id == spec.id
-                                    and e.channel == use_ch
-                                    and e.fixture_mode == mode
-                                    and e.status == "pending"
-                                ),
-                                None,
-                            )
-                            if test_entry is not None:
-                                self._timeline.mark(
-                                    test_entry.id, "running", start=True
-                                )
-                                self._emit_timeline()
-
-                            if self._instr.scope is not None:
-                                try:
-                                    from scope_setup import recover_scope_session
-
-                                    recover_scope_session(self._instr.scope)
-                                    time.sleep(0.5 if dut and dut > 1 else 0.2)
-                                except Exception as exc:
-                                    self._log(f"scope recover DUT_{dut}: {exc}")
-
-                            if self._abort_if_cancelled(results):
-                                status = "aborted"
-                                break
-
-                            step = self._run_one(spec, batch_params, dut=dut)
-                            self._safe_idle_for_operator(
-                                reason=f"post DUT_{dut} {use_ch} {spec.id}"
-                            )
-                            if self._instr.scope is not None:
-                                try:
-                                    from scope_setup import park_scope_idle
-
-                                    park_scope_idle(self._instr.scope, clear=True)
-                                    time.sleep(0.35)
-                                except Exception as exc:
-                                    self._log(f"scope park post-test: {exc}")
-                            results.append(step)
-
-                            arts = []
-                            if isinstance(step.data, dict):
-                                for key in ("screenshot", "screenshots", "artifacts"):
-                                    val = step.data.get(key)
-                                    if isinstance(val, str):
-                                        arts.append({"path": val})
-                                    elif isinstance(val, list):
-                                        arts.extend(
-                                            {"path": p} if isinstance(p, str) else p
-                                            for p in val
-                                        )
-                            from ate.core.database import get_context
-                            from ate.core.specs import any_fail, measurements_from_result
-
-                            ctx = get_context()
-                            meas = measurements_from_result(
-                                step.data,
-                                test_id=step.test_id,
-                                part_key=str(ctx.part_key or ""),
-                            )
-                            ok = bool(step.success)
-                            if any_fail(meas):
-                                ok = False
-                                self._log(
-                                    f"SPEC FAIL DUT_{dut} {spec.id}: "
-                                    + ", ".join(
-                                        f"{m.get('id')}={m.get('value')} "
-                                        f"min={m.get('min')} max={m.get('max')}"
-                                        for m in meas
-                                        if m.get("result") == "fail"
-                                    )
-                                )
-                            record_step(
-                                step.test_id,
-                                success=ok,
-                                summary=step.summary,
-                                error=step.error,
-                                fixture_mode=spec.fixture_mode,
-                                artifacts=arts or None,
-                                measurements=meas or None,
-                                dut=step.dut if step.dut is not None else dut,
-                                channel=use_ch,
-                            )
-                            if test_entry is not None:
-                                self._timeline.mark(
-                                    test_entry.id,
-                                    "done" if step.success else "fail",
-                                    step.summary or step.error,
-                                    finish=True,
-                                )
-                                self._emit_timeline()
-
-                            if not step.success:
-                                err = step.error or step.summary or "failed"
-                                st = short_test_tag(spec)
-                                self._log(
-                                    f"FAIL DUT_{dut} {use_ch} {spec.id}: {err}"
-                                )
-                                if is_visa_poison(err):
-                                    self._log(
-                                        "VISA SYSTEM_ERROR after retry — "
-                                        "auto-continue next unit (no Continue popup)"
-                                    )
-                                    continue
-                                ok = self._ask_operator(
-                                    title=f"{st} · DUT #{dut} {use_ch} FAILED",
-                                    kind="dut_change",
-                                    dut_index=dut,
-                                    test_tag=st,
-                                    checklist=[
-                                        f"Error: {err[:180]}",
-                                        "Bench is SAFE IDLE (PSU/AWG OFF)",
-                                        "Continue -> next DUT, or Abort to stop",
-                                    ],
-                                    next_hint="Continue to next unit, or Abort",
-                                )
-                                if not ok:
-                                    status = "aborted"
-                                    self._abort_remaining(
-                                        results, "Aborted after DUT fail"
-                                    )
-                                    break
-
-                        if status == "aborted":
-                            break
 
                     if status == "aborted":
                         break
@@ -789,15 +1074,20 @@ class ATECore:
             self._safe_idle_for_operator(reason="sequence done")
             self._last_run_results = list(results)
             return results
-        except Exception:
+        except Exception as exc:
             status = "failed"
+            self._last_run_error = str(exc)
+            self._last_run_results = list(results)
             self._safe_idle_for_operator(reason="sequence failed")
             raise
         finally:
+            self.gate.auto_continue = False
+            if sim:
+                time.sleep = orig_sleep
             try:
                 path = end_session(status=status)
                 if path:
-                    self._log(f"Session manifest → {path}")
+                    self._log(f"Session manifest -> {path}")
             except Exception as exc:
                 self._log(f"Session manifest write failed: {exc}")
             with self._lock:
@@ -817,10 +1107,22 @@ class ATECore:
         except Exception as exc:
             self._log(f"MSO reopen failed: {exc}")
 
+    def _reopen_bench_after_visa(self) -> None:
+        """DMM/PSU TMO poisons NI USB; drop KEEP handles and idle PSU."""
+        instr = self._instr
+        if instr is None:
+            return
+        try:
+            instr.reopen_bench()
+            self._log("PSU/AWG/DMM reopened after VISA bus error; PSU idle")
+        except Exception as exc:
+            self._log(f"bench reopen failed: {exc}")
+
     def _run_one(
         self, spec: TestSpec, params: RunParams, *, dut: int | None = None
     ) -> StepResult:
         assert self._instr is not None
+        params = params.overlay_for(spec.id)
         self._progress(
             spec.id,
             "running",
@@ -859,7 +1161,7 @@ class ATECore:
                 if attempt == 0:
                     if params.reset_before_run:
                         self._instr.reset_all()
-                    if self._instr.scope is not None:
+                    if "MSO" in spec.required_instruments and self._instr.scope is not None:
                         try:
                             from scope_setup import recover_scope_session
 
@@ -869,11 +1171,19 @@ class ATECore:
                 else:
                     self._log(
                         f"VISA retry {spec.id} attempt {attempt + 1} "
-                        "(MSO reopen; PSU/AWG stay ON)"
+                        "(reopen PSU/AWG/DMM idle; MSO if present)"
                     )
+                    self._reopen_bench_after_visa()
                     self._reopen_mso_after_visa()
 
-                data = spec.run(self._instr, params)
+                notes = str(getattr(spec, "notes", "") or "")
+                if notes.startswith("recipe:"):
+                    from ate.core.recipe_walk import run as recipe_run
+
+                    rid = notes.split(":", 1)[-1].strip() or str(spec.id)
+                    data = recipe_run(None, self._instr, params, recipe_id=rid)
+                else:
+                    data = spec.run(self._instr, params)
                 summary = ""
                 if isinstance(data, dict):
                     summary = str(data.get("summary") or data.get("message") or "OK")
@@ -898,10 +1208,15 @@ class ATECore:
             except Exception as exc:
                 last_exc = exc
                 self._log(f"FAIL {spec.id}: {exc}")
-                if not is_visa_poison(exc) or attempt == 1:
+                if attempt == 0 and _visa_bus_error(exc):
+                    self._log(
+                        f"VISA bus error on {spec.id} -- reopen PSU/AWG/DMM idle, retry once"
+                    )
+                    continue
+                if not _visa_poison(exc) or attempt == 1:
                     break
                 self._log(
-                    f"VISA poison on {spec.id} — recover MSO and retry once "
+                    f"VISA poison on {spec.id} -- recover MSO and retry once "
                     "(PSU/AWG stay ON; no operator wait)"
                 )
 
@@ -937,7 +1252,7 @@ class ATECore:
     def emergency_cleanup(self) -> None:
         self.request_cancel()
         self.gate.abort_all()
-        self._log("EMERGENCY STOP — parking bench, breaking VISA if hung")
+        self._log("EMERGENCY STOP -- parking bench, breaking VISA if hung")
         self._progress("", "fail", "Emergency stop")
         if self._timeline:
             for e in self._timeline.entries:
@@ -974,16 +1289,24 @@ class ATECore:
         with self._lock:
             self._busy = False
 
-    def _safe_idle_for_operator(self, *, reason: str = "operator wait") -> None:
-        """AWG OFF, then PSU OFF, then scope STOP -- before any operator Continue wait."""
+    def _safe_idle_for_operator(
+        self, *, reason: str = "operator wait", park_scope: bool = False
+    ) -> None:
+        """AWG OFF, then PSU OFF. MSO STOP only when this test used the scope.
+
+        DMM tests (CIN/CPD/IDD) must not *IDN the MSO here -- 20 s TMO looks like
+        a random hang after the test instead of a 5 s sweep settle.
+        """
         from generator_setup import park_generator_idle
         from psu_setup import power_off
-        from scope_setup import park_scope_idle
 
         instr = self._instr
         if instr is None:
             return
-        self._log(f"Safe idle ({reason}): AWG OFF, PSU OFF, then scope STOP")
+        self._log(
+            f"Safe idle ({reason}): AWG OFF, PSU OFF"
+            + (", scope STOP" if park_scope else ", skip MSO")
+        )
 
         if instr.gen is not None:
             try:
@@ -1004,16 +1327,29 @@ class ATECore:
                 power_off(instr.psu)
             except Exception as exc:
                 self._log(f"psu off: {exc}")
+                self._reopen_bench_after_visa()
 
-        if instr.scope is not None:
+        if park_scope and instr.scope is not None:
             try:
+                from scope_setup import park_scope_idle
+
                 park_scope_idle(instr.scope, clear=True)
             except Exception as exc:
                 self._log(f"scope idle: {exc}")
 
     def _ask_operator(self, **kwargs) -> bool:
-        """Safe-idle bench, then block on Continue/Abort."""
+        """Show WAIT, then safe-idle bench, then block on Continue/Abort."""
+        park_scope = bool(kwargs.pop("park_scope", False))
+        self._progress(
+            str(kwargs.get("test_tag") or ""),
+            "waiting_operator",
+            str(kwargs.get("title") or "Continue"),
+            kind=str(kwargs.get("kind") or "config_change"),
+            dut=kwargs.get("dut_index"),
+            timeline_id=str(kwargs.get("timeline_id") or ""),
+        )
         self._safe_idle_for_operator(
-            reason=str(kwargs.get("kind") or kwargs.get("title") or "wait")
+            reason=str(kwargs.get("kind") or kwargs.get("title") or "wait"),
+            park_scope=park_scope,
         )
         return self.gate.request(**kwargs)

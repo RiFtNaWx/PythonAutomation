@@ -1,0 +1,152 @@
+{
+  "part": "RS2323",
+  "part_key": "rs2323",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs2323.yaml",
+    "truth_table": "ate/config/parts/rs2323.yaml",
+    "extract": "ate/config/datasheets/text/rs2323.txt",
+    "xlsx": "RS2323"
+  },
+  "specs": [
+    {
+      "id": "IPLUS_uA",
+      "test": "iplus",
+      "unit": "uA",
+      "max": 1.0,
+      "source": "parts/rs2323.yaml display_limit_ua",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VCC_V",
+      "unit": "V",
+      "min": 1.8,
+      "max": 5.5,
+      "source": "local:RS2323_(RevWeb).pdf recommended operating",
+      "typ": null
+    },
+    {
+      "id": "RON_ohm",
+      "test": "ron",
+      "unit": "ohm",
+      "typ": 0.6,
+      "source": "local:RS2323_(RevWeb).pdf Low ON-State Resistance (min/max still PDF image)",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "IOZ_uA",
+      "test": "leakage_off",
+      "unit": "uA",
+      "source": "leakage_off worst",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "ION_uA",
+      "test": "leakage_on",
+      "unit": "uA",
+      "source": "leakage_on worst",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "IIN_uA",
+      "test": "input_leakage",
+      "unit": "uA",
+      "source": "input_leakage worst",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "TON_ns",
+      "test": "ton_toff",
+      "unit": "ns",
+      "typ": 50.0,
+      "source": "local:RS2323_(RevWeb).pdf Typically 50ns (min/max PDF image)",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "TOFF_ns",
+      "test": "ton_toff",
+      "unit": "ns",
+      "typ": 50.0,
+      "source": "local:RS2323_(RevWeb).pdf Typically 50ns (min/max PDF image)",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "CON_pF",
+      "test": "con_coff",
+      "unit": "pF",
+      "source": "con_coff DMM CAP (no invented min/max)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "COFF_pF",
+      "test": "con_coff",
+      "unit": "pF",
+      "source": "con_coff DMM CAP (no invented min/max)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "CIN_pF",
+      "test": "con_coff",
+      "unit": "pF",
+      "source": "con_coff DMM CAP IN-GND (no invented min/max)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "TBBM_ns",
+      "test": "tbbm",
+      "unit": "ns",
+      "source": "tBBM NO-NC delay (banner has no number)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VTH_V",
+      "test": "vth",
+      "unit": "V",
+      "source": "IN sweep until NO follows COM (no invented min/max)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "ISO_dB",
+      "test": "iso",
+      "unit": "dB",
+      "source": "1 MHz high-Z Vcom/Vnc (no invented min/max; not 50 ohm RF image)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "XTALK_dB",
+      "test": "xtalk",
+      "unit": "dB",
+      "source": "1 MHz high-Z Vcom2/Vcom1 (no invented min/max; not 50 ohm RF image)",
+      "min": null,
+      "max": null,
+      "typ": null
+    }
+  ],
+  "truth_table": {},
+  "voh_table": [],
+  "vol_table": [],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

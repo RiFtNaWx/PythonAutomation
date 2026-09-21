@@ -1,4 +1,8 @@
-# Copy to cloud_db.txt (same folder). One line = local OneDrive path
-# to the synced #Test_Database. Not a https:// SharePoint URL.
-# Example:
-# C:\Users\You\Company\Lab Characterization - Documents\#Test_Database
+# START.bat writes this file. Do not type a home-folder path by hand.
+# One line = local OneDrive path to #Test_Database. Not https://
+# Prefix can be any user / OneDrive / SharePoint sync folder.
+# The live tree always ends with #Test_Database.
+# Examples after Add shortcut + Replace:
+# C:\Users\You\OneDrive - JumpWin Tech\#Test_Database
+# C:\Users\You\OneDrive - JumpWin Tech\Research & Development - #Test_Database
+# C:\Users\You\OneDrive - JumpWin Tech\Research & Development-AE FAE - Core AE\#Test_Database

@@ -1,0 +1,232 @@
+{
+  "part": "RS0204",
+  "part_key": "rs0204",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs0204.yaml",
+    "truth_table": "ate/config/parts/rs0204.yaml",
+    "extract": "ate/config/datasheets/text/rs0204.txt",
+    "xlsx": "RS0204/RS0204 Data Report.xlsx"
+  },
+  "specs": [
+    {
+      "id": "VCCA_V",
+      "unit": "V",
+      "min": 1.2,
+      "max": 3.6,
+      "source": "local RS0204 RevA.5 table 8.3",
+      "typ": null
+    },
+    {
+      "id": "VCCB_V",
+      "unit": "V",
+      "min": 1.65,
+      "max": 5.5,
+      "source": "local RS0204 RevA.5 table 8.3",
+      "typ": null
+    },
+    {
+      "id": "ICC_uA",
+      "test": "icc",
+      "unit": "uA",
+      "typ": 3.5,
+      "max": 10.0,
+      "source": "local RS0204 RevA.5 I_CCA+I_CCB Full",
+      "min": null
+    },
+    {
+      "id": "IL_uA",
+      "test": "il",
+      "unit": "uA",
+      "max": 2.0,
+      "source": "local RS0204 RevA.5 Ioff Full",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_V",
+      "test": "vol",
+      "unit": "V",
+      "max": 0.4,
+      "source": "local RS0204 RevA.5 VOLA/VOLB Full",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOH_DROP_V",
+      "test": "voh",
+      "unit": "V",
+      "max": 0.4,
+      "source": "local RS0204 RevA.5 VOHA/VOHB rail drop Full",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VIH_RATIO",
+      "test": "vih",
+      "unit": "",
+      "min": 0.65,
+      "source": "local RS0204 RevA.5 VIH = 0.65 * VCCI",
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VIH_V",
+      "test": "vih",
+      "unit": "V",
+      "source": "workbook VIH A1 cell (probed)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "VIL_RATIO",
+      "test": "vil",
+      "unit": "",
+      "max": 0.35,
+      "source": "local RS0204 RevA.5 VIL = 0.35 * VCCI",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VIL_V",
+      "test": "vil",
+      "unit": "V",
+      "source": "workbook VIL A1 cell (probed)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "CI_pF",
+      "test": "cpd",
+      "unit": "pF",
+      "typ": 4.0,
+      "source": "local RS0204 RevA.5 Ci OE +25C",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "CIO_A_pF",
+      "test": "cpd",
+      "unit": "pF",
+      "typ": 5.0,
+      "source": "local RS0204 RevA.5 Cio A port +25C",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "CIO_B_pF",
+      "test": "cpd",
+      "unit": "pF",
+      "typ": 9.0,
+      "source": "local RS0204 RevA.5 Cio B port +25C",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "TPD_PHL_ns",
+      "test": "tpd",
+      "unit": "ns",
+      "typ": 6.9,
+      "source": "local RS0204 RevA.5 tPHL A-to-B VCCA=1.8 VCCB=3.3",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "TPD_PLH_ns",
+      "test": "tpd",
+      "unit": "ns",
+      "typ": 7.7,
+      "source": "local RS0204 RevA.5 tPLH A-to-B VCCA=1.8 VCCB=3.3",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "TP_PHL_ns",
+      "test": "tp_rs0204",
+      "unit": "ns",
+      "typ": 8.6,
+      "source": "local RS0204 RevA.5 tPHL B-to-A VCCA=1.8 VCCB=3.3",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "TP_PLH_ns",
+      "test": "tp_rs0204",
+      "unit": "ns",
+      "typ": 8.6,
+      "source": "local RS0204 RevA.5 tPLH B-to-A VCCA=1.8 VCCB=3.3",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "TEN_ns",
+      "test": "tsu",
+      "unit": "ns",
+      "typ": 183.0,
+      "source": "local RS0204 RevA.5 ten VCCA=1.8 VCCB=3.3",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "TDIS_ns",
+      "test": "th",
+      "unit": "ns",
+      "typ": 12.1,
+      "source": "local RS0204 RevA.5 tdis VCCA=1.8 VCCB=3.3",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "TSK_ns",
+      "test": "tsk",
+      "unit": "ns",
+      "typ": 0.7,
+      "source": "local RS0204 RevA.5 tsk(O) VCCA=1.8 VCCB=3.3",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "FMAX_Mbps",
+      "test": "fmax",
+      "unit": "Mbps",
+      "typ": 50.0,
+      "source": "local RS0204 RevA.5 data rate VCCA=1.8",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "TW_ns",
+      "test": "tw",
+      "unit": "ns",
+      "typ": 25.0,
+      "source": "local RS0204 RevA.5 pulse duration VCCA=1.8",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "TR_ns",
+      "test": "tr",
+      "unit": "ns",
+      "typ": 6.6,
+      "source": "local RS0204 RevA.5 trA VCCA=1.8 VCCB=3.3",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "TF_ns",
+      "test": "tf",
+      "unit": "ns",
+      "typ": 6.6,
+      "source": "local RS0204 RevA.5 tfA listed with trA at 1.8/3.3",
+      "min": null,
+      "max": null
+    }
+  ],
+  "truth_table": {},
+  "voh_table": [],
+  "vol_table": [],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

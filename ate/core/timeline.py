@@ -121,18 +121,28 @@ class Timeline:
         return e
 
 
+def walk_pairs(
+    channels: list[str],
+    dut_indices: list[int],
+    walk_order: str = "channel",
+) -> list[tuple[str, int]]:
+    """(channel, dut) steps. channel = probes first; dut = keep the socket first."""
+    chans = [str(c).upper() for c in (channels or ["CHA"])]
+    duts = [int(d) for d in (dut_indices or [1])]
+    if str(walk_order or "channel").strip().lower().startswith("dut"):
+        return [(ch, d) for d in duts for ch in chans]
+    return [(ch, d) for ch in chans for d in duts]
+
+
 def build_plan(
     *,
     dut_indices: list[int],
     batches: list[tuple[str, list[Any]]],
     gains: dict[str, float],
     channels: list[str] | None = None,
+    walk_order: str = "channel",
 ) -> list[TimelineEntry]:
-    """Expand: category (board) → channel → all DUTs → tests in that category.
-
-    Keeps the same PCB/fixture for every DUT+channel before the next board change.
-    If only Channel B is selected, the plan starts on CHB.
-    """
+    """Expand: board, then walk_order (channel->DUTs or DUT->channels), then tests."""
     chans = [c.upper() for c in (channels or ["CHA"])]
     multi_dut = len(dut_indices) > 1
     dual_any = any(
@@ -143,6 +153,7 @@ def build_plan(
     entries: list[TimelineEntry] = []
     n = 0
     last_channel: str | None = None
+    last_dut: int | None = None
     single_dut_installed = False
 
     for mode, specs in batches:
@@ -164,10 +175,12 @@ def build_plan(
         )
 
         mode_chans = chans if dual_mode else [chans[0]]
-        for channel in mode_chans:
+        for channel, dut in walk_pairs(mode_chans, dut_indices, walk_order):
             if dual_any and last_channel is not None and channel != last_channel:
                 n += 1
-                ch_label = "Channel A" if channel == "CHA" else "Channel B"
+                from ate.core.specs import channel_prompt_label
+
+                ch_label = channel_prompt_label(channel)
                 scope = "all DUTs" if multi_dut else "this DUT"
                 entries.append(
                     TimelineEntry(
@@ -184,46 +197,48 @@ def build_plan(
                 )
             last_channel = channel
 
-            for dut in dut_indices:
-                ask_dut = multi_dut or not single_dut_installed
-                if ask_dut:
-                    n += 1
-                    entries.append(
-                        TimelineEntry(
-                            id=f"dut_{n}",
-                            kind="dut_change",
-                            label=f"{tag} · DUT_{dut} · {channel}",
-                            dut=dut,
-                            channel=channel,
-                            fixture_mode=mode,
-                            test_tag=tag,
-                            next_hint=f"Place unit #{dut} for {tag} ({channel}), then Continue",
-                        )
+            ask_dut = (last_dut is None or dut != last_dut) and (
+                multi_dut or not single_dut_installed
+            )
+            if ask_dut:
+                n += 1
+                entries.append(
+                    TimelineEntry(
+                        id=f"dut_{n}",
+                        kind="dut_change",
+                        label=f"{tag} · DUT_{dut} · {channel}",
+                        dut=dut,
+                        channel=channel,
+                        fixture_mode=mode,
+                        test_tag=tag,
+                        next_hint=f"Place unit #{dut} for {tag} ({channel}), then Continue",
                     )
-                    if not multi_dut:
-                        single_dut_installed = True
+                )
+                if not multi_dut:
+                    single_dut_installed = True
+            last_dut = dut
 
-                for spec in specs:
-                    if not getattr(spec, "dual_channel", True) and channel != mode_chans[0]:
-                        continue
-                    use_ch = (
-                        channel if getattr(spec, "dual_channel", True) else mode_chans[0]
+            for spec in specs:
+                if not getattr(spec, "dual_channel", True) and channel != mode_chans[0]:
+                    continue
+                use_ch = (
+                    channel if getattr(spec, "dual_channel", True) else mode_chans[0]
+                )
+                tid = getattr(spec, "id", str(spec))
+                st = short_test_tag(spec)
+                n += 1
+                ch_tag = f" · {use_ch}" if dual_any and len(chans) > 1 else ""
+                entries.append(
+                    TimelineEntry(
+                        id=f"test_{n}",
+                        kind="test",
+                        label=f"{st} · DUT_{dut}{ch_tag}",
+                        dut=dut,
+                        channel=use_ch,
+                        fixture_mode=mode,
+                        test_id=tid,
+                        test_tag=st,
+                        next_hint=f"Measure {st} {use_ch}",
                     )
-                    tid = getattr(spec, "id", str(spec))
-                    st = short_test_tag(spec)
-                    n += 1
-                    ch_tag = f" · {use_ch}" if dual_any and len(chans) > 1 else ""
-                    entries.append(
-                        TimelineEntry(
-                            id=f"test_{n}",
-                            kind="test",
-                            label=f"{st} · DUT_{dut}{ch_tag}",
-                            dut=dut,
-                            channel=use_ch,
-                            fixture_mode=mode,
-                            test_id=tid,
-                            test_tag=st,
-                            next_hint=f"Automated: {st} {use_ch}",
-                        )
-                    )
+                )
     return entries

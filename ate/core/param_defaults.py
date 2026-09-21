@@ -8,6 +8,26 @@ from ate.fixture.modes import load_fixture_catalog
 
 _OHM_RE = re.compile(r"^([\d.]+)\s*([kKmM]?)\s*[ΩΩ]?$|^(short|open)$", re.I)
 
+
+def vcc_sweep_points(start: float, stop: float, step: float) -> list[float]:
+    """Inclusive VCC list. Default step 0.5. Cap 201 so 4.5-5.5 @ 0.01 stays 101 pts.
+
+    ponytail: 0.01 over >2 V still coarsens (runaway). Upgrade: per-test cap in yaml.
+    """
+    lo = float(start)
+    hi = float(stop)
+    st = abs(float(step) or 0.5)
+    if hi < lo:
+        lo, hi = hi, lo
+    n = int(round((hi - lo) / st))
+    if n > 200:
+        n = 200
+        st = (hi - lo) / n if n else st
+    out = [round(lo + i * st, 6) for i in range(n + 1)]
+    if not out or abs(out[-1] - hi) > 1e-6:
+        out.append(round(hi, 6))
+    return out
+
 # GBW operator + measure sequence (shown in UI like slew fixed_steps)
 GBW_FIXED_STEPS = [
     {"id": "cfg_g11", "label": "Confirm G11 board (RF=10k RI=1k)", "phase": "operator"},
@@ -48,14 +68,14 @@ LOGIC_TEST_DEFAULTS: dict[str, dict[str, Any]] = {
     "input_leakage_sweep": {"vcc": 1.65},
     "supply_current_sweep": {"vcc": 1.65},
     "vih_vil": {"vcc": 1.65},
-    "voh_load": {"vcc": 1.65},
-    "vol_load": {"vcc": 1.65},
+    "voh_load": {"vcc": 5.0, "voh_100ua": 0, "load_r_ohm": 10},
+    "vol_load": {"vcc": 5.0, "vol_100ua": 0, "load_r_ohm": 10},
     # RS0204 dual-rail (vcc = VCCA; vccb from part yaml)
     "vih": {"vcc": 1.8, "vccb": 3.3},
     "vil": {"vcc": 1.8, "vccb": 3.3},
     "voh": {"vcc": 1.8, "vccb": 3.3},
     "vol": {"vcc": 1.8, "vccb": 3.3},
-    "icc": {"vcc": 1.8, "vccb": 3.3},
+    "icc": {"vcc": 1.8},
     "il": {"vcc": 1.8, "vccb": 3.3},
     "tpd": {"vcc": 1.8, "vccb": 3.3, "freq_hz": 400000.0},
     "tp_rs0204": {"vcc": 1.8, "vccb": 3.3, "freq_hz": 400000.0},
@@ -65,6 +85,11 @@ LOGIC_TEST_DEFAULTS: dict[str, dict[str, Any]] = {
     "tr": {"vcc": 1.8, "vccb": 3.3},
     "tf": {"vcc": 1.8, "vccb": 3.3},
     "tsk": {"vcc": 1.8, "vccb": 3.3},
+    "ioz": {"vcc": 3.6},
+    "delta_icc": {"vcc": 1.65},
+    "ii": {"vcc": 1.65},
+    "ioff": {"vcc": 5.5},
+    "input_threshold": {"vcc": 1.65},
     "cpd": {"vcc": 1.8, "vccb": 3.3},
     "tw": {"vcc": 1.8, "vccb": 3.3},
 }
@@ -486,24 +511,33 @@ def catalog_for_ui(part: str = "rs622", family: str | None = None) -> dict[str, 
     if fam == "lim":
         fam = "switch"
     if fam == "opamp":
-        return _opa_catalog(part)
-    if fam == "logic":
-        return _yaml_family_catalog(str(part or "rs29511"), LOGIC_TEST_DEFAULTS)
-    if fam == "switch":
-        return _yaml_family_catalog(str(part or "rs2323"), LIM_TEST_DEFAULTS)
-    if fam == "power":
-        return _yaml_family_catalog(str(part or "rs3213"), POWER_TEST_DEFAULTS)
-    # extra families: no OPA TEST_DEFAULTS. Part yaml controls only if this part belongs here.
-    raw = _load_part_yaml(str(part or ""))
-    cat = _empty_catalog()
-    if raw:
-        comp = str(raw.get("component") or "").lower().replace(" ", "").replace("_", "")
-        fam_n = fam.replace(" ", "").replace("_", "")
-        if comp and (
-            comp == fam_n
-            or (fam_n == "switch" and comp in ("analogswitch", "switch", "lim"))
-            or (fam_n == "power" and comp in ("power", "ldo"))
-        ):
-            cat["controls"] = controls_from_part(raw)
-            cat["sample_size"] = int(raw.get("sample_size") or 4)
+        cat = _opa_catalog(part)
+    elif fam == "logic":
+        cat = _yaml_family_catalog(str(part or "rs29511"), LOGIC_TEST_DEFAULTS)
+    elif fam == "switch":
+        cat = _yaml_family_catalog(str(part or "rs2323"), LIM_TEST_DEFAULTS)
+    elif fam == "power":
+        cat = _yaml_family_catalog(str(part or "rs3213"), POWER_TEST_DEFAULTS)
+    else:
+        # extra families: no OPA TEST_DEFAULTS. Part yaml controls only if this part belongs here.
+        raw = _load_part_yaml(str(part or ""))
+        cat = _empty_catalog()
+        if raw:
+            comp = str(raw.get("component") or "").lower().replace(" ", "").replace("_", "")
+            fam_n = fam.replace(" ", "").replace("_", "")
+            if comp and (
+                comp == fam_n
+                or (fam_n == "switch" and comp in ("analogswitch", "switch", "lim"))
+                or (fam_n == "power" and comp in ("power", "ldo"))
+            ):
+                cat["controls"] = controls_from_part(raw)
+                cat["sample_size"] = int(raw.get("sample_size") or 4)
+    try:
+        from ate.core.database import load_run_prefs
+
+        n = load_run_prefs().get("sample_size")
+        if n:
+            cat["sample_size"] = int(n)
+    except Exception:
+        pass
     return cat

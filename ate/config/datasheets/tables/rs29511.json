@@ -1,0 +1,98 @@
+{
+  "part": "RS29511",
+  "part_key": "rs29511",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs29511.yaml",
+    "truth_table": "ate/config/parts/rs29511.yaml",
+    "extract": "ate/config/datasheets/text/rs29511.txt",
+    "xlsx": "RS29511/RS29511 Test Report.xlsx"
+  },
+  "specs": [
+    {
+      "id": "VCC_V",
+      "unit": "V",
+      "min": 2.3,
+      "max": 5.5,
+      "source": "local:RS29511_(RevWeb).pdf",
+      "typ": null
+    },
+    {
+      "id": "TEN_ns",
+      "unit": "ns",
+      "max": 150000.0,
+      "test": "ten",
+      "source": "PDF 7.6 tIDLE 150 us (EN high + bus idle to READY high)",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "TDIS_ns",
+      "unit": "ns",
+      "max": 50.0,
+      "test": "tdis",
+      "source": "PDF 7.6 tDISABLE EN high-to-low to READY low",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "TPD_PHL_ns",
+      "unit": "ns",
+      "max": 50.0,
+      "test": "tp",
+      "source": "PDF 7.6 tPZL 30-50 ns (SDA/SCL HL)",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "TPD_PLH_ns",
+      "unit": "ns",
+      "test": "tp",
+      "source": "PDF 7.6 tPLZ 0-10 ns (SIM ns-window is 50 ns leftover)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "TIDLE_PHL_ns",
+      "unit": "ns",
+      "max": 50.0,
+      "test": "tidle",
+      "source": "PDF 7.6 tPZL at 100 kHz (same edge physics)",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "TIDLE_PLH_ns",
+      "unit": "ns",
+      "test": "tidle",
+      "source": "PDF 7.6 tPLZ (SIM 50 ns leftover vs 10 ns max)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "ICC_uA",
+      "unit": "uA",
+      "max": 4500.0,
+      "typ": 2000.0,
+      "test": "supply_current",
+      "source": "PDF 7.5 ICC 2.0/4.5 mA at 5.5 V SDAIN=SCLIN=0, 10k OUT (SIM CMOS uA leftover)",
+      "min": null
+    },
+    {
+      "id": "CAP_pF",
+      "unit": "pF",
+      "max": 10.0,
+      "typ": 6.5,
+      "test": "cap_load",
+      "source": "PDF CIO (SDA/SCL) typ 6.5 max 10 pF (SIM DMM CAP is 5 pF)",
+      "min": null
+    }
+  ],
+  "truth_table": {},
+  "voh_table": [],
+  "vol_table": [],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

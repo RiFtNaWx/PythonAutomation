@@ -44,7 +44,8 @@ fixture_modes:
     label: "LDO board (RS3213)"
     board_class: general
     checklist:
-      - "RS3213 LDO; PSU CH1=VIN (or VOUT bias on IQ); DMM per slot"
+      - "RS3213 LDO; IQ: CH1=VOUT bias CH2=VIN; others CH1=VIN CH3=EN 5.0 V/50 mA"
+      - "OVP=Vset+0.3 V (5.0 V rail = 5.3 V). Not 6 V. Iset 100 mA (VIN load 400 mA)"
       - "Each orderable (3.3/2.8/2.5/1.8) is its own campaign"
       - "Continue at wiring prompts; supplies off while waiting"
     tests:

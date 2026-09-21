@@ -15,28 +15,16 @@ for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":5174" ^| findstr "LISTENING
 timeout /t 1 /nobreak >nul 2>&1
 if errorlevel 1 ping -n 2 127.0.0.1 >nul
 
-if not exist "venv\Scripts\python.exe" (
+if not exist "venv\Scripts\pythonw.exe" if not exist "venv\Scripts\python.exe" (
   echo venv not found — run install.py first.
   pause
   exit /b 1
 )
 
-start "ATE Worker" /MIN "venv\Scripts\python.exe" -m ate.worker.server
-set /a _wait=0
-:wait_worker
-netstat -ano | findstr "LISTENING" | findstr ":8766" >nul
-if not errorlevel 1 goto worker_up
-set /a _wait+=1
-if %_wait% GEQ 15 (
-  echo WARNING: worker not listening on 8766 yet — UI may show Failed to fetch until worker is up.
-  goto worker_up
+if exist "venv\Scripts\pythonw.exe" (
+  start "" "venv\Scripts\pythonw.exe" -m ate.ui.launch
+) else (
+  start "" "venv\Scripts\python.exe" -m ate.ui.launch
 )
-ping -n 2 127.0.0.1 >nul
-goto wait_worker
-:worker_up
-start "ATE UI" "venv\Scripts\python.exe" ate\ui\dev_server.py
-echo ATE restarted.
-echo Worker: http://127.0.0.1:8766
-echo UI:     http://127.0.0.1:5174
-echo Ctrl+F5 the operator console if it was already open.
+echo ATE restarted. Ctrl+F5 if the console was already open.
 endlocal

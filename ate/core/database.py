@@ -11,6 +11,7 @@ Canonical layout (images + waveforms + manifests; Excel linked by sheet_map):
               _manifest/
                 sheet_map.yaml      # folder <-> Excel sheet <-> paste anchors
                 test_catalog.yaml
+                test_params.yaml    # per-test sweep / specs for this Version only
               workbook/             # lab report (editable; Excel MCP target)
               sessions/             # per-run JSON manifests
               {TestKey}/            # ORT, VOS, SlewRate, …
@@ -26,8 +27,12 @@ Photo naming: {TEST}_{DUT}_{VARIANT}_{YYYY-MM-DD_HHMMSS}.jpg
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
+import stat
 import threading
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -41,9 +46,48 @@ MYT = timezone(timedelta(hours=8))
 
 _VERSION_RE = re.compile(r"^Version_(\d+)$", re.IGNORECASE)
 _OWNER_ID_RE = re.compile(r"^[a-z][a-z0-9]*$")
+# Board / PIC display. Disk folders can stay Lim / ChangThong.
+_PERSON_CANON = {
+    "lim": "SeeLim",
+    "seelim": "SeeLim",
+    "ariff": "Ariff",
+    "eugene": "Eugene",
+    "changthong": "ChangTong",
+    "changtong": "ChangTong",
+    "soo": "Soo",
+    "chuntak": "Chun Tak",
+    "chuntat": "Chun Tak",
+}
+
+
+def _person_key(raw: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(raw or "").strip().lower())
+
+
+def canonical_person_label(raw: str) -> str:
+    """One lab name: Lim/SeeLim -> SeeLim, eugene -> Eugene. Not a Users table."""
+    s = str(raw or "").strip()
+    if not s:
+        return ""
+    key = _person_key(s)
+    if key in _PERSON_CANON:
+        return _PERSON_CANON[key]
+    for row in load_owners():
+        oid = str(row.get("id") or "").lower()
+        lab = str(row.get("label") or oid)
+        if row.get("alias_of"):
+            continue
+        if oid == key or _person_key(lab) == key:
+            return lab
+    return s
 UNASSIGNED_OPERATOR = "_unassigned"
-WRITE_BLOCKED_OPERATORS = frozenset({"", "all", "All", "ALL"})
+WRITE_BLOCKED_OPERATORS = frozenset({
+    "", "all", "All", "ALL",
+    "kevin", "Kevin", "KEVIN",
+    "ate", "ATE", "Ate",
+})
 OWNERS_PATH = CONFIG_DIR / "owners.yaml"
+CLOUD_PEOPLE_PATH: Path | None = None  # tests patch; else TEST_DB_ROOT/_ate/people.yaml
 _OWNERS_PREAMBLE = (
     "# Operators are people. Family rail is product class (RUN-IC).\n"
     "# Picking an operator defaults their campaign; other families stay.\n"
@@ -99,11 +143,28 @@ def operator_folder_label(owner_id_or_label: str | None) -> str:
     return UNASSIGNED_OPERATOR
 
 
-def require_write_operator(operator: str | None) -> str:
-    """Normalize operator folder for writes; reject All / empty."""
+def is_observer_operator(operator: str | None) -> bool:
+    """All / Kevin / role=observer -- view-only, no START."""
     raw = str(operator or "").strip()
-    if raw in WRITE_BLOCKED_OPERATORS or raw.lower() == "all":
-        raise ValueError("Operator=All is view-only; pick a person before writing campaigns")
+    if not raw or raw.lower() in ("all", "kevin", "ate"):
+        return True
+    for row in load_owners():
+        oid = str(row.get("id") or "").lower()
+        lab = str(row.get("label") or "").lower()
+        if oid != raw.lower() and lab != raw.lower():
+            continue
+        role = str(row.get("role") or "").strip().lower()
+        return oid in ("all", "kevin", "ate") or lab in ("kevin", "ate") or role == "observer"
+    return False
+
+
+def require_write_operator(operator: str | None) -> str:
+    """Normalize operator folder for writes; reject All / observer."""
+    raw = str(operator or "").strip()
+    if raw in WRITE_BLOCKED_OPERATORS or raw.lower() in ("all", "kevin", "ate"):
+        raise ValueError("Observer/All/ATE is view-only; pick a person before writing campaigns")
+    if is_observer_operator(raw):
+        raise ValueError("Observer/All is view-only; pick a person before writing campaigns")
     return operator_folder_label(raw)
 
 
@@ -172,7 +233,22 @@ class DbContext:
     def test_catalog_path(self) -> Path:
         return self.manifest_dir() / "test_catalog.yaml"
 
+    def run_prefs_path(self) -> Path:
+        return self.manifest_dir() / "run_prefs.yaml"
+
+    def test_params_path(self) -> Path:
+        return self.manifest_dir() / "test_params.yaml"
+
     def lab_report_path(self) -> Path:
+        # bind_golden_auto: Fill/plot targets Version golden_auto only (never ultimate_manual).
+        try:
+            from ate.tests.logic.excel_lock import bind_golden_auto
+
+            bound = bind_golden_auto(self)
+            if bound:
+                return Path(bound)
+        except Exception:
+            pass
         # Prefer sheet_map workbook path; else first xlsx in workbook/; else part yaml.
         sm = self.load_sheet_map()
         rel = ((sm.get("workbook") or {}) if isinstance(sm, dict) else {}).get("path")
@@ -242,6 +318,28 @@ class DbContext:
             labels = list(t.get("labels") or [])
         except Exception:
             pass
+        walk_order = "channel"
+        prefs: dict[str, Any] = {}
+        try:
+            prefs = load_run_prefs(self)
+            walk_order = str(prefs.get("walk_order") or "channel")
+        except Exception:
+            pass
+        probe_channels: list[str] = ["CHA"]
+        try:
+            from ate.core.specs import probe_channels_for_part
+
+            probe_channels = probe_channels_for_part(
+                self.part_key or self.part,
+                family=family_for_component(self.component),
+            )
+        except Exception:
+            pass
+        if prefs.get("probe_channels"):
+            probe_channels = list(prefs["probe_channels"])
+        sample_size = int(self.sample_size or 4)
+        if prefs.get("sample_size"):
+            sample_size = int(prefs["sample_size"])
         return {
             "component": self.component,
             "part": self.part,
@@ -249,12 +347,14 @@ class DbContext:
             "operator": self.operator,
             "version": self.version,
             "model": self.model,
-            "sample_size": self.sample_size,
+            "sample_size": sample_size,
             "part_key": self.part_key,
             "year": self.year,
             "tags": tags,
             "boards": boards,
             "labels": labels,
+            "walk_order": walk_order,
+            "probe_channels": probe_channels,
             "root": str(self.root()),
             "lab_report": str(self.lab_report_path()),
             "sheet_map": str(self.sheet_map_path()),
@@ -326,7 +426,7 @@ class DbContext:
             # Never grow OpAmp GBW/ORT on Level/Power/Logic stubs.
             keys = ["Setup"]
 
-        n = max(1, int(self.sample_size))
+        n = max(1, min(16, int(self.sample_size or 4)))
         for key in keys:
             for dut in range(1, n + 1):
                 for sub in ("screenshots", "graphs"):
@@ -338,6 +438,7 @@ class DbContext:
             if not shared.exists():
                 shared.mkdir(parents=True, exist_ok=True)
                 created.append(str(shared))
+        invalidate_tree_cache()
         return created
 
 
@@ -490,27 +591,66 @@ def family_for_component(component: str) -> str:
     return ""
 
 
-def load_owners() -> list[dict[str, Any]]:
-    path = OWNERS_PATH
+def cloud_people_file() -> Path:
+    if CLOUD_PEOPLE_PATH is not None:
+        return Path(CLOUD_PEOPLE_PATH)
+    return Path(TEST_DB_ROOT) / "_ate" / "people.yaml"
+
+
+def _read_owner_file(path: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         return []
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except OSError:
+        return []
     rows = data.get("owners") if isinstance(data, dict) else None
     if not isinstance(rows, list):
         return []
-    out: list[dict[str, Any]] = []
-    for row in rows:
-        if isinstance(row, dict) and row.get("id"):
-            out.append(row)
-    return out
+    return [row for row in rows if isinstance(row, dict) and row.get("id")]
+
+
+def _merge_owner_rows(
+    primary: list[dict[str, Any]], extra: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    by_id: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for src in (primary, extra):
+        for row in src:
+            oid = str(row.get("id") or "").lower()
+            if not oid:
+                continue
+            if oid not in by_id:
+                by_id[oid] = dict(row)
+                order.append(oid)
+                continue
+            cur = by_id[oid]
+            for key, val in row.items():
+                if key == "parts" and "parts" in cur:
+                    continue
+                if key not in cur or cur[key] in (None, "", []):
+                    cur[key] = val
+    return [by_id[i] for i in order]
+
+
+def load_owners() -> list[dict[str, Any]]:
+    git = _read_owner_file(OWNERS_PATH)
+    cloud = _read_owner_file(cloud_people_file())
+    return _merge_owner_rows(git, cloud)
 
 
 def save_owners(rows: list[dict[str, Any]]) -> None:
-    """Write owners.yaml. Does not touch #Test_Database folders."""
+    """Write owners.yaml and #Test_Database/_ate/people.yaml. Does not delete folders."""
     payload = {"owners": list(rows)}
     body = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
     OWNERS_PATH.parent.mkdir(parents=True, exist_ok=True)
     OWNERS_PATH.write_text(_OWNERS_PREAMBLE + body, encoding="utf-8")
+    try:
+        cloud = cloud_people_file()
+        cloud.parent.mkdir(parents=True, exist_ok=True)
+        cloud.write_text(_OWNERS_PREAMBLE + body, encoding="utf-8")
+    except OSError:
+        pass
 
 
 def upsert_owner(
@@ -527,11 +667,11 @@ def upsert_owner(
 ) -> dict[str, Any]:
     """Append or update a person in owners.yaml. Never id=all. Never deletes folders."""
     name = str(label or "").strip()
-    if not name or name.lower() == "all" or name.startswith("_"):
-        raise ValueError("Person folder must be a real name (not All)")
+    if not name or name.lower() in ("all", "kevin") or name.startswith("_"):
+        raise ValueError("Person folder must be a real name (not All/observer)")
     oid = str(owner_id or "").strip().lower() or owner_id_from_label(name)
-    if oid == "all" or not _OWNER_ID_RE.match(oid):
-        raise ValueError("Person id must be lowercase ascii (not All)")
+    if oid in ("all", "kevin") or not _OWNER_ID_RE.match(oid):
+        raise ValueError("Person id must be lowercase ascii (not All/observer)")
     fam = str(default_family or "").strip().lower()
     part_key = str(default_part or "").strip().lower()
     component = str(default_component or "").strip()
@@ -549,8 +689,10 @@ def upsert_owner(
             found = row
             break
     if found is not None:
-        if str(found.get("id") or "").lower() == "all":
-            raise ValueError("All is view-only")
+        if str(found.get("id") or "").lower() in ("all", "kevin"):
+            raise ValueError("Observer/All is view-only")
+        if str(found.get("role") or "").strip().lower() == "observer":
+            raise ValueError("Observer/All is view-only")
         if update_defaults:
             if fam:
                 found["default_family"] = fam
@@ -587,11 +729,112 @@ def upsert_owner(
     return {"owner": row, "action": "created", "owners": rows}
 
 
-def remove_owner(owner_id_or_label: str) -> dict[str, Any]:
-    """Drop a person from owners.yaml only. Never deletes Version folders."""
+def forget_confirm_phrase(label: str) -> str:
+    """Type-to-confirm shield. Not a login password."""
+    return f"FORGET {str(label or '').strip()}"
+
+
+def operator_folder_paths(label: str, *, root: Path | None = None) -> list[Path]:
+    """Package/{Operator} trees only. Never _ate or another person's folder."""
+    name = str(label or "").strip()
+    base = Path(root) if root is not None else Path(TEST_DB_ROOT)
+    if not name or not base.is_dir():
+        return []
+    want = name.casefold()
+    hits: list[Path] = []
+    try:
+        comps = [
+            p
+            for p in base.iterdir()
+            if p.is_dir() and not p.name.startswith(".") and not p.name.startswith("_")
+        ]
+    except OSError:
+        return []
+    for comp in comps:
+        try:
+            parts = [p for p in comp.iterdir() if p.is_dir() and not p.name.startswith(".")]
+        except OSError:
+            continue
+        for part in parts:
+            try:
+                pkgs = [p for p in part.iterdir() if p.is_dir() and not p.name.startswith(".")]
+            except OSError:
+                continue
+            for pkg in pkgs:
+                try:
+                    children = list(pkg.iterdir())
+                except OSError:
+                    continue
+                for child in children:
+                    if not child.is_dir() or child.name.startswith(".") or child.name.startswith("_"):
+                        continue
+                    if child.name.casefold() == want:
+                        hits.append(child)
+    return hits
+
+
+def _force_rmtree(path: Path) -> None:
+    """OneDrive often locks graphs/; chmod then retry. Leftover path raises."""
+    def _onerror(func, p, _exc):
+        try:
+            os.chmod(p, stat.S_IWRITE)
+        except OSError:
+            pass
+        try:
+            func(p)
+        except OSError:
+            pass
+
+    shutil.rmtree(path, onerror=_onerror)
+    if path.exists():
+        for p in sorted(path.rglob("*"), reverse=True):
+            try:
+                if p.is_file() or p.is_symlink():
+                    try:
+                        p.chmod(stat.S_IWRITE)
+                    except OSError:
+                        pass
+                    p.unlink()
+                elif p.is_dir():
+                    p.rmdir()
+            except OSError:
+                pass
+        try:
+            path.rmdir()
+        except OSError:
+            pass
+    if path.exists():
+        raise OSError(f"Access is denied: {path}")
+
+
+def wipe_operator_folders(label: str, *, root: Path | None = None) -> dict[str, Any]:
+    """Delete this person's operator folders only. History gone."""
+    name = str(label or "").strip()
+    if not name or name.casefold() in ("all", "kevin") or name.startswith("_"):
+        raise ValueError("Cannot wipe All/observer/_ folders")
+    deleted: list[str] = []
+    errors: list[str] = []
+    for path in operator_folder_paths(name, root=root):
+        try:
+            _force_rmtree(path)
+            deleted.append(str(path))
+        except OSError as exc:
+            errors.append(f"{path}: {exc}")
+    invalidate_tree_cache()
+    return {"label": name, "deleted": deleted, "errors": errors, "count": len(deleted)}
+
+
+def remove_owner(
+    owner_id_or_label: str,
+    *,
+    confirm_text: str = "",
+    delete_folders: bool = False,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    """Drop a person from owners.yaml. Folders stay unless delete_folders + phrase."""
     raw = str(owner_id_or_label or "").strip()
-    if not raw or raw.lower() == "all":
-        raise ValueError("Cannot remove All")
+    if not raw or raw.lower() in ("all", "kevin"):
+        raise ValueError("Cannot remove All/observer")
     rows = load_owners()
     keep: list[dict[str, Any]] = []
     removed: dict[str, Any] | None = None
@@ -607,8 +850,109 @@ def remove_owner(owner_id_or_label: str) -> dict[str, Any]:
         keep.append(row)
     if removed is None:
         raise ValueError(f"No person {raw!r} in owners.yaml")
+    if str(removed.get("id") or "").lower() in ("all", "kevin"):
+        raise ValueError("Cannot remove All/observer")
+    if str(removed.get("role") or "").strip().lower() == "observer":
+        raise ValueError("Cannot remove All/observer")
+    label = str(removed.get("label") or raw).strip()
+    want = forget_confirm_phrase(label)
+    if str(confirm_text or "") != want:
+        raise ValueError(f"Type {want} to remove this person")
+    wipe: dict[str, Any] = {}
+    if delete_folders:
+        wipe = wipe_operator_folders(label, root=root)
     save_owners(keep)
-    return {"removed": removed, "owners": keep}
+    return {
+        "removed": removed,
+        "owners": keep,
+        "folders_deleted": list(wipe.get("deleted") or []),
+        "folder_count": int(wipe.get("count") or 0),
+        "folder_errors": list(wipe.get("errors") or []),
+    }
+
+
+def _find_owner_row(rows: list[dict[str, Any]], label: str) -> dict[str, Any] | None:
+    name = str(label or "").strip()
+    if not name:
+        return None
+    oid = owner_id_from_label(name)
+    for row in rows:
+        rid = str(row.get("id") or "").lower()
+        rlab = str(row.get("label") or "")
+        if rid == oid or rlab.lower() == name.lower():
+            return row
+    return None
+
+
+def replace_owner_parts(
+    *,
+    label: str,
+    parts: list[str],
+    default_family: str = "",
+    default_part: str = "",
+    default_component: str = "",
+    default_package: str = "",
+    task: str = "",
+) -> dict[str, Any]:
+    """Set owners.yaml parts: to exactly this list. Never deletes folders."""
+    keys = []
+    seen: set[str] = set()
+    for p in parts or []:
+        k = str(p or "").strip().lower()
+        if not k or k in seen:
+            continue
+        seen.add(k)
+        keys.append(k)
+    first = keys[0] if keys else ""
+    created = upsert_owner(
+        label=label,
+        default_family=default_family,
+        default_part=default_part or first,
+        default_component=default_component,
+        default_package=default_package,
+        task=task or (first.upper() if first else ""),
+        parts=keys,
+        update_defaults=True,
+    )
+    rows = load_owners()
+    found = _find_owner_row(rows, label)
+    if found is None:
+        raise ValueError(f"No person {label!r} in owners.yaml")
+    found["parts"] = list(keys)
+    if first:
+        found["default_part"] = first
+        if not str(found.get("task") or "").strip():
+            found["task"] = first.upper()
+    save_owners(rows)
+    return {"owner": found, "action": created.get("action") or "updated", "owners": rows}
+
+
+def unassign_owner_parts(label: str, part_keys: list[str]) -> dict[str, Any]:
+    """Drop part keys from owners.yaml parts: only. Never deletes Version folders."""
+    name = str(label or "").strip()
+    if not name or name.lower() in ("all", "kevin") or name.startswith("_"):
+        raise ValueError("Person folder must be a real name (not All/observer)")
+    drop = {str(p or "").strip().lower() for p in (part_keys or []) if str(p or "").strip()}
+    if not drop:
+        rows = load_owners()
+        found = _find_owner_row(rows, name)
+        if found is None:
+            raise ValueError(f"No person {name!r} in owners.yaml")
+        return {"owner": found, "action": "unchanged", "owners": rows, "unassigned": []}
+    rows = load_owners()
+    found = _find_owner_row(rows, name)
+    if found is None:
+        raise ValueError(f"No person {name!r} in owners.yaml")
+    if str(found.get("id") or "").lower() in ("all", "kevin"):
+        raise ValueError("Observer/All is view-only")
+    if str(found.get("role") or "").strip().lower() == "observer":
+        raise ValueError("Observer/All is view-only")
+    cur = [str(p).strip().lower() for p in (found.get("parts") or []) if str(p).strip()]
+    kept = [p for p in cur if p not in drop]
+    removed = [p for p in cur if p in drop]
+    found["parts"] = kept
+    save_owners(rows)
+    return {"owner": found, "action": "unassigned", "owners": rows, "unassigned": removed}
 
 
 def remember_operator(
@@ -622,7 +966,7 @@ def remember_operator(
 ) -> str:
     """Create owners.yaml row for a new person, then return folder label."""
     raw = str(operator or "").strip()
-    if not raw or raw.lower() == "all" or raw == UNASSIGNED_OPERATOR or raw.startswith("_"):
+    if not raw or raw.lower() in ("all", "kevin", "ate") or raw == UNASSIGNED_OPERATOR or raw.startswith("_"):
         return require_write_operator(raw)
     fam = str(family or "").strip() or family_for_component(component)
     upsert_owner(
@@ -673,14 +1017,21 @@ def set_context(
         m, pkg, sample = _model_from_part_yaml(pk)
         next_op = operator if operator is not None else cur.operator
         next_op = require_write_operator(next_op)
+        ui_model = str(model or "").strip()
+        part_u = str(next_part or "").strip().upper()
+        stale_ui = bool(
+            ui_model
+            and part_u
+            and part_u not in ui_model.upper()
+            and ui_model.upper() not in part_u
+        )
         ctx = DbContext(
             component=component or cur.component,
             part=next_part,
             package=package or (pkg if pk != cur.part_key else cur.package) or pkg,
             operator=next_op,
             version=version or cur.version,
-            # Prefer part-yaml model when switching parts (do not keep RS622XK on Logic)
-            model=model or m or cur.model,
+            model=(ui_model if ui_model and not stale_ui else "") or m or cur.model,
             sample_size=int(
                 sample_size
                 if sample_size is not None
@@ -700,16 +1051,44 @@ def set_context(
             ctx.version = str(sm.get("version") or ctx.version)
             if sm.get("sample_size"):
                 ctx.sample_size = int(sm["sample_size"])
+        try:
+            prefs = load_run_prefs(ctx)
+            if prefs.get("sample_size"):
+                ctx.sample_size = int(prefs["sample_size"])
+        except Exception:
+            pass
         ctx.ensure_tree()
         _active = ctx
         return ctx
 
 
-def list_tree(root: Optional[Path] = None) -> dict[str, Any]:
+_TREE_TTL_S = 8.0
+_TREE_CACHE: dict[str, Any] = {"t": 0.0, "root": "", "data": None}
+
+
+def invalidate_tree_cache() -> None:
+    _TREE_CACHE["t"] = 0.0
+    _TREE_CACHE["root"] = ""
+    _TREE_CACHE["data"] = None
+
+
+def list_tree(root: Optional[Path] = None, *, force: bool = False) -> dict[str, Any]:
     """Scan #Test_Database into component → part → package → operator → versions."""
     base = Path(root) if root else TEST_DB_ROOT
+    key = str(base)
+    now = time.monotonic()
+    if (
+        root is None
+        and not force
+        and _TREE_CACHE["data"] is not None
+        and _TREE_CACHE["root"] == key
+        and (now - float(_TREE_CACHE["t"])) < _TREE_TTL_S
+    ):
+        return _TREE_CACHE["data"]
     tree: dict[str, Any] = {"root": str(base), "components": {}}
     if not base.is_dir():
+        if root is None:
+            _TREE_CACHE.update(t=now, root=key, data=tree)
         return tree
     def _live_dirs(parent: Path, *, keep: frozenset[str] | None = None):
         keep = keep or frozenset()
@@ -747,6 +1126,8 @@ def list_tree(root: Optional[Path] = None) -> dict[str, Any]:
                 packages[pkg.name] = {"operators": operators}
             parts[part.name] = {"packages": packages}
         tree["components"][comp.name] = {"parts": parts}
+    if root is None:
+        _TREE_CACHE.update(t=now, root=key, data=tree)
     return tree
 
 
@@ -822,6 +1203,322 @@ def artifact_name(
     return f"{test_key}_{int(dut_index)}_{variant}_{ts}.{ext.lstrip('.')}"
 
 
+def _norm_walk_order(raw: Any) -> str:
+    return "dut" if str(raw or "channel").strip().lower().startswith("dut") else "channel"
+
+
+def _norm_sample_size(raw: Any, default: int = 4) -> int:
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        n = default
+    return max(1, min(16, n))
+
+
+def _norm_probe_channels(raw: Any) -> list[str]:
+    from ate.core.specs import normalize_probe_channels
+
+    return normalize_probe_channels(raw)
+
+
+def load_run_prefs(ctx: Optional["DbContext"] = None) -> dict[str, Any]:
+    """Campaign walk-order / DUT count / probe ticks. Not a #Test_Database folder axis."""
+    ctx = ctx or get_context()
+    path = ctx.run_prefs_path()
+    data: Any = {}
+    if path.is_file():
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except Exception:
+            data = {}
+    if not isinstance(data, dict):
+        data = {}
+    out: dict[str, Any] = {"walk_order": _norm_walk_order(data.get("walk_order"))}
+    if data.get("sample_size") is not None:
+        out["sample_size"] = _norm_sample_size(data.get("sample_size"))
+    chans = _norm_probe_channels(data.get("probe_channels") or data.get("channels"))
+    if chans:
+        out["probe_channels"] = chans
+    return out
+
+
+def save_run_prefs(
+    walk_order: str = "",
+    *,
+    sample_size: Any = None,
+    probe_channels: Any = None,
+    ctx: Optional["DbContext"] = None,
+) -> dict[str, Any]:
+    ctx = ctx or get_context()
+    ctx.manifest_dir().mkdir(parents=True, exist_ok=True)
+    cur = load_run_prefs(ctx)
+    if str(walk_order or "").strip():
+        cur["walk_order"] = _norm_walk_order(walk_order)
+    if sample_size is not None and str(sample_size).strip() != "":
+        cur["sample_size"] = _norm_sample_size(sample_size)
+    if probe_channels is not None:
+        chans = _norm_probe_channels(probe_channels)
+        if chans:
+            cur["probe_channels"] = chans
+    ctx.run_prefs_path().write_text(
+        yaml.safe_dump(cur, sort_keys=False),
+        encoding="utf-8",
+    )
+    if cur.get("sample_size"):
+        ctx.sample_size = int(cur["sample_size"])
+        try:
+            ctx.ensure_tree()
+        except Exception:
+            pass
+    return cur
+
+
+_TEST_PARAM_FLOATS = (
+    "vcc",
+    "vccb",
+    "vcc_start",
+    "vcc_stop",
+    "vcc_step",
+    "freq_hz",
+    "freq_start",
+    "freq_stop",
+    "freq_step",
+    "amp_vpp",
+    "settle_s",
+    "timeout_s",
+    "dwell_s",
+    "vin_step",
+    "stable_eps_A",
+    "icc_vcc_step",
+    "icc_vcc_start",
+    "icc_vcc_stop",
+)
+_TEST_PARAM_INTS = ("n_repeats", "logic_inputs", "sample_size")
+_TEST_PARAM_STRS = ("icc_vcc_mode", "vcc_mode")
+
+
+def _clean_float_list(raw: Any, *, cap: int = 41) -> list[float]:
+    if isinstance(raw, str):
+        raw = [p.strip() for p in raw.replace(";", ",").split(",") if p.strip()]
+    if not isinstance(raw, list):
+        return []
+    out: list[float] = []
+    for item in raw:
+        try:
+            out.append(float(item))
+        except (TypeError, ValueError):
+            continue
+        if len(out) >= cap:
+            break
+    return out
+
+
+def _clean_rails(raw: Any) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        return {}
+    mode = str(raw.get("mode") or "").strip().lower()
+    out: dict[str, Any] = {}
+    if mode in ("single", "dual"):
+        out["mode"] = mode
+    psu_raw = raw.get("psu")
+    psu: list[dict[str, Any]] = []
+    if isinstance(psu_raw, list):
+        for row in psu_raw[:6]:
+            if not isinstance(row, dict):
+                continue
+            try:
+                ch = int(row.get("ch"))
+            except (TypeError, ValueError):
+                continue
+            if ch < 1 or ch > 3:
+                continue
+            entry: dict[str, Any] = {"ch": ch}
+            if row.get("name") not in (None, ""):
+                entry["name"] = str(row["name"]).strip()[:32]
+            if row.get("volts") not in (None, ""):
+                try:
+                    entry["volts"] = float(row["volts"])
+                except (TypeError, ValueError):
+                    pass
+            if row.get("digits") not in (None, ""):
+                try:
+                    entry["digits"] = max(0, min(6, int(row["digits"])))
+                except (TypeError, ValueError):
+                    pass
+            psu.append(entry)
+    if psu:
+        out["psu"] = psu
+    return out
+
+
+def _clean_spec_rows(raw: Any) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    if not isinstance(raw, list):
+        return out
+    for row in raw:
+        if not isinstance(row, dict) or not row.get("id"):
+            continue
+        item: dict[str, Any] = {"id": str(row["id"]).strip()}
+        for key in ("min", "max", "typ"):
+            if row.get(key) in (None, ""):
+                continue
+            try:
+                item[key] = float(row[key])
+            except (TypeError, ValueError):
+                pass
+        if row.get("unit"):
+            item["unit"] = str(row["unit"]).strip()
+        out.append(item)
+    return out
+
+
+def _clean_test_param_block(raw: Any) -> dict[str, Any]:
+    src = raw if isinstance(raw, dict) else {}
+    out: dict[str, Any] = {}
+    for key in _TEST_PARAM_FLOATS:
+        if src.get(key) in (None, ""):
+            continue
+        try:
+            out[key] = float(src[key])
+        except (TypeError, ValueError):
+            pass
+    for key in _TEST_PARAM_INTS:
+        if src.get(key) in (None, ""):
+            continue
+        try:
+            out[key] = int(src[key])
+        except (TypeError, ValueError):
+            pass
+    if "logic_inputs" in out:
+        n = int(out["logic_inputs"])
+        # ponytail: DG822 has 2 AWG CH; n>2 needs pause_hook rewire / mux (ceiling 8).
+        out["logic_inputs"] = max(1, min(8, n))
+    vcc_list = _clean_float_list(src.get("vcc_list"))
+    if vcc_list:
+        out["vcc_list"] = vcc_list
+    icc_list = _clean_float_list(src.get("icc_vcc_list"), cap=80)
+    if icc_list:
+        out["icc_vcc_list"] = icc_list
+    for key in _TEST_PARAM_STRS:
+        raw = str(src.get(key) or "").strip().lower()
+        if not raw:
+            continue
+        if raw in ("custom", "points"):
+            raw = "list"
+        if raw in ("sweep", "0.1", "step0.1"):
+            raw = "step"
+        if raw in ("named", "step", "list", "grid"):
+            out[key] = raw
+    levels = _clean_float_list(src.get("levels"), cap=8)
+    if levels:
+        out["levels"] = levels
+    rails = _clean_rails(src.get("rails"))
+    if not rails and (
+        src.get("rails_mode") not in (None, "") or src.get("rails_psu") not in (None, "")
+    ):
+        # UI flat fields -> rails dict
+        mode = str(src.get("rails_mode") or "").strip().lower()
+        flat: dict[str, Any] = {}
+        if mode in ("single", "dual"):
+            flat["mode"] = mode
+        psu_txt = str(src.get("rails_psu") or "").strip()
+        if psu_txt:
+            # "1:VCC:3.300,2:VSS:-3.300" or "1:3.300"
+            rows = []
+            for part in psu_txt.replace(";", ",").split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                bits = [b.strip() for b in part.split(":")]
+                try:
+                    ch = int(bits[0])
+                except (TypeError, ValueError, IndexError):
+                    continue
+                entry: dict[str, Any] = {"ch": ch}
+                if len(bits) == 2:
+                    try:
+                        entry["volts"] = float(bits[1])
+                    except (TypeError, ValueError):
+                        entry["name"] = bits[1][:32]
+                elif len(bits) >= 3:
+                    entry["name"] = bits[1][:32]
+                    try:
+                        entry["volts"] = float(bits[2])
+                    except (TypeError, ValueError):
+                        pass
+                    if len(bits) >= 4:
+                        try:
+                            entry["digits"] = int(bits[3])
+                        except (TypeError, ValueError):
+                            pass
+                rows.append(entry)
+            if rows:
+                flat["psu"] = rows
+        rails = _clean_rails(flat)
+    if rails:
+        out["rails"] = rails
+    specs = _clean_spec_rows(src.get("specs"))
+    if specs:
+        out["specs"] = specs
+    for key in ("vcc_grid", "vcc_plan"):
+        blob = src.get(key)
+        if isinstance(blob, dict):
+            out[key] = dict(blob)
+    return out
+
+
+def load_test_params(ctx: Optional["DbContext"] = None) -> dict[str, Any]:
+    """This Version only. Not shared parts yaml."""
+    ctx = ctx or get_context()
+    path = ctx.test_params_path()
+    data: Any = {}
+    if path.is_file():
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except Exception:
+            data = {}
+    if not isinstance(data, dict):
+        data = {}
+    raw = data.get("tests") if isinstance(data.get("tests"), dict) else {}
+    tests: dict[str, Any] = {}
+    for key, block in raw.items():
+        tid = str(key or "").strip().lower()
+        if not tid or not tid.replace("_", "").isalnum():
+            continue
+        cleaned = _clean_test_param_block(block)
+        if cleaned:
+            tests[tid] = cleaned
+    return {"tests": tests}
+
+
+def save_test_params(
+    test_id: str,
+    params: dict[str, Any] | None = None,
+    *,
+    ctx: Optional["DbContext"] = None,
+) -> dict[str, Any]:
+    ctx = ctx or get_context()
+    require_write_operator(ctx.operator)
+    ctx.manifest_dir().mkdir(parents=True, exist_ok=True)
+    cur = load_test_params(ctx)
+    tests = dict(cur.get("tests") or {})
+    tid = str(test_id or "").strip().lower()
+    if not tid or not tid.replace("_", "").isalnum():
+        raise ValueError("test_id required")
+    prev = dict(tests.get(tid) or {})
+    prev.update(_clean_test_param_block(params or {}))
+    if not prev:
+        tests.pop(tid, None)
+    else:
+        tests[tid] = prev
+    out = {"tests": tests}
+    ctx.test_params_path().write_text(
+        yaml.safe_dump(out, sort_keys=False),
+        encoding="utf-8",
+    )
+    return out
+
+
 def begin_session(
     params: dict[str, Any],
     *,
@@ -832,14 +1529,24 @@ def begin_session(
     ctx = get_context()
     ctx.ensure_tree()
     ts = datetime.now(MYT).strftime("%Y-%m-%d_%H%M%S")
-    label = str((params or {}).get("run_label") or "").strip()
+    ident = ctx.identity()
+    p = dict(params or {})
+    if not p.get("tags"):
+        p["tags"] = list(ident.get("tags") or [])
+    if not p.get("boards"):
+        p["boards"] = list(ident.get("boards") or [])
+    if not p.get("labels"):
+        p["labels"] = list(ident.get("labels") or [])
+    if not p.get("walk_order"):
+        p["walk_order"] = ident.get("walk_order") or "channel"
+    label = str(p.get("run_label") or "").strip()
     slug = re.sub(r"[^\w\-]+", "_", label)[:48].strip("_") if label else ""
     sid = f"session_{slug}_{ts}" if slug else f"session_{ts}"
     session = RunSession(
         session_id=sid,
         started_at=datetime.now(MYT).isoformat(timespec="seconds"),
-        context=ctx.identity(),
-        params=dict(params or {}),
+        context=ident,
+        params=p,
         instrument_map=dict(instrument_map or {}),
         fixture_plan=list(fixture_plan or []),
     )
@@ -866,6 +1573,7 @@ def record_step(
     measurements: Optional[list[dict[str, Any]]] = None,
     dut: int | None = None,
     channel: str | None = None,
+    data: Optional[dict[str, Any]] = None,
 ) -> None:
     stamped: list[dict[str, Any]] | None = None
     ok = bool(success)
@@ -899,6 +1607,14 @@ def record_step(
             row["channel"] = str(channel).strip().upper()
         if stamped:
             row["measurements"] = stamped
+        if data:
+            inner = data.get("data") if isinstance(data.get("data"), dict) else data
+            rows = inner.get("rows") if isinstance(inner, dict) else None
+            if isinstance(rows, list) and rows:
+                payload: dict[str, Any] = {"rows": rows}
+                if isinstance(inner, dict) and inner.get("vcc_sweep"):
+                    payload["vcc_sweep"] = inner["vcc_sweep"]
+                row["data"] = payload
         session.steps.append(row)
         if artifacts:
             session.artifacts.extend(artifacts)
@@ -930,16 +1646,19 @@ def end_session(status: str = "completed") -> Optional[Path]:
         archive_report(snap.to_dict())
     except Exception:
         pass
-    try:
-        from ate.reporting.session_paste import paste_session_photos
+    imap = snap.instrument_map or {}
+    sim = any(str(v).upper().startswith("SIM::") for v in imap.values())
+    if not sim:
+        try:
+            from ate.reporting.session_paste import paste_session_photos
 
-        paste_session_photos(snap.to_dict())
-    except Exception:
-        pass
+            paste_session_photos(snap.to_dict())
+        except Exception:
+            pass
     try:
         from ate.reporting.session_values import fill_workbook_from_report
 
-        fill_workbook_from_report(ctx=get_context())
+        fill_workbook_from_report(ctx=get_context(), demo=sim, copy_golden=True)
     except Exception:
         pass
     try:

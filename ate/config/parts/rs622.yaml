@@ -10,8 +10,27 @@ package: TTSOP8
 version: Version_1
 sample_size: 4
 year: "2026"
-lab_report: "C:\\Users\\OoiJianHong\\#Test_Database\\OpAmp\\RS622\\TTSOP8\\Version_1\\workbook\\RS622XK_Lab_Report_TTSOP.xlsx"
-database_root: "C:\\Users\\OoiJianHong\\#Test_Database\\OpAmp\\RS622\\TTSOP8\\Version_1"
+# Mapped AOL/EMIRR stay registered (campaigns may still tick them) but are
+# not default START -- BUFFER/G11 cannot measure open-loop AOL_dB or RF EMIRR.
+enabled_tests:
+  - slew
+  - settling
+  - sssr
+  - lssr
+  - no_phase_reversal
+  - power_on_time
+  - gbw
+  - ort
+  - psrr
+  - cmrr
+  - vohl
+  - noise
+  - vos_sweep
+  - ac_gain_check
+  - ac_vin_sweep
+
+lab_report: "#Test_Database/OpAmp/RS622/TTSOP8/Eugene/Version_1/workbook/RS622XK_Lab_Report_TTSOP.xlsx"
+database_root: "#Test_Database/OpAmp/RS622/TTSOP8/Eugene/Version_1"
 
 fixture_modes:
   BUFFER:
@@ -62,7 +81,8 @@ fixture_modes:
     checklist:
       - "ATE / STM relay bank not automated yet"
       - "Noise 0.1-10 Hz: high-gain DUT, shield, AWG off, AC-couple VOUT, 1 s/div"
-    tests: [psrr, cmrr, aol, vohl, emirr, noise]
+      - "AOL/EMIRR leftover-honest: not default START (mapped screenshots, not AOL_dB)"
+    tests: [psrr, cmrr, vohl, noise]
   # --- Research only (special VOS boards -- NOT general lab testboard) ---
   G201:
     label: "Research only — High-gain VOS / AC (~201)"

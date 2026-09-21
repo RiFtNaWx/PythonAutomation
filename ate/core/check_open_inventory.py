@@ -4,10 +4,11 @@ Run: python -m ate.core.check_open_inventory
 """
 from __future__ import annotations
 
+import ast
+import re
 import sys
 from pathlib import Path
 
-import re
 import yaml
 
 from ate.core.database import family_for_component, find_campaign_root, set_context
@@ -19,14 +20,36 @@ _LIM_IDS = frozenset({"iplus", "leakage_off", "leakage_on", "input_leakage"})
 _LOGIC_PARTS = ("rs29511", "rs1g08", "rs1g07", "rs1g14")
 
 
-def _assert_no_input(path: Path) -> list[str]:
-    text = path.read_text(encoding="utf-8")
-    # Real call only (ignore docs that say "never input()")
-    if re.search(r"(?<![\"'\w])input\s*\(", text):
-        return [f"{path.name}: must not call input()"]
-    if re.search(r"(?:import\s+Lim\b|from\s+Lim\b)", text):
-        return [f"{path.name}: must not import Lim.*"]
-    return []
+_VENDOR_IMPORT = re.compile(r"(?m)^\s*(?:import|from)\s+(Ariff|Lim|Soo)\b")
+_TESTS_ROOT = Path(__file__).resolve().parents[1] / "tests"
+
+
+def _ast_calls_input(src: str) -> bool:
+    tree = ast.parse(src)
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "input"
+        for node in ast.walk(tree)
+    )
+
+
+def _assert_tests_clean() -> list[str]:
+    errors: list[str] = []
+    for path in sorted(_TESTS_ROOT.rglob("*.py")):
+        src = path.read_text(encoding="utf-8-sig")
+        rel = path.relative_to(_TESTS_ROOT.parent.parent)
+        try:
+            calls_input = _ast_calls_input(src)
+        except SyntaxError as exc:
+            errors.append(f"{rel}: cannot parse ({exc})")
+            continue
+        if calls_input:
+            errors.append(f"{rel}: must not call input()")
+        vendor = _VENDOR_IMPORT.search(src)
+        if vendor:
+            errors.append(f"{rel}: must not import {vendor.group(1)}.*")
+    return errors
 
 
 def check_open_inventory() -> list[str]:
@@ -108,7 +131,7 @@ def check_open_inventory() -> list[str]:
         if isinstance(entry, dict) and entry.get("excel_sheet") not in sheets:
             errors.append(f"switch map {key}->{entry.get('excel_sheet')} unregistered")
 
-    errors += _assert_no_input(Path(__file__).resolve().parents[1] / "tests" / "lim" / "rs2323.py")
+    errors += _assert_tests_clean()
 
     # Logic RS1G07 enable list uses Ariff ids
     load_family("logic")

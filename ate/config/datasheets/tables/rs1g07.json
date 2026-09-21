@@ -1,0 +1,190 @@
+{
+  "part": "RS1G07",
+  "part_key": "rs1g07",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs1g07.yaml",
+    "truth_table": "ate/config/parts/rs1g07.yaml",
+    "extract": "ate/config/datasheets/text/rs1g07.txt",
+    "xlsx": "RS1G07/RS1G07XC5_Lab_Report.xlsx"
+  },
+  "specs": [
+    {
+      "id": "ICC_uA",
+      "unit": "uA",
+      "typ": 0.1,
+      "max": 1.0,
+      "test": "supply_current",
+      "source": "local:RS1G07_(RevA.6).pdf",
+      "min": null
+    },
+    {
+      "id": "DELTA_ICC_uA",
+      "unit": "uA",
+      "max": 500.0,
+      "test": "delta_supply_current",
+      "source": "local:RS1G07_(RevA.6).pdf",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "IOFF_uA",
+      "unit": "uA",
+      "typ": 0.1,
+      "max": 1.0,
+      "test": "ioff_leakage",
+      "source": "local:RS1G07_(RevA.6).pdf",
+      "min": null
+    },
+    {
+      "id": "II_uA",
+      "unit": "uA",
+      "typ": 0.1,
+      "max": 1.0,
+      "test": "input_leakage_sweep",
+      "source": "local:RS1G07_(RevA.6).pdf",
+      "min": null
+    },
+    {
+      "id": "CIN_pF",
+      "unit": "pF",
+      "typ": 4.0,
+      "min": 1.0,
+      "max": 10.0,
+      "test": "cin",
+      "source": "local:RS1G07_(RevA.6).pdf"
+    },
+    {
+      "id": "CPD_pF",
+      "unit": "pF",
+      "typ": 6.0,
+      "min": 2.0,
+      "max": 10.0,
+      "test": "cpd",
+      "source": "local:RS1G07_(RevA.6).pdf"
+    },
+    {
+      "id": "VCC_V",
+      "unit": "V",
+      "min": 1.65,
+      "max": 5.5,
+      "source": "local:RS1G07_(RevA.6).pdf",
+      "typ": null
+    },
+    {
+      "id": "VOL_1p65V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol_load",
+      "source": "parts/rs1g07.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_2p0V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol_load",
+      "source": "parts/rs1g07.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_2p3V",
+      "unit": "V",
+      "max": 0.3,
+      "test": "vol_load",
+      "source": "parts/rs1g07.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_3p0V",
+      "unit": "V",
+      "max": 0.4,
+      "test": "vol_load",
+      "source": "parts/rs1g07.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_3p3V",
+      "unit": "V",
+      "max": 0.55,
+      "test": "vol_load",
+      "source": "parts/rs1g07.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_4p5V",
+      "unit": "V",
+      "max": 0.55,
+      "test": "vol_load",
+      "source": "parts/rs1g07.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p0V",
+      "unit": "V",
+      "max": 0.5,
+      "test": "vol_load",
+      "source": "parts/rs1g07.yaml vol_table",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "VOL_5p5V",
+      "unit": "V",
+      "max": 0.45,
+      "test": "vol_load",
+      "source": "parts/rs1g07.yaml vol_table",
+      "min": null,
+      "typ": null
+    }
+  ],
+  "truth_table": {
+    "status": "CONFIRMED",
+    "source": "RS1G07 RevA.5.1 §4",
+    "rows": [
+      {
+        "A": "L",
+        "Y": "L"
+      },
+      {
+        "A": "H",
+        "Y": "Z"
+      }
+    ]
+  },
+  "voh_table": [],
+  "vol_table": [
+    {
+      "id": "VOL_1p65V_4mA",
+      "vcc": 1.65,
+      "iol_a": 0.004,
+      "spec_max": 0.45
+    },
+    {
+      "id": "VOL_2p3V_8mA",
+      "vcc": 2.3,
+      "iol_a": 0.008,
+      "spec_max": 0.3
+    },
+    {
+      "id": "VOL_3p0V_16mA",
+      "vcc": 3.0,
+      "iol_a": 0.016,
+      "spec_max": 0.4
+    },
+    {
+      "id": "VOL_4p5V_32mA",
+      "vcc": 4.5,
+      "iol_a": 0.032,
+      "spec_max": 0.55
+    }
+  ],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

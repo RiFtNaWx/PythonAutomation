@@ -1,5 +1,6 @@
-# RS2227 analog switch (DPDT USB) — RUN-IC Analog Switch. Owner Lim.
-# Codes not wrapped this wave; current slots reuse RS2323 ids until USB recipe lands.
+# RS2227 analog switch (DPDT USB). Owner Lim.
+# USB Path B: usb_ron / usb_ton_toff / usb_iso / usb_xtalk.
+# Do not enable RS2323 COM/NO/NC ids, iso, or xtalk.
 
 part: RS2227
 model: RS2227
@@ -9,7 +10,7 @@ package: MSOP
 version: Version_1
 sample_size: 4
 year: "2026"
-owner: lim
+owner: seelim
 part_key: rs2227
 product_class: analog_switch
 
@@ -20,6 +21,7 @@ vcc_sweep: [1.8, 3.3, 5.0]
 dmm_readings: 3
 dmm_settle_s: 0.2
 display_limit_ua: 1.0
+ron_force_a: 0.01
 timing:
   timeout_s: 120.0
   settle_s: 0.5
@@ -29,15 +31,27 @@ enabled_tests:
   - leakage_off
   - leakage_on
   - input_leakage
+  - usb_ron
+  - usb_ton_toff
+  - usb_iso
+  - usb_xtalk
 
 fixture_modes:
   LIM_RS2323:
-    label: "RS2227 DPDT analog switch (current slots)"
+    label: "RS2227 USB DPDT analog switch"
     board_class: general
     checklist:
-      - "RS2227 is Analog Switch (USB DPDT), not Logic. Wiring differs from RS2323."
+      - "USB DPDT: D+/D- and HSD1/HSD2. Not RS2323 COM/NO/NC."
+      - "OE=GND to enable. S=GND -> HSD1; S=V+ -> HSD2. OE=V+ for IOZ Hi-Z."
+      - "Iplus/leakage Continue names S/OE/HSD, not IN1/NO/COM."
+      - "RON 10 mA platform. rON min/max still PDF image. tON/tOFF banner typ only."
+      - "USB ISO/XTalk are 1 MHz high-Z. Not 50 ohm RF. Not 550 MHz BW."
     tests:
       - iplus
       - leakage_off
       - leakage_on
       - input_leakage
+      - usb_ron
+      - usb_ton_toff
+      - usb_iso
+      - usb_xtalk

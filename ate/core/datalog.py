@@ -24,6 +24,227 @@ def report_path(ctx) -> Path:
     return ctx.sessions_dir() / "report.json"
 
 
+def write_run_log(doc: dict[str, Any], dest_dir: Path) -> Path:
+    """Plain-text dump of every step + screenshot notes (DEMO / STS companion)."""
+    dest = Path(dest_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    ident = doc.get("identity") if isinstance(doc.get("identity"), dict) else {}
+    hdr = doc.get("header") if isinstance(doc.get("header"), dict) else {}
+    lines = [
+        f"ATE run log  {ident.get('part')} {ident.get('model')} {ident.get('package')}",
+        f"Operator {ident.get('operator')}  Version {ident.get('version')}  "
+        f"Session {hdr.get('session_id')}",
+        f"Status {hdr.get('status')}  Total {hdr.get('total')}  "
+        f"Pass {hdr.get('pass')}  Fail {hdr.get('fail')}",
+        f"Time {hdr.get('time')}",
+        "",
+        "Tests",
+    ]
+    for step in doc.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        mark = "PASS" if step.get("success") else "FAIL"
+        tid = step.get("test_id")
+        dut = step.get("dut")
+        bits = []
+        for m in step.get("measurements") or []:
+            if not isinstance(m, dict):
+                continue
+            bits.append(
+                f"{m.get('id')}={m.get('value')} {m.get('unit') or ''} "
+                f"{m.get('result') or ''}".strip()
+            )
+        meas = "; ".join(bits) if bits else (step.get("summary") or "")
+        lines.append(f"  {mark}  {tid} DUT_{dut}  {meas}")
+    lines.append("")
+    lines.append("Screenshots")
+    seen: set[str] = set()
+
+    def _add_shot(p: Any) -> None:
+        if not p:
+            return
+        path = Path(str(p))
+        key = str(path).lower()
+        if key in seen:
+            return
+        seen.add(key)
+        lines.append(f"  {path}")
+
+    for art in doc.get("artifacts") or []:
+        _add_shot(art.get("path") if isinstance(art, dict) else art)
+    camp = Path(dest).parent
+    if camp.is_dir():
+        for shot in sorted(camp.rglob("screenshots/*")):
+            if shot.suffix.lower() in {".jpg", ".jpeg", ".png", ".txt"}:
+                _add_shot(shot)
+    if not seen:
+        lines.append("  (none)")
+    out = dest / "run_log.txt"
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return out
+
+
+def _csv_number(v: Any) -> str:
+    """Pure number cell. Skip PASS/FAIL/text."""
+    if isinstance(v, bool) or v is None:
+        return ""
+    if isinstance(v, (int, float)):
+        if v != v:
+            return ""
+        if isinstance(v, float) and v.is_integer():
+            return str(int(v))
+        return str(v)
+    if isinstance(v, str):
+        try:
+            n = float(v.strip())
+        except ValueError:
+            return ""
+        if n != n:
+            return ""
+        if n.is_integer():
+            return str(int(n))
+        return str(n)
+    return ""
+
+
+def write_points_csv(step: dict[str, Any], dest: Path) -> Optional[Path]:
+    """One row per sweep point. Numeric columns only (plot in Excel)."""
+    if not isinstance(step, dict):
+        return None
+    data = step.get("data") if isinstance(step.get("data"), dict) else {}
+    rows = data.get("rows") if isinstance(data, dict) else None
+    if not isinstance(rows, list) or not rows:
+        meas = step.get("measurements") or []
+        row = {
+            str(m.get("id")): m.get("value")
+            for m in meas
+            if isinstance(m, dict) and m.get("id")
+        }
+        rows = [row] if row else []
+    keys: list[str] = []
+    body: list[list[str]] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        for k in r:
+            sk = str(k)
+            if sk not in keys and _csv_number(r.get(k)):
+                keys.append(sk)
+    if not keys:
+        return None
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        line = [_csv_number(r.get(k)) for k in keys]
+        if any(line):
+            body.append(line)
+    if not body:
+        return None
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    import csv
+
+    with dest.open("w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(keys)
+        w.writerows(body)
+    return dest
+
+
+def write_points_svg(step: dict[str, Any], dest: Path) -> Optional[Path]:
+    """VCC vs Measured/spec line plot. No extra dep. Open in browser."""
+    if not isinstance(step, dict):
+        return None
+    data = step.get("data") if isinstance(step.get("data"), dict) else {}
+    rows = data.get("rows") if isinstance(data, dict) else None
+    if not isinstance(rows, list) or len(rows) < 2:
+        return None
+    pts: list[tuple[float, float, float | None, float]] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        try:
+            x = float(r.get("VCC"))
+            y = float(r.get("Measured"))
+        except (TypeError, ValueError):
+            continue
+        spec: float | None
+        try:
+            if r.get("Spec_min") is not None:
+                spec = float(r["Spec_min"])
+            elif r.get("Spec_max") is not None:
+                spec = float(r["Spec_max"])
+            else:
+                spec = None
+        except (TypeError, ValueError):
+            spec = None
+        try:
+            raw_i = r.get("IOH_A")
+            if raw_i is None:
+                raw_i = r.get("IOL_A")
+            i_a = float(raw_i or 0)
+        except (TypeError, ValueError):
+            i_a = 0.0
+        pts.append((x, y, spec, i_a))
+    if len(pts) < 2:
+        return None
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts] + [p[2] for p in pts if p[2] is not None]
+    xmin, xmax = min(xs), max(xs)
+    ymin, ymax = min(ys), max(ys)
+    if xmax <= xmin:
+        xmax = xmin + 1.0
+    if ymax <= ymin:
+        ymax = ymin + 1.0
+    pad_x = (xmax - xmin) * 0.08 or 0.1
+    pad_y = (ymax - ymin) * 0.12 or 0.1
+    xmin -= pad_x
+    xmax += pad_x
+    ymin -= pad_y
+    ymax += pad_y
+    w, h, left, top, right, bot = 720, 360, 52, 24, 16, 36
+
+    def sx(x: float) -> float:
+        return left + (x - xmin) / (xmax - xmin) * (w - left - right)
+
+    def sy(y: float) -> float:
+        return top + (ymax - y) / (ymax - ymin) * (h - top - bot)
+
+    series: dict[float, list[tuple[float, float, float | None]]] = {}
+    for x, y, spec, i_a in pts:
+        series.setdefault(i_a, []).append((x, y, spec))
+    colors = ("#3dd6c6", "#f0c14b", "#7aa2f7", "#e07a5f", "#cba6f7")
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">',
+        '<rect width="100%" height="100%" fill="#1a1d24"/>',
+        f'<text x="{left}" y="16" fill="#cdd6f4" font-size="12" font-family="Segoe UI,sans-serif">V vs VCC</text>',
+        f'<line x1="{left}" y1="{h-bot}" x2="{w-right}" y2="{h-bot}" stroke="#585b70" />',
+        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{h-bot}" stroke="#585b70" />',
+    ]
+    for i, (i_a, sp) in enumerate(sorted(series.items())):
+        sp = sorted(sp, key=lambda p: p[0])
+        col = colors[i % len(colors)]
+        d_m = " ".join(f"{sx(x):.1f},{sy(y):.1f}" for x, y, _s in sp)
+        parts.append(f'<polyline fill="none" stroke="{col}" stroke-width="2" points="{d_m}"/>')
+        spec_pts = [(x, s) for x, _y, s in sp if s is not None]
+        if spec_pts:
+            d_s = " ".join(f"{sx(x):.1f},{sy(s):.1f}" for x, s in spec_pts)
+            parts.append(
+                f'<polyline fill="none" stroke="{col}" stroke-width="1" stroke-dasharray="4 3" points="{d_s}"/>'
+            )
+        for x, y, _s in sp:
+            parts.append(f'<circle cx="{sx(x):.1f}" cy="{sy(y):.1f}" r="3" fill="{col}"/>')
+        label = f"{i_a*1e6:.0f}uA" if i_a <= 0.00015 else f"{i_a*1e3:.0f}mA"
+        parts.append(
+            f'<text x="{w-right-4}" y="{20+i*14}" fill="{col}" font-size="11" text-anchor="end">{label}</text>'
+        )
+    parts.append("</svg>")
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text("\n".join(parts), encoding="utf-8")
+    return dest
+
+
 def archive_dir(ctx) -> Path:
     return ctx.sessions_dir() / "archive"
 
@@ -39,6 +260,10 @@ def _step_key(step: dict[str, Any]) -> tuple:
     except (TypeError, ValueError):
         dut_n = 0
     ch = str(step.get("channel") or "").strip().upper()
+    if ch in ("", "A", "1"):
+        ch = "CHA"
+    elif ch in ("B", "2"):
+        ch = "CHB"
     return (tid, dut_n, ch)
 
 
@@ -102,6 +327,14 @@ def write_step_record(step: dict[str, Any], *, session: dict[str, Any] | None = 
         "identity": dict((session or {}).get("context") or (getattr(c, "identity", lambda: {})() or {})),
     }
     dest.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    try:
+        write_points_csv(step, dest.with_name(dest.stem + "_points.csv"))
+        live = c.sessions_dir() / "points" / f"{tid}_DUT{dut_n}.csv"
+        write_points_csv(step, live)
+        write_points_svg(step, live.with_suffix(".svg"))
+        write_points_svg(step, dest.with_name(dest.stem + "_points.svg"))
+    except Exception:
+        pass
     return dest
 
 
@@ -325,9 +558,13 @@ def sync_report_from_session(session: dict[str, Any], *, ctx=None) -> Path:
     _recompute_header(doc, session)
     path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
     try:
-        from ate.reporting.sts_datalog import export_sts
+        from ate.reporting.sts_datalog import export_latest_report
 
-        export_sts(doc, c.sessions_dir())
+        export_latest_report(doc, sessions_dir=c.sessions_dir(), version_dir=c.root())
+    except Exception:
+        pass
+    try:
+        write_run_log(doc, c.sessions_dir())
     except Exception:
         pass
     return path

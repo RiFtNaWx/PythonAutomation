@@ -7,16 +7,25 @@
 # These are placeholder values for OPA performance testing.
 # Adjust the nominal and tolerance values to match the actual amplifier specification.
 TEST_SPECS = {
-    'IN+': (2, 5.0),           # Supply voltage: 2.5V nominal, 5% tolerance
+    'IN+': (5.0, 5.0),           # VCC check placeholder — nominal 5 V, ±5%
+    'AC_GAIN': (201.0, 10.0),
+    'VOS_mV': (1.5, 100.0),      # 0–3 mV window via ±100% of 1.5 mV nominal
+    'FIT_R2': (1.0, 5.0),        # 0.95–1.05
+    'JUNCTION_VPP_mV': (0.5, 100.0),  # 0–1 mV
 }
 
 # Category mapping for soft bin assignment.
 # 1 = PASS, 2 = FAIL functional test, 3 = FAIL AC-related test
 TEST_CATEGORIES = {
     'VCC': 'functional',
+    'IN+': 'functional',
     'GBW_MHz': 'ac',
     'SR_positive': 'ac',
     'SR_negative': 'ac',
+    'AC_GAIN': 'ac',
+    'VOS_mV': 'ac',
+    'FIT_R2': 'ac',
+    'JUNCTION_VPP_mV': 'ac',
 }
 
 # Helper function to calculate pass/fail limits

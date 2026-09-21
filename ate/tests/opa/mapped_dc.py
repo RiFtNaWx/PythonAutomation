@@ -41,42 +41,12 @@ class MappedCase:
 # One row per remaining sheet_map test (ids match rs622.yaml / old stubs).
 CASES: tuple[MappedCase, ...] = (
     MappedCase(
-        "power_on_time",
-        "Power On Time",
-        "PowerOnTime",
-        "PowerOnTime",
-        "BUFFER",
-        "PON",
-        False,
-        frozenset({"MSO", "PSU", "AWG"}),
-    ),
-    MappedCase(
         "emirr",
         "EMIRR",
         "EMIRR",
         "EMIRR",
         "ATE",
         "RF",
-        False,
-        frozenset({"MSO", "PSU", "AWG"}),
-    ),
-    MappedCase(
-        "psrr",
-        "PSRR",
-        "PSRR",
-        "PSRR",
-        "ATE",
-        "PSRR",
-        False,
-        frozenset({"MSO", "PSU", "AWG"}),
-    ),
-    MappedCase(
-        "cmrr",
-        "CMRR",
-        "CMRR",
-        "CMRR",
-        "ATE",
-        "CMRR",
         False,
         frozenset({"MSO", "PSU", "AWG"}),
     ),
@@ -89,16 +59,6 @@ CASES: tuple[MappedCase, ...] = (
         "AOL",
         False,
         frozenset({"MSO", "PSU", "AWG"}),
-    ),
-    MappedCase(
-        "vohl",
-        "VOHL",
-        "VOL",
-        "VOHL",
-        "ATE",
-        "VOL",
-        True,
-        frozenset({"PSU", "DMM"}),
     ),
 )
 
@@ -177,7 +137,7 @@ def _run_case(case: MappedCase, instr, params: RunParams) -> dict:
         if gen is not None:
             setup_dc(gen, 1, 0.0)
         if scope is not None:
-            scope_setup(scope, 10e-6 if case.test_id == "power_on_time" else 1e-3, 0)
+            scope_setup(scope, 1e-3, 0)
             time.sleep(0.4)
         dmm_txt = _dmm_note(instr)
         shot = None

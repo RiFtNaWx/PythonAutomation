@@ -2,8 +2,8 @@ part: RS1G32
 datasheet:
   lang: en
   source: local-reference
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1G32_(RevA.3.3).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1g32.txt
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS1G32_(RevA.3.3).pdf'
+  extract: ate/config/datasheets/text/rs1g32.txt
 specs:
 - id: ICC_uA
   unit: uA
@@ -63,5 +63,35 @@ specs:
 - id: VOL_5p5V
   unit: V
   max: 0.45
+  test: vol_load
+  source: parts/rs1g32.yaml vol_table
+- id: VOH_1p65V
+  unit: V
+  min: 1.2
+  test: voh_load
+  source: parts/rs1g32.yaml voh_table
+- id: VOH_2p3V
+  unit: V
+  min: 1.9
+  test: voh_load
+  source: parts/rs1g32.yaml voh_table
+- id: VOH_3p0V
+  unit: V
+  min: 2.4
+  test: voh_load
+  source: parts/rs1g32.yaml voh_table
+- id: VOL_1p65V
+  unit: V
+  max: 0.45
+  test: vol_load
+  source: parts/rs1g32.yaml vol_table
+- id: VOL_2p3V
+  unit: V
+  max: 0.3
+  test: vol_load
+  source: parts/rs1g32.yaml vol_table
+- id: VOL_3p0V
+  unit: V
+  max: 0.4
   test: vol_load
   source: parts/rs1g32.yaml vol_table

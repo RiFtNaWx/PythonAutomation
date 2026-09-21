@@ -1,0 +1,9 @@
+# Last OK USBTMC INSTR URLs on this bench (Windows PnP Status=OK).
+# NI list_resources hangs on ghost USBTMC. Discover opens these *IDN without scanning.
+# 2026-09-21 all-families preflight *IDN (kit on bench now):
+#   PSU DP8C281601446 + AWG DG8Q281600755 + DMM 04676344 + MSO MS5A281500878.
+instruments:
+  PSU: USB0::0x1AB1::0x0E11::DP8C281601446::INSTR
+  AWG: USB0::0x1AB1::0x0646::DG8Q281600755::INSTR
+  DMM: USB0::0x05E6::0x6500::04676344::INSTR
+  MSO: USB0::0x1AB1::0x0515::MS5A281500878::INSTR

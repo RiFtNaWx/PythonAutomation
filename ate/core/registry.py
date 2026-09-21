@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from typing import Any, Callable, Optional
+import threading
 
 
 
@@ -50,8 +51,8 @@ class TestSpec:
 
 
 _REGISTRY: dict[str, TestSpec] = {}
-
 _ACTIVE_FAMILY: str = ""
+_LOCK = threading.RLock()
 
 # Family key -> package that registers tests on import (A01 plugin table)
 FAMILY_PACKAGES: dict[str, str] = {
@@ -189,7 +190,8 @@ def _load_extra_family_labels() -> dict[str, str]:
 
 def clear() -> None:
     """Drop all registered tests (call before loading another family)."""
-    _REGISTRY.clear()
+    with _LOCK:
+        _REGISTRY.clear()
 
 
 def active_family() -> str:
@@ -215,71 +217,108 @@ def load_family(family: str | None = None) -> str:
     if pkg is None:
         known = ", ".join(sorted(FAMILY_PACKAGES))
         raise ValueError(f"Unknown family {family!r}; known: {known}")
-    clear()
-    import importlib
-    import sys
+    with _LOCK:
+        clear()
+        import importlib
+        import sys
 
-    mod = importlib.import_module(pkg)
-    # Reload package so runtime-added modules (ingest / F23 wrap) appear in __all__.
-    mod = importlib.reload(mod)
-    subs = getattr(mod, "__all__", None) or []
-    if subs:
-        for name in subs:
-            subname = f"{pkg}.{name}"
-            if subname in sys.modules:
-                importlib.reload(sys.modules[subname])
-            else:
-                importlib.import_module(subname)
-    else:
-        importlib.reload(mod)
-    _ACTIVE_FAMILY = key
-    return key
+        mod = importlib.import_module(pkg)
+        # Reload package so runtime-added modules (ingest / F23 wrap) appear in __all__.
+        mod = importlib.reload(mod)
+        subs = getattr(mod, "__all__", None) or []
+        if subs:
+            for name in subs:
+                subname = f"{pkg}.{name}"
+                if subname in sys.modules:
+                    importlib.reload(sys.modules[subname])
+                else:
+                    importlib.import_module(subname)
+        else:
+            importlib.reload(mod)
+        _ACTIVE_FAMILY = key
+        try:
+            from ate.core.test_detect import register_snippet_pointers
+
+            register_snippet_pointers(key)
+        except Exception:
+            pass
+        try:
+            from ate.core.recipe_walk import register_recipe_specs
+
+            register_recipe_specs(key)
+        except Exception:
+            pass
+        return key
 
 
 
 def register(spec: TestSpec) -> TestSpec:
-
-    _REGISTRY[spec.id] = spec
-
+    with _LOCK:
+        _REGISTRY[spec.id] = spec
     return spec
 
 
-
-
-
 def get(test_id: str) -> Optional[TestSpec]:
-
-    return _REGISTRY.get(test_id)
-
-
-
+    with _LOCK:
+        return _REGISTRY.get(test_id)
 
 
 def all_tests() -> list[TestSpec]:
-
     """Return tests in fixture-canonical order (same board grouped)."""
-
-    specs = list(_REGISTRY.values())
-
+    with _LOCK:
+        specs = list(_REGISTRY.values())
     specs.sort(
-
         key=lambda s: (
-
             fixture_mode_rank(s.fixture_mode),
-
             within_mode_test_rank(s.fixture_mode, s.id),
-
             s.id,
-
         )
-
     )
 
     return specs
 
 
+def load_family_tests(family: str | None = None) -> list[TestSpec]:
+    """load_family + all_tests under one lock (Tests page vs detect scan)."""
+    with _LOCK:
+        load_family(family)
+        specs = list(_REGISTRY.values())
+    specs.sort(
+        key=lambda s: (
+            fixture_mode_rank(s.fixture_mode),
+            within_mode_test_rank(s.fixture_mode, s.id),
+            s.id,
+        )
+    )
+    return specs
 
 
+
+
+
+
+def union_registered_ids(*, restore: str = '') -> set[str]:
+    """Ids from every known family. Restores restore/previous family under one lock."""
+    with _LOCK:
+        prev = restore or _ACTIVE_FAMILY
+        out: set[str] = set()
+        for fam in known_families():
+            try:
+                load_family(fam)
+                for spec in list(_REGISTRY.values()):
+                    out.add(str(spec.id).lower())
+                    out.add(f"test_{spec.id}".lower())
+                    sheet = str(getattr(spec, "lab_sheet", "") or "").strip().lower()
+                    if sheet:
+                        out.add(sheet)
+            except Exception:
+                continue
+        if prev:
+            try:
+                load_family(prev)
+            except Exception:
+                pass
+        return out
 
 def filter_runnable(available: set[str]) -> list[TestSpec]:
 

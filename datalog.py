@@ -23,7 +23,7 @@ class DataLogger:
         self.user_id = user_id
         self.start_time = time.time()
         self.beginning_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.entries = ['lolollololo']
+        self.entries = []
         self.columns = ['parameters', 'min', 'max', 'T_ms', 'Value', 'pass_fail', 'soft_bin']
 
     def log_test(self, parameter, result, t_ms=None, duration_ms=None):
@@ -67,12 +67,13 @@ class DataLogger:
 
     def save_to_csv(self):
         """Save all logged entries to Excel file with metadata in first sheet."""
-        if not self.entries:
+        rows = [e for e in self.entries if isinstance(e, dict)]
+        if not rows:
             return
 
         # Calculate summary statistics
-        functional_fails = sum(1 for e in self.entries if e['soft_bin'] == 2)
-        ac_fails = sum(1 for e in self.entries if e['soft_bin'] == 3)
+        functional_fails = sum(1 for e in rows if e['soft_bin'] == 2)
+        ac_fails = sum(1 for e in rows if e['soft_bin'] == 3)
         
         if functional_fails > 0:
             overall_pass_fail = 'FAIL'
@@ -99,7 +100,7 @@ class DataLogger:
             [],  # Empty row for spacing
         ]
 
-        df_results = pd.DataFrame(self.entries, columns=self.columns)
+        df_results = pd.DataFrame(rows, columns=self.columns)
 
         with pd.ExcelWriter(self.filename, engine='openpyxl') as writer:
             df_metadata = pd.DataFrame(metadata_rows)
@@ -107,9 +108,9 @@ class DataLogger:
             df_results.to_excel(writer, sheet_name='Summary', index=False, startrow=len(metadata_rows) + 1)
 
             # Optional: Add individual test result sheets grouped by parameter
-            for parameter in set(e.get('parameters') for e in self.entries if 'parameters' in e):
+            for parameter in set(e.get('parameters') for e in rows if 'parameters' in e):
                 if parameter:
-                    param_entries = [e for e in self.entries if e.get('parameters') == parameter]
+                    param_entries = [e for e in rows if e.get('parameters') == parameter]
                     if param_entries:
                         df_param = pd.DataFrame(param_entries, columns=self.columns)
                         sheet_name = str(parameter)[:31]

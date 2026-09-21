@@ -2,12 +2,13 @@ part: RS1G08
 datasheet:
   lang: en
   source: local-reference
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS1G08_(RevA.7).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs1g08.txt
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS1G08_(RevA.7).pdf'
+  extract: ate/config/datasheets/text/rs1g08.txt
 specs:
 - id: VOH_2p0V
   unit: V
   min: 1.6
+  pass_mode: min_only
   test: voh_load
   source: parts/rs1g08.yaml voh_table
 - id: VOH_3p3V
@@ -58,6 +59,7 @@ specs:
 - id: ICC_uA
   unit: uA
   max: 1.0
+  pass_mode: max_only
   test: supply_current
   source: local:RS1G08_(RevA.7).pdf
 - id: VCC_V
@@ -65,3 +67,33 @@ specs:
   min: 1.65
   max: 5.5
   source: local:RS1G08_(RevA.7).pdf
+- id: VOH_1p65V
+  unit: V
+  min: 1.2
+  test: voh_load
+  source: parts/rs1g08.yaml voh_table
+- id: VOH_2p3V
+  unit: V
+  min: 1.9
+  test: voh_load
+  source: parts/rs1g08.yaml voh_table
+- id: VOH_3p0V
+  unit: V
+  min: 2.4
+  test: voh_load
+  source: parts/rs1g08.yaml voh_table
+- id: VOL_1p65V
+  unit: V
+  max: 0.45
+  test: vol_load
+  source: parts/rs1g08.yaml vol_table
+- id: VOL_2p3V
+  unit: V
+  max: 0.3
+  test: vol_load
+  source: parts/rs1g08.yaml vol_table
+- id: VOL_3p0V
+  unit: V
+  max: 0.4
+  test: vol_load
+  source: parts/rs1g08.yaml vol_table

@@ -37,7 +37,6 @@ CASES: tuple[tuple[str, str, str, frozenset[str]], ...] = (
     ("tr", "tr", "tr", frozenset({"MSO", "PSU", "AWG"})),
     ("tf", "tf", "tf", frozenset({"MSO", "PSU", "AWG"})),
     ("tsk", "Tsk", "Tsk", frozenset({"MSO", "PSU", "AWG"})),
-    ("cpd", "Cpd", "Cpd", frozenset({"DMM"})),
     ("tw", "tw", "tw", frozenset({"MSO", "PSU", "AWG"})),
 )
 
@@ -126,32 +125,27 @@ def _avg_a(dmm, n: int = 3) -> float:
 
 
 def _run_threshold(instr, params: RunParams, *, rising: bool) -> dict[str, Any]:
+    """Datasheet VIH/VIL are input *conditions*, not a trip-point min/max.
+
+    Apply 0.65*VCCA (VIH) or 0.35*VCCA (VIL) and require B-side Vout high/low.
+    Do not judge the switching threshold against 0.65 -- a ~0.5*VCCA trip is valid.
+    """
     _require(instr, "PSU", "AWG", "DMM")
     from dmm_setup import dmm_read, dmm_setup_voltage
     from generator_setup import setup_dc, stop_output
 
     vcca, vccb, ilim = rails_from_params(params)
+    frac = 0.65 if rising else 0.35
+    vin = frac * vcca
     mid = vccb / 2.0
-    found = None
-    prev = None
+    vout = float("nan")
     try:
         _power_dual(instr, vcca, vccb, ilim)
         _oe_enable(instr, vcca)
         dmm_setup_voltage(instr.dmm)
-        steps = list(range(0, int(vcca * 100) + 1, 10))
-        if not rising:
-            steps = list(reversed(steps))
-        for i in steps:
-            vin = i / 100.0
-            setup_dc(instr.gen, 1, vin)
-            time.sleep(0.05)
-            vout = float(dmm_read(instr.dmm))
-            if prev is not None:
-                if rising and prev < mid <= vout:
-                    found = vin
-                if (not rising) and prev >= mid > vout:
-                    found = vin
-            prev = vout
+        setup_dc(instr.gen, 1, vin)
+        time.sleep(0.2)
+        vout = float(dmm_read(instr.dmm))
     finally:
         try:
             stop_output(instr.gen)
@@ -159,14 +153,42 @@ def _run_threshold(instr, params: RunParams, *, rising: bool) -> dict[str, Any]:
             pass
         _power_down(instr)
     key = "VIH" if rising else "VIL"
+    high = vout >= mid
+    if rising and not high:
+        raise RuntimeError(
+            f"VIH: Vout={vout:.4f} V still low at Vin={vin:.3f} V (0.65*VCCA). "
+            "Probe DMM on B-side output."
+        )
+    if (not rising) and high:
+        raise RuntimeError(
+            f"VIL: Vout={vout:.4f} V still high at Vin={vin:.3f} V (0.35*VCCA)."
+        )
     return {
-        "summary": f"{key}={found} V @ VCCA={vcca} VCCB={vccb}",
-        "data": {"VCCA": vcca, "VCCB": vccb, key: found},
+        "summary": f"{key} Vin={vin:.3f} V Vout={vout:.4f} V @ VCCA={vcca} VCCB={vccb}",
+        "data": {"VCCA": vcca, "VCCB": vccb, "VIN": vin, "VOUT": vout, key: vin},
+        "measurements": [
+            {"id": f"{key}_V", "value": round(vin, 4), "unit": "V"},
+            {"id": f"{key}_RATIO", "value": frac, "unit": ""},
+        ],
     }
 
 
 def _run_voh_vol(instr, params: RunParams, *, high: bool) -> dict[str, Any]:
     _require(instr, "PSU", "AWG", "DMM")
+    if high:
+        ok = _pause(
+            params,
+            "VOH (not VOL): PSU CH1=VCCA CH2=VCCB, AWG A=VCCA, DMM on B-side Y. "
+            "VOL wiring differs. Continue.",
+        )
+    else:
+        ok = _pause(
+            params,
+            "VOL (not VOH): PSU CH1=VCCA CH2=VCCB, AWG A=0, DMM on B-side Y. "
+            "VOH wiring differs. Continue.",
+        )
+    if not ok:
+        return {"summary": "aborted", "data": {}}
     from generator_setup import setup_dc, stop_output
 
     vcca, vccb, ilim = rails_from_params(params)
@@ -294,15 +316,21 @@ def _run_delay(instr, params: RunParams, *, a_to_b: bool) -> dict[str, Any]:
             pass
         _power_down(instr)
     label = "Tpd" if a_to_b else "Tp"
+    phl, plh = t_hl * 1e9, t_lh * 1e9
+    mid = "TPD" if a_to_b else "TP"
     return {
-        "summary": f"{label} tHL={t_hl * 1e9:.2f} ns tLH={t_lh * 1e9:.2f} ns",
+        "summary": f"{label} tHL={phl:.2f} ns tLH={plh:.2f} ns",
         "data": {
             "VCCA": vcca,
             "VCCB": vccb,
             "dir": "A_to_B" if a_to_b else "B_to_A",
-            "tPHL_ns": t_hl * 1e9,
-            "tPLH_ns": t_lh * 1e9,
+            "tPHL_ns": phl,
+            "tPLH_ns": plh,
         },
+        "measurements": [
+            {"id": f"{mid}_PHL_ns", "value": phl, "unit": "ns"},
+            {"id": f"{mid}_PLH_ns", "value": plh, "unit": "ns"},
+        ],
     }
 
 
@@ -334,9 +362,11 @@ def _run_oe_time(instr, params: RunParams, *, enable: bool) -> dict[str, Any]:
             pass
         _power_down(instr)
     ns = t * 1e9
+    sid = "TEN_ns" if enable else "TDIS_ns"
     return {
         "summary": f"{name}={ns:.2f} ns (workbook {sheet})",
         "data": {"VCCA": vcca, "VCCB": vccb, name.upper() + "_ns": ns},
+        "measurements": [{"id": sid, "value": ns, "unit": "ns"}],
     }
 
 
@@ -363,9 +393,11 @@ def _run_edge(instr, params: RunParams, *, rise: bool) -> dict[str, Any]:
             pass
         _power_down(instr)
     ns = t * 1e9
+    sid = "TR_ns" if rise else "TF_ns"
     return {
         "summary": f"{key}={ns:.2f} ns (B port)",
         "data": {"VCCA": vcca, "VCCB": vccb, key + "_ns": ns},
+        "measurements": [{"id": sid, "value": ns, "unit": "ns"}],
     }
 
 
@@ -394,6 +426,7 @@ def _run_tw(instr, params: RunParams) -> dict[str, Any]:
     return {
         "summary": f"tw={ns:.2f} ns @ {freq / 1e6:.0f} MHz",
         "data": {"VCCA": vcca, "VCCB": vccb, "tw_ns": ns, "freq_hz": freq},
+        "measurements": [{"id": "TW_ns", "value": ns, "unit": "ns"}],
     }
 
 
@@ -425,6 +458,7 @@ def _run_tsk(instr, params: RunParams) -> dict[str, Any]:
     return {
         "summary": f"tsk(O)={ns:.2f} ns (B1 vs B2)",
         "data": {"VCCA": vcca, "VCCB": vccb, "tsk_ns": ns},
+        "measurements": [{"id": "TSK_ns", "value": ns, "unit": "ns"}],
     }
 
 
@@ -462,10 +496,12 @@ def _run_fmax(instr, params: RunParams) -> dict[str, Any]:
     return {
         "summary": f"fmax~{last_ok / 1e6:.1f} Mbps (AWG cap; last Vpp={last_vpp:.3f} V)",
         "data": {"VCCA": vcca, "VCCB": vccb, "fmax_hz": last_ok, "VPP": last_vpp},
+        "measurements": [{"id": "FMAX_Mbps", "value": last_ok / 1e6, "unit": "Mbps"}],
     }
 
 
 def _run_cpd(instr, params: RunParams) -> dict[str, Any]:
+    """Pin Cio via DMM CAP. Not I=CVf dynamic Cpd. Called from eugene_cap.run_cpd."""
     _require(instr, "DMM")
     from dmm_setup import dmm_read, dmm_setup_cap
     from psu_setup import power_off
@@ -482,6 +518,7 @@ def _run_cpd(instr, params: RunParams) -> dict[str, Any]:
     return {
         "summary": f"Cio={pf:.2f} pF (pin cap, not dynamic Cpd)",
         "data": {"CAP_pF": pf},
+        "measurements": [{"id": "CIO_A_pF", "value": pf, "unit": "pF"}],
     }
 
 
@@ -540,7 +577,6 @@ _RUN = {
     "tr": _run_tr,
     "tf": _run_tf,
     "tsk": _run_tsk,
-    "cpd": _run_cpd,
     "tw": _run_tw,
 }
 

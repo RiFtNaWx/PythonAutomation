@@ -1,14 +1,48 @@
-# RS2227 analog switch. Same class as RS2323. RS22X PDF is RS222 opamp -- unused.
-
 part: RS2227
 datasheet:
   lang: en
-  source: unfound
-  notes: No analog-switch PDF in local Reference. Do not attach RS22X opamp.
-
+  source: local-reference
+  notes: Electrical table is PDF image. Banner tON 20 ns / tOFF 15 ns. Do not attach
+    RS22X opamp.
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS2227_(RevWeb).pdf'
+  extract: ate/config/datasheets/text/rs2227.txt
 specs:
-  - id: IPLUS_uA
-    test: iplus
-    unit: uA
-    max: 1.0
-    source: parts/rs2227.yaml display_limit_ua (or rs2323 default)
+- id: IPLUS_uA
+  test: iplus
+  unit: uA
+  max: 1.0
+  source: parts/rs2227.yaml display_limit_ua
+- id: IOZ_uA
+  test: leakage_off
+  unit: uA
+  source: leakage_off worst (USB Hi-Z OE=V+ on D+/D-)
+- id: ION_uA
+  test: leakage_on
+  unit: uA
+  source: leakage_on worst
+- id: IIN_uA
+  test: input_leakage
+  unit: uA
+  source: input_leakage worst
+- id: USB_RON_ohm
+  test: usb_ron
+  unit: ohm
+  source: platform 10 mA D+ to HSDn (min/max PDF image)
+- id: USB_TON_ns
+  test: usb_ton_toff
+  unit: ns
+  typ: 20
+  source: local:RS2227_(RevWeb).pdf banner tON 20ns (min/max PDF image)
+- id: USB_TOFF_ns
+  test: usb_ton_toff
+  unit: ns
+  typ: 15
+  source: local:RS2227_(RevWeb).pdf banner tOFF 15ns (min/max PDF image)
+- id: USB_ISO_dB
+  test: usb_iso
+  unit: dB
+  source: 1 MHz high-Z Vhsd/Vd+ (no invented min/max; not 50 ohm RF image)
+- id: USB_XTALK_dB
+  test: usb_xtalk
+  unit: dB
+  source: 1 MHz high-Z Vhsd2/Vhsd1 (no invented min/max; not 50 ohm RF image)

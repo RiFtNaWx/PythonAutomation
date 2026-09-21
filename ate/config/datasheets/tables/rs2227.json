@@ -1,0 +1,99 @@
+{
+  "part": "RS2227",
+  "part_key": "rs2227",
+  "path_rule": "Prefix may be any OneDrive/SharePoint sync folder. Slice at #Test_Database. Live Excel: #Test_Database/{Component}/{Part}/{Package}/{Operator}/{Version_N}/workbook/. Golden lab xlsx: reports_root (%USERPROFILE%/Downloads/Product Testing Report) else #Test_Database/_ate/goldens. Store inventory report: as a relative key (RS622/foo.xlsx). PDFs: %USERPROFILE%/Downloads/Reference/Reference else #Test_Database/Reference; index file name only. Specs SoT: ate/config/limits/<key>.yaml. Truth table SoT: ate/config/parts/<key>.yaml truth_table. Extract blob: ate/config/datasheets/text/<key>.txt. Export index: ate/config/datasheets/tables/<key>.json. Do not dump PDFs into #Test_Database. Do not guess A91. Do not store C:\\Users\\<name> in zip config.",
+  "canonical": {
+    "specs": "ate/config/limits/rs2227.yaml",
+    "truth_table": "ate/config/parts/rs2227.yaml",
+    "extract": "ate/config/datasheets/text/rs2227.txt",
+    "xlsx": "RS2227/RS2227A Test Report.xlsx"
+  },
+  "specs": [
+    {
+      "id": "IPLUS_uA",
+      "test": "iplus",
+      "unit": "uA",
+      "max": 1.0,
+      "source": "parts/rs2227.yaml display_limit_ua",
+      "min": null,
+      "typ": null
+    },
+    {
+      "id": "IOZ_uA",
+      "test": "leakage_off",
+      "unit": "uA",
+      "source": "leakage_off worst (USB Hi-Z OE=V+ on D+/D-)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "ION_uA",
+      "test": "leakage_on",
+      "unit": "uA",
+      "source": "leakage_on worst",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "IIN_uA",
+      "test": "input_leakage",
+      "unit": "uA",
+      "source": "input_leakage worst",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "USB_RON_ohm",
+      "test": "usb_ron",
+      "unit": "ohm",
+      "source": "platform 10 mA D+ to HSDn (min/max PDF image)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "USB_TON_ns",
+      "test": "usb_ton_toff",
+      "unit": "ns",
+      "typ": 20.0,
+      "source": "local:RS2227_(RevWeb).pdf banner tON 20ns (min/max PDF image)",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "USB_TOFF_ns",
+      "test": "usb_ton_toff",
+      "unit": "ns",
+      "typ": 15.0,
+      "source": "local:RS2227_(RevWeb).pdf banner tOFF 15ns (min/max PDF image)",
+      "min": null,
+      "max": null
+    },
+    {
+      "id": "USB_ISO_dB",
+      "test": "usb_iso",
+      "unit": "dB",
+      "source": "1 MHz high-Z Vhsd/Vd+ (no invented min/max; not 50 ohm RF image)",
+      "min": null,
+      "max": null,
+      "typ": null
+    },
+    {
+      "id": "USB_XTALK_dB",
+      "test": "usb_xtalk",
+      "unit": "dB",
+      "source": "1 MHz high-Z Vhsd2/Vhsd1 (no invented min/max; not 50 ohm RF image)",
+      "min": null,
+      "max": null,
+      "typ": null
+    }
+  ],
+  "truth_table": {},
+  "voh_table": [],
+  "vol_table": [],
+  "format": "json",
+  "note": "Edit yaml, then re-ingest. Do not treat this JSON as SoT. XML is not used."
+}

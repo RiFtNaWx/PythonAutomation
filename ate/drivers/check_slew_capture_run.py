@@ -67,6 +67,8 @@ class _FakePsu:
         for ch in ("1", "2", "3"):
             if f":OUTP?CH{ch}" in text:
                 return self.states[ch]
+            if f":SOUR{ch}:VOLT:PROT:STAT?" in text or f":SOUR{ch}:CURR:PROT:STAT?" in text:
+                return "ON"
         return "OFF"
 
 
@@ -147,11 +149,13 @@ def main() -> int:
     visa_msg = "VI_ERROR_SYSTEM_ERROR (-1073807360): Unknown system error"
     if not is_visa_poison(visa_msg):
         raise AssertionError("is_visa_poison must match VI_ERROR_SYSTEM_ERROR")
+    if is_visa_poison("VI_ERROR_TMO (-1073807339): Timeout expired before operation completed."):
+        raise AssertionError("TMO is a slow MSO query, not DISP:DATA poison")
     if is_visa_poison("probe on GND / wrong channel / AWG off"):
         raise AssertionError("GND/Cnt=0 must still ask the operator")
 
     run_one = inspect.getsource(ATECore._run_one)
-    if "is_visa_poison" not in run_one or "range(2)" not in run_one:
+    if ("is_visa_poison" not in run_one and "_visa_poison" not in run_one) or "range(2)" not in run_one:
         raise AssertionError("_run_one must retry once on VISA poison")
     if "_reopen_mso_after_visa" not in run_one:
         raise AssertionError("_run_one retry must reopen MSO, not only *CLS")
@@ -165,7 +169,7 @@ def main() -> int:
         raise AssertionError("VISA fail after retry must skip Continue/Abort popup")
 
     reopen = inspect.getsource(Instruments.reopen_scope)
-    if "open_resource" not in reopen:
+    if "_open_url" not in reopen and "open_resource" not in reopen:
         raise AssertionError("Instruments.reopen_scope must open a fresh MSO handle")
 
     psu_on_src = inspect.getsource(power_on_protected)

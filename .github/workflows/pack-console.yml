@@ -1,0 +1,45 @@
+name: pack-console
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [eugene-console]
+    paths:
+      - "ate/**"
+      - "START.bat"
+      - "pack_ate_console.py"
+      - "requirements-console.txt"
+      - "00_START_HERE.txt"
+      - "run_ate_app.bat"
+  tags:
+    - "console-*"
+    - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check packet
+        run: python pack_ate_console.py --check
+      - name: Build zip
+        run: python pack_ate_console.py
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ATE_Console_Try
+          path: dist/ATE_Console_Try_*.zip
+          if-no-files-found: error
+      - name: GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $zip = Get-ChildItem dist/ATE_Console_Try_*.zip | Select-Object -First 1
+          gh release create "${{ github.ref_name }}" "$($zip.FullName)" --title "ATE console ${{ github.ref_name }}" --notes "Unzip. Double-click START.bat. If #Test_Database is missing, the console still opens: Setup -> Choose folder."

@@ -11,5 +11,15 @@ datalog_output/
 *.xlsx
 *.csv
 dist/
+!ate/ui/web/canvas/
+ate/ui/canvas/node_modules/
 ate/config/cloud_db.txt
+ate/config/datasheets/last_ingest.json
 .ate_last_sync
+_tmp_*
+CircuitSim/
+OpenCircuitX/
+kicad-source-mirror/
+oscilloscope_screenshots/
+ate/worker/supervisor.pid
+force_continue.bat

@@ -13,6 +13,8 @@ STAT_KEYS = ("CURRent", "AVERages", "MAXimum", "MINimum", "DEViation", "COUNt")
 def is_visa_poison(exc: BaseException | str) -> bool:
     """MSO leftover :DISP:DATA? / USB stack death (not a DUT measurement fail)."""
     msg = str(exc)
+    if "TMO" in msg or "-1073807339" in msg:
+        return False
     return (
         "VI_ERROR" in msg
         or "-1073807360" in msg
@@ -20,19 +22,32 @@ def is_visa_poison(exc: BaseException | str) -> bool:
     )
 
 
-def capture_jpeg(scope, filepath, timeout_ms: int = 10000, quality: int = 90) -> str:
+def _write_sim_shot_note(scope, filepath: str | Path) -> None:
+    if type(scope).__name__ != "SimResource":
+        return
+    dest = Path(filepath)
+    dest.with_suffix(".txt").write_text(
+        f"SIM screenshot placeholder for {dest.name}\n"
+        "not a live MSO frame -- DEMO PyVISA\n",
+        encoding="utf-8",
+    )
+
+
+def capture_jpeg(scope, filepath, timeout_ms: int = 20000, quality: int = 90) -> str:
     from scope_setup import recover_scope_session
 
     path = Path(filepath)
     if path.suffix.lower() not in {".jpg", ".jpeg"}:
         path = path.with_suffix(".jpg")
     try:
-        return capture_scope_png(scope, path, timeout_ms=timeout_ms, jpeg_quality=quality)
+        out = capture_scope_png(scope, path, timeout_ms=timeout_ms, jpeg_quality=quality)
     except Exception as exc:
         if not is_visa_poison(exc):
             raise
         recover_scope_session(scope, run=True)
-        return capture_scope_png(scope, path, timeout_ms=timeout_ms, jpeg_quality=quality)
+        out = capture_scope_png(scope, path, timeout_ms=timeout_ms, jpeg_quality=quality)
+    _write_sim_shot_note(scope, out)
+    return out
 
 
 def apply_scope_preset(scope, preset: dict) -> None:
@@ -185,6 +200,8 @@ def wait_slew_statistics(
     settle_s: float = 1.5,
 ) -> None:
     """Let statistic engine accumulate before screenshot / readout."""
+    if getattr(scope, "simulated", False):
+        return
     try:
         scope.write(":RUN")
     except Exception:

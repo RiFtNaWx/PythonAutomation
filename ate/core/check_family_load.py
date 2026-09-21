@@ -31,6 +31,19 @@ _LOGIC_PROBE_IDS = frozenset(
         "vih_vil",
         "voh_load",
         "vol_load",
+        "cin",
+        "cpd",
+        "clk_q",
+        "pulse_width",
+        "serial_shift",
+        "ioz",
+        "i2c_ii",
+        "i2c_ron",
+        "i2c_cioff",
+        "delta_icc",
+        "ii",
+        "ioff",
+        "input_threshold",
     }
 )
 _OPA_BOARD_MODES = frozenset({"G11", "G_NEG100", "G201", "G1001"})
@@ -121,6 +134,21 @@ def _check_family_conditions() -> None:
         raise AssertionError("rs29511 catalog must not include Ariff vol_load")
     if "supply_current_sweep" in (logic_cat.get("tests") or {}):
         raise AssertionError("rs29511 catalog must not include supply_current_sweep")
+    seelim97 = catalog_for_ui("rs1g97", family="logic")
+    t97 = seelim97.get("tests") or {}
+    if "voh_load" in t97 or "vih_vil" in t97 or "vol_load" in t97:
+        raise AssertionError("rs1g97 catalog must not include Ariff voh/vih")
+    for need in ("icc", "delta_icc", "ii", "input_threshold"):
+        if need not in t97:
+            raise AssertionError(f"rs1g97 catalog must include SeeLim {need}")
+    seelim126 = catalog_for_ui("rs1g126", family="logic")
+    t126 = seelim126.get("tests") or {}
+    if "voh_load" in t126:
+        raise AssertionError("rs1g126 catalog must not include unwritten VOH")
+    if "ten" not in t126 or "tdis" not in t126:
+        raise AssertionError("rs1g126 catalog must include Path B ten/tdis")
+    if "ioff" not in t126 or "ioz" not in t126:
+        raise AssertionError("rs1g126 catalog must include SeeLim ioff/ioz")
     rs0204_cat = catalog_for_ui("rs0204", family="logic")
     _assert_logic_catalog(rs0204_cat)
     if "vih" not in (rs0204_cat.get("tests") or {}):
@@ -166,6 +194,10 @@ def _check_family_conditions() -> None:
     rs2227_cat = catalog_for_ui("rs2227", family="switch")
     if "iplus" not in (rs2227_cat.get("tests") or {}):
         raise AssertionError("rs2227 analog-switch catalog must include iplus")
+    if "usb_ron" not in (rs2227_cat.get("tests") or {}):
+        raise AssertionError("rs2227 catalog must include usb_ron")
+    if "usb_iso" not in (rs2227_cat.get("tests") or {}):
+        raise AssertionError("rs2227 catalog must include usb_iso")
     power_cat = catalog_for_ui("rs3213", family="power")
     _assert_logic_catalog(power_cat)
     if "iq" not in (power_cat.get("tests") or {}):
@@ -243,6 +275,28 @@ def main() -> int:
     lim_ids = {t.id for t in all_tests()}
     if "iplus" not in lim_ids:
         raise AssertionError("load_family(switch): missing iplus")
+    if "ron" not in lim_ids:
+        raise AssertionError("load_family(switch): missing ron")
+    if "ton_toff" not in lim_ids:
+        raise AssertionError("load_family(switch): missing ton_toff")
+    if "con_coff" not in lim_ids:
+        raise AssertionError("load_family(switch): missing con_coff")
+    if "tbbm" not in lim_ids:
+        raise AssertionError("load_family(switch): missing tbbm")
+    if "vth" not in lim_ids:
+        raise AssertionError("load_family(switch): missing vth")
+    if "usb_ron" not in lim_ids:
+        raise AssertionError("load_family(switch): missing usb_ron")
+    if "usb_ton_toff" not in lim_ids:
+        raise AssertionError("load_family(switch): missing usb_ton_toff")
+    if "iso" not in lim_ids:
+        raise AssertionError("load_family(switch): missing iso")
+    if "xtalk" not in lim_ids:
+        raise AssertionError("load_family(switch): missing xtalk")
+    if "usb_iso" not in lim_ids:
+        raise AssertionError("load_family(switch): missing usb_iso")
+    if "usb_xtalk" not in lim_ids:
+        raise AssertionError("load_family(switch): missing usb_xtalk")
     if load_family("lim") != "switch":
         raise AssertionError("load_family(lim) must alias to switch")
     lim_ids = {t.id for t in all_tests()}

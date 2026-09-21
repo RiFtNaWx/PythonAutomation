@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 import yaml
 
-from ate.core.paths import CONFIG_DIR, expand_user_path
+from ate.core.paths import CONFIG_DIR, TEST_DB_ROOT, expand_user_path, resolve_portable, store_config_path, store_portable
 from ate.core.specs import LIMITS_DIR, load_part_yaml
 
 INDEX_PATH = CONFIG_DIR / "datasheets.yaml"
@@ -41,7 +41,17 @@ def reference_root() -> Path:
         data = yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
         raw = str((data or {}).get("reference_root") or "").strip()
         if raw:
-            return expand_user_path(raw)
+            try:
+                p = expand_user_path(raw)
+            except ValueError:
+                p = Path()
+            if p.is_dir():
+                return p
+    if _DEFAULT_REF.is_dir():
+        return _DEFAULT_REF
+    cloud_ref = Path(TEST_DB_ROOT) / "Reference"
+    if cloud_ref.is_dir():
+        return cloud_ref
     return _DEFAULT_REF
 
 
@@ -105,7 +115,7 @@ def scan_pdfs(root: Path | None = None) -> list[dict[str, Any]]:
         rows.append(
             {
                 "file": name,
-                "path": str(path),
+                "path": store_portable(path),
                 "parts": parts,
                 "kind": kind,
                 "bytes": path.stat().st_size,
@@ -141,7 +151,7 @@ def build_index(*, persist: bool = True) -> dict[str, Any]:
             }
         )
     doc = {
-        "source": str(reference_root()),
+        "source": store_portable(reference_root()),
         "note": "Local PDFs first. Web fetch only if a tested SKU has no file here.",
         "pdfs": pdfs,
         "inventory": inv,
@@ -160,21 +170,38 @@ def resolve_pdf(part: str, *, index: dict[str, Any] | None = None) -> Optional[P
     )
     if not isinstance(doc, dict):
         doc = build_index(persist=False)
+    root = reference_root()
+    cloud_ref = Path(TEST_DB_ROOT) / "Reference"
+
+    def _open_pdf(raw: str, filename: str = "") -> Optional[Path]:
+        hit = resolve_portable(raw, root, cloud_ref)
+        if hit is not None and hit.is_file():
+            return hit
+        name = filename or Path(str(raw or "")).name
+        if name and root.is_dir():
+            cand = root / name
+            if cand.is_file():
+                return cand
+        return None
+
     for row in doc.get("inventory") or []:
-        if str(row.get("part") or "").upper() == sku and row.get("pdf_path"):
-            p = Path(str(row["pdf_path"]))
-            if p.is_file():
-                return p
+        if str(row.get("part") or "").upper() == sku:
+            got = _open_pdf(str(row.get("pdf_path") or ""), str(row.get("pdf") or ""))
+            if got is not None:
+                return got
     for row in doc.get("pdfs") or []:
         if sku in [str(x).upper() for x in (row.get("parts") or [])]:
-            p = Path(str(row.get("path") or ""))
-            if p.is_file():
-                return p
+            got = _open_pdf(str(row.get("path") or ""), str(row.get("file") or ""))
+            if got is not None:
+                return got
     # Direct filename
-    root = reference_root()
     for p in root.glob("*.pdf") if root.is_dir() else []:
         if sku.lower() in p.name.lower():
             return p
+    if cloud_ref.is_dir():
+        for p in cloud_ref.glob("*.pdf"):
+            if sku.lower() in p.name.lower():
+                return p
     return None
 
 
@@ -290,8 +317,8 @@ def sync_limits_from_local(part: str, *, part_key: str = "", web_ok: bool = Fals
                 {
                     "lang": "en",
                     "source": "local-reference",
-                    "file": str(pdf),
-                    "extract": text_path or ds.get("extract") or "",
+                    "file": store_portable(pdf),
+                    "extract": store_config_path(text_path or ds.get("extract") or ""),
                 }
             )
             payload["datasheet"] = ds
@@ -323,8 +350,8 @@ def sync_limits_from_local(part: str, *, part_key: str = "", web_ok: bool = Fals
         {
             "lang": "en",
             "source": "local-reference" if pdf else ds.get("source") or "unfound",
-            "file": str(pdf) if pdf else ds.get("file") or "",
-            "extract": text_path,
+            "file": store_portable(pdf) if pdf else ds.get("file") or "",
+            "extract": store_config_path(text_path) if text_path else ds.get("extract") or "",
         }
     )
     payload["datasheet"] = ds
@@ -341,6 +368,38 @@ def sync_limits_from_local(part: str, *, part_key: str = "", web_ok: bool = Fals
         "wrote": True,
         "note": "Local PDF/index only. Did not scrape the website.",
     }
+
+
+def portable_limits_meta(*, write: bool = True) -> int:
+    """Rewrite datasheet.file / extract in limits yaml to zip-safe keys."""
+    n = 0
+    if not LIMITS_DIR.is_dir():
+        return 0
+    for path in LIMITS_DIR.glob("*.yaml"):
+        loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        if not isinstance(loaded, dict):
+            continue
+        ds = loaded.get("datasheet")
+        if not isinstance(ds, dict):
+            continue
+        changed = False
+        raw_file = str(ds.get("file") or "")
+        if raw_file:
+            neu = store_portable(raw_file)
+            if neu != raw_file:
+                ds["file"] = neu
+                changed = True
+        raw_ex = str(ds.get("extract") or "")
+        if raw_ex:
+            neu = store_config_path(raw_ex)
+            if neu != raw_ex:
+                ds["extract"] = neu
+                changed = True
+        if changed and write:
+            loaded["datasheet"] = ds
+            path.write_text(yaml.safe_dump(loaded, sort_keys=False, allow_unicode=True), encoding="utf-8")
+            n += 1
+    return n
 
 
 def sync_inventory_limits(*, web_ok: bool = False) -> dict[str, Any]:

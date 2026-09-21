@@ -1,0 +1,50 @@
+---
+description: Auto-restart ATE worker after bench/code fixes when idle; avoid tedious manual restart.
+alwaysApply: true
+---
+
+# ATE worker auto-restart (PythonAutomation)
+
+Port **8766** = ATE worker (`ate.worker.server`). Do not ask the operator to restart by hand when you can do it safely.
+
+## When to auto-restart (mandatory)
+
+After edits that the running worker will not pick up otherwise:
+
+- `ate/core/runner.py`, `ate/worker/**`, `ate/tests/**`, `opa_tests.py`
+- `scope_setup.py`, `generator_setup.py`, `psu_setup.py`, instruments session
+- Operator UI (`ate/ui/web/**`) — restart not required for static JS, but tell user **Ctrl+F5**; restart worker if RPC/API changed
+
+Especially after these failure-mode fixes:
+
+- `VI_ERROR_SYSTEM_ERROR` / VISA recover / screenshot poison
+- Safe-idle (PSU/AWG off while waiting)
+- DUT/channel gate order, GBW sweep, operator console bugs
+
+## Idle check (do not interrupt a live run)
+
+Before kill/restart:
+
+1. Prefer RPC `session_status` / busy flag if available (`http://127.0.0.1:8766`).
+2. Else: if operator is mid Continue / RUN banner, **ask once** before restart.
+3. If idle (no busy run, or only Setup page): restart without asking.
+
+## How to restart
+
+Use repo helper (preferred):
+
+```bat
+restart_ate_worker.bat
+```
+
+Or equivalent:
+
+1. Free port 8766 (stop old `ate.worker.server` / python hosting it).
+2. Start `run_ate_worker.bat` (or `venv\Scripts\python.exe -m ate.worker.server`).
+3. Confirm with a quick `ping` RPC if possible.
+4. Tell user: worker restarted; Ctrl+F5 console if UI changed.
+
+## Do not
+
+- Restart during an active DUT measurement unless user said stop/restart.
+- Leave "please restart the worker" as the only next step when idle restart is safe.

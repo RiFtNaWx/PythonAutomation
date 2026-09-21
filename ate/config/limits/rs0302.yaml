@@ -2,6 +2,23 @@ part: RS0302
 datasheet:
   lang: en
   source: local-reference
-  file: C:\Users\OoiJianHong\Downloads\Reference\Reference\RS0302_(RevA.4.1).pdf
-  extract: C:\Users\OoiJianHong\Eugene's Repo\PythonAutomation\ate\config\datasheets\text\rs0302.txt
-specs: []
+  file: '%USERPROFILE%/Downloads/Reference/Reference/RS0302_(RevA.4.1).pdf'
+  extract: ate/config/datasheets/text/rs0302.txt
+  notes: Do not copy RS0204 CMOS limits. RON 64 mA is leftover-honest (platform 10
+    mA).
+specs:
+- id: II_uA
+  test: i2c_ii
+  unit: uA
+  max: 5.0
+  source: local:RS0302_(RevA.4.1).pdf II VI=5V EN=0V
+- id: RON_ohm
+  test: i2c_ron
+  unit: ohm
+  source: platform 10 mA (datasheet 64 mA / 15 mA -- do not invent min/max)
+- id: CIOFF_pF
+  test: i2c_cioff
+  unit: pF
+  typ: 4.0
+  max: 6.0
+  source: local:RS0302_(RevA.4.1).pdf Ci(off) typ 4 max 6

@@ -2,20 +2,20 @@
 
 Lab characterization on a Rigol bench (MSO, DP832, DG8xx, optional DMM) plus an **operator console** that already knows multiple people, product families, and campaign folders.
 
-If you are about to vibe-code: **read [AGENTS.md](AGENTS.md) then [docs/VIBE_CODE.md](docs/VIBE_CODE.md).** AGENTS.md is which file. VIBE_CODE.md is how to edit, check, debug, and add a test (Path A customize / Path B realize / Path C wrap-then-fill).
+If you are about to vibe-code: **read [AGENTS.md](AGENTS.md) then [docs/VIBE_CODE.md](docs/VIBE_CODE.md).** Cursor must auto-use `.cursor/skills/ate-prompt/` (say `Is it like this?` then build). Open [00_START_HERE.txt](00_START_HERE.txt) then double-click **START.bat**. Tutorial: [docs/tutorial/ATE_TUTORIAL.html](docs/tutorial/ATE_TUTORIAL.html).
 
 ## Who gets what
 
 | Who | Start here | Do not |
 |-----|------------|--------|
-| **Run tests only** | Unzip `ATE_Console_Try_*.zip` (or GitHub Release on `eugene-console`), sync SharePoint `#Test_Database`, `START.bat` | Edit Python, keep a private database in the unzip |
-| **Change the product** | `git clone -b eugene-console https://github.com/RiFtNaWx/PythonAutomation.git`, [AGENTS.md](AGENTS.md), `run_ate_app.bat` | Ship operators a git clone; they get the zip |
+| **Run tests only** | Unzip `ATE_Console_Try_*.zip`, **Add shortcut to OneDrive**, `START.bat` | Edit Python, keep a private database in the unzip |
+| **Change the product** | `git clone -b eugene-console`, [AGENTS.md](AGENTS.md), double-click `START.bat` | Ship operators a git clone; they get the zip |
 
 Clone auto-update: opening the folder in Cursor/VS Code, or `run_ate_app.bat`, runs `python -m ate.core.sync_repo` at most once a day. That is `git fetch` + `git pull --ff-only`. Uncommitted files are never replaced. If you have local commits that diverged, it fetches only and leaves your work.
 
 Results always go to the OneDrive-synced `#Test_Database` (path in `ate/config/cloud_db.txt`). There is no second upload API. OneDrive is the upload.
 
-Rebuild the operator zip: `venv\Scripts\python.exe pack_ate_console.py` (Desktop + `dist/`). SharePoint https lives in `ate/config/sharepoint.url`.
+Rebuild the operator zip: `PACK.bat` (or `venv\Scripts\python.exe pack_ate_console.py`). Also GitHub Actions `.github/workflows/pack-console.yml` (push `eugene-console` -> artifact; tag `console-*` -> Release). SharePoint https lives in `ate/config/sharepoint.url`. If `#Test_Database` is not on a PC yet, START still opens; Setup **Choose folder**. New team: [docs/handover/TEAM_ONBOARD.md](docs/handover/TEAM_ONBOARD.md).
 
 ## Two stacks (pick the live one)
 
@@ -106,6 +106,7 @@ Run the check that matches the layer you changed. More commands in AGENTS.md.
 | [docs/tutorial/ATE_TUTORIAL.html](docs/tutorial/ATE_TUTORIAL.html) | Full browser tutorial: every tab, spec, workflow, screenshots |
 | [docs/tutorial/ATE_ONENOTE.md](docs/tutorial/ATE_ONENOTE.md) | 4 OneNote pages: get the console, run START/DEMO, vibe-code, add/customize a test |
 | [docs/VIBE_CODE.md](docs/VIBE_CODE.md) | Edit / check / debug / add a test (Path A/B/C) |
+| `.cursor/skills/ate-prompt/` | Compulsory prompt format: `Is it like this?` then Path A/B/C / OCR / SCPI |
 | [docs/DEMO.md](docs/DEMO.md) | USB START + SIM backup + extra family acts + add-test rehearsal |
 | [docs/tickets/INDEX.md](docs/tickets/INDEX.md) | All tickets: closed / leftover / parked |
 | [docs/SHIP_NEXT.md](docs/SHIP_NEXT.md) | Printable next waves: leftovers, V07, how to ship |

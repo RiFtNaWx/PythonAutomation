@@ -249,6 +249,7 @@
         <li class="section-label">Workflows</li>
         <li><a href="#demo-sim">DEMO (SIM)</a></li>
         <li><a href="#usb-live">USB live START</a></li>
+        <li><a href="#psu-bench">PSU channels (V and A)</a></li>
         <li><a href="#gates">Continue gates</a></li>
         <li><a href="#reports">Reports and files</a></li>
         <li><a href="#add-test">Add / customize tests</a></li>
@@ -263,9 +264,10 @@
     <main>
       <header class="hero" id="intro">
         <p class="kicker">PythonAutomation / ATE</p>
-        <h1>Operator console -- full tutorial</h1>
-        <p>Deep guide to every section of the live ATE operator console: worker <strong>8766</strong>, UI <strong>5174</strong>, SharePoint-synced <code>#Test_Database</code>. This page matches the product in <code>ate/ui/web/</code> as of 2026-09.</p>
-        <p class="meta">Repo docs: <code>AGENTS.md</code>, <code>docs/VIBE_CODE.md</code>, <code>ate/ui/web/UI_CONTRACT.md</code>. OneNote paste pack: <code>docs/tutorial/ATE_ONENOTE.md</code>.</p>
+        <h1>How to use the operator console</h1>
+        <p>This is the lab app you click. Pick your name, pick a product, run one test, then look at the numbers. Pictures below are real shots from this PC (2026-09-14).</p>
+        <p><strong>Fast path:</strong> double-click <code>START.bat</code> -&gt; browser opens -&gt; pick <strong>you</strong> (not All) -&gt; <strong>Apply campaign</strong> -&gt; tick <strong>one</strong> test on Setup -&gt; <strong>DEMO (SIM)</strong> if no instruments, or <strong>Open Session</strong> then <strong>START</strong> if USB is plugged in.</p>
+        <p class="meta">Engineer notes: <code>AGENTS.md</code>, <code>docs/VIBE_CODE.md</code>. This page is for a person at the bench.</p>
       </header>
 
       <!-- INSTALL -->
@@ -275,27 +277,43 @@
         <table>
           <thead><tr><th>Who</th><th>How</th><th>Database</th></tr></thead>
           <tbody>
-            <tr><td><strong>Run tests only</strong></td><td>Unzip <code>ATE_Console_Try_*.zip</code>, double-click <code>START.bat</code></td><td>Shared <code>#Test_Database</code> via OneDrive</td></tr>
-            <tr><td><strong>Vibe-coder</strong></td><td><code>git clone -b eugene-console</code>, <code>python install.py</code>, <code>run_ate_app.bat</code></td><td>Same folder. Never a private copy inside the zip.</td></tr>
+            <tr><td><strong>Run tests only</strong></td><td>Unzip <code>ATE_Console_Try_*.zip</code>, double-click <code>START.bat</code></td><td>Same OneDrive shortcut</td></tr>
+            <tr><td><strong>This git clone</strong></td><td>Double-click <code>START.bat</code> (repo root). <code>python install.py</code> if first time.</td><td>Same folder. Never a private copy inside the zip.</td></tr>
           </tbody>
         </table>
 
-        <h3>Point this PC at the lab folder</h3>
+        <h3>Add OneDrive shortcut (not Sync)</h3>
+        <p>The old method (Sync library, then type <code>C:\Users\YOURNAME\#Test_Database</code> by hand) is retired. If this page still shows that text, press <strong>Ctrl+F5</strong>.</p>
+        <table>
+          <thead><tr><th>You are here</th><th>Launch</th></tr></thead>
+          <tbody>
+            <tr><td><strong>This git folder</strong></td><td>Double-click <code>START.bat</code> at the repo root (same file the zip uses). Or <code>run_ate_app.bat</code> if venv already exists.</td></tr>
+            <tr><td><strong>Unzipped console</strong></td><td>Double-click <code>START.bat</code> at the top of the unzip (read <code>TRY.txt</code>).</td></tr>
+          </tbody>
+        </table>
+        <p>Open this URL (also in <code>ate/config/sharepoint.url</code>):</p>
+        <p><a href="https://jumptechwin.sharepoint.com/sites/RD/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FRD%2FShared%20Documents%2FGeneral%2FHandover%2FJianhong%2F%23Test%5FDatabase&amp;p=true&amp;ga=1">SharePoint -- Handover / Jianhong / #Test_Database</a></p>
         <div class="steps">
-          <div class="step">Sync SharePoint <code>#Test_Database</code> in OneDrive until the folder exists on disk.</div>
-          <div class="step">Edit <code>ate/config/cloud_db.txt</code> -- one line, local path only (not https):<br><pre>C:\Users\YOURNAME\#Test_Database</pre></div>
-          <div class="step">Optional: paste SharePoint https into <code>ate/config/sharepoint.url</code> for <strong>Open central DB</strong> when the folder is missing.</div>
-          <div class="step">Launch: <code>START.bat</code> (zip) or <code>run_ate_app.bat</code> (git). Browser: <code>http://127.0.0.1:5174</code>. Stale UI: <strong>Ctrl+F5</strong>.</div>
+          <div class="step">In that SharePoint page click <strong>Add shortcut to OneDrive</strong> (not Sync, not Download, not drag into Explorer).</div>
+          <div class="step">If OneDrive asks <em>Replace folder with your shortcut?</em> click <strong>Replace</strong>. That is how it stays on every PC forever.</div>
+          <div class="step">Wait until File Explorer shows the folder under <code>OneDrive - JumpWin Tech</code> with a Status column (cloud / sync arrows / green tick). Right-click the folder -&gt; <strong>Always keep on this device</strong>.</div>
+          <div class="step">Double-click <code>START.bat</code> (git clone and zip -- same file). It writes the local OneDrive path into <code>ate/config/cloud_db.txt</code>. One line. Not https. Browser: <code>http://127.0.0.1:5174</code>. Stale UI: <strong>Ctrl+F5</strong>.</div>
         </div>
+        <div class="warn">Do not click <strong>Delete</strong> on the OneDrive item. Remove extra RD shortcuts via <strong>OneDrive -&gt; Remove shortcut</strong> only. A private copy at <code>C:\Users\YOU\#Test_Database</code> will not update other people.</div>
+        <div class="ok-box">After the shortcut exists, OneDrive uploads every START / Fill Excel write. Software updates are a new zip or <code>python -m ate.core.sync_repo</code> -- not this folder.</div>
 
+        <figure>
+          <img src="images/09-sharepoint-testdb.png" alt="SharePoint Handover Jianhong #Test_Database with Add shortcut to OneDrive" />
+          <figcaption>Figure A -- Open this page. Click <strong>Add shortcut to OneDrive</strong>. Breadcrumb must be Handover / Jianhong / #Test_Database.</figcaption>
+        </figure>
         <div class="two-col">
           <figure>
-            <img src="images/04-test-database-folder.png" alt="#Test_Database folder in Explorer" />
-            <figcaption>Figure B -- Shared <code>#Test_Database</code> root (OneDrive-synced).</figcaption>
+            <img src="images/04-test-database-folder.png" alt="OneDrive shortcut Research and Development #Test_Database in Explorer" />
+            <figcaption>Figure B -- After Replace: Explorer under OneDrive, folders <code>_ate</code> AnalogSwitch Level Logic OpAmp Power, Status column syncing.</figcaption>
           </figure>
           <figure>
-            <img src="images/06-cloud-db-txt.png" alt="cloud_db.txt one-line local path" />
-            <figcaption>Figure C -- <code>ate/config/cloud_db.txt</code> (local path only, not https).</figcaption>
+            <img src="images/06-cloud-db-txt.png" alt="cloud_db.txt one-line OneDrive path" />
+            <figcaption>Figure C -- <code>ate/config/cloud_db.txt</code> one local OneDrive path. START.bat writes this. No bullet, no https.</figcaption>
           </figure>
         </div>
 
@@ -335,15 +353,15 @@ Example (same part, two people):
       <!-- BOOT -->
       <section id="boot-splash">
         <h2>3. Boot splash</h2>
-        <p><span class="badge spec">#boot-splash</span> Covers the app until the worker answers ping and daily <code>sync_repo</code> finishes. Not a fifth tab.</p>
-        <ul>
-          <li>Shows "Operator console / Starting..." with a progress bar.</li>
-          <li>If it never clears: worker on port 8766 is down -- run <code>run_ate_app.bat</code> or <code>restart_ate_worker.bat</code>.</li>
-        </ul>
-        <div class="shot-missing">
-          <strong>IMAGE E (capture)</strong>
-          <p class="hint">Boot splash then Setup page with family rail visible.</p>
-        </div>
+        <p>The dark card that says <strong>Operator console / Starting...</strong> is not a fifth tab. It covers the page until the worker on port <strong>8766</strong> answers. Then you should see Setup with OpAmp / Logic / Analog SW / Level / Power on the left.</p>
+        <figure>
+          <img src="images/05-boot-splash.png" alt="Boot splash: Operator console Starting" />
+          <figcaption>Figure -- First screen after launch. Wait. If this never goes away, close the window and double-click <code>START.bat</code> again (worker was down).</figcaption>
+        </figure>
+        <figure>
+          <img src="images/15-first-run.png" alt="First run: Who are you name and product" />
+          <figcaption>Figure -- First time on this PC: pick <strong>your name</strong> (Eugene, Ariff, ...) and a product, then Continue. Do not pick All or Kevin -- they cannot run tests.</figcaption>
+        </figure>
       </section>
 
       <!-- HEADER -->
@@ -395,8 +413,8 @@ Example (same part, two people):
       <section id="setup">
         <h2>7. Setup tab -- daily operator surface</h2>
         <figure>
-          <img src="images/01-setup-campaign-session.png" alt="Setup tab: campaign, session, DUT, test program" />
-          <figcaption>Figure 1 -- Setup: campaign grid, Session panel, DUT/channel picks, test program with START and DEMO (SIM). Screenshot: <code>01-setup-campaign-session.png</code></figcaption>
+          <img src="images/01-setup-campaign-session.png" alt="Setup: DUT 1, channel A, START and DEMO, Logic RS1G07" />
+          <figcaption>Figure -- Daily screen. Top: you + product path. Session: Discover / Open Session / Open SIM. Right: DUT 1 and channel A. Bottom: tick tests, then START or DEMO (SIM). Four tabs only (Setup Tests Run Results) -- Tags is under More, not a fifth tab.</figcaption>
         </figure>
 
         <h3>7.1 Test Database panel</h3>
@@ -444,10 +462,10 @@ Example (same part, two people):
         </table>
         <p>Each test row shows AWG shape (SQU / SIN / DC / PULS / off) from <code>list_tests.stimulus</code>.</p>
 
-        <div class="shot-missing">
-          <strong>IMAGE I (capture)</strong>
-          <p class="hint">Close-up: DUT 1 + CHA + one test ticked. START disabled until session open.</p>
-        </div>
+        <figure>
+          <img src="images/08-setup-dut-start.png" alt="Close-up: DUT 1, channel A, START and DEMO SIM" />
+          <figcaption>Figure -- What to tick for a first run: DUT <strong>1</strong>, channel <strong>A</strong>, one test in Test program (open the LOGIC row). Grey START = no session yet. After Open Session or DEMO, START turns white. USB: do not click Select all.</figcaption>
+        </figure>
       </section>
 
       <!-- SETUP MORE -->
@@ -479,15 +497,15 @@ Example (same part, two people):
         <p>Tracking sheet picker + RUN-IC class. <strong>Create folders + open</strong> builds Version_1. Do not scrape en.run-ic.com into the database.</p>
 
         <h3>8.6 PSU safety (always on)</h3>
-        <p>OVP/OCP: defaults Vset+0.3 V, Iset+0.1 A. SAFE IDLE turns AWG then PSU off before Continue waits.</p>
+        <p>OVP/OCP on each live channel: Vset+0.3 V and Iset+0.1 A. Not DP832 30 V / 3 A. Two OVP lamps on OpAmp is correct (CH1 and CH2 both 2.5 V). Full map: <a href="#psu-bench">PSU channels</a>.</p>
       </section>
 
       <!-- TESTS PAGE -->
       <section id="tests-page">
         <h2>9. Tests tab</h2>
         <figure>
-          <img src="images/03-tests-customize.png" alt="Tests tab: customize, version gaps, wrap golden" />
-          <figcaption>Figure 3 -- Tests: Path A customize, version gaps, Path C wrap scan. <code>03-tests-customize.png</code></figcaption>
+          <img src="images/03-tests-customize.png" alt="Tests tab: which tests this Version may show" />
+          <figcaption>Figure -- Tests tab is a shopping list for <em>this Version</em>, not the Start button. Tick ids here, click <strong>Save this Version</strong>. To actually run a test, go back to Setup and tick it in Test program.</figcaption>
         </figure>
 
         <h3>9.1 Customize tests (Path A)</h3>
@@ -514,18 +532,18 @@ Example (same part, two people):
           <tr><td>History</td><td><code>#history</code></td><td>Recent operator events</td></tr>
           <tr><td>Log</td><td><code>#log</code></td><td>Raw worker text (also <code>sessions/run_log.txt</code>)</td></tr>
         </table>
-        <div class="shot-missing">
-          <strong>IMAGE J (capture)</strong>
-          <p class="hint">Run tab timeline after DEMO with completed steps.</p>
-        </div>
+        <figure>
+          <img src="images/10-run-timeline.png" alt="Run tab: CIN DEMO finished, timeline done" />
+          <figcaption>Figure -- After a run, this tab fills itself. Green bar = finished. Timeline: board ready, DUT ready, then the measurement (here CIN about 4 pF). Log at the bottom is for debug; you can ignore it on a normal day.</figcaption>
+        </figure>
       </section>
 
       <!-- RESULTS -->
       <section id="results-page">
         <h2>11. Results tab</h2>
         <figure>
-          <img src="images/02-results-sts.png" alt="Results: STS table and export buttons" />
-          <figcaption>Figure 2 -- Last results STS table, Export STS datalog, Fill Excel, Fetch limits. <code>02-results-sts.png</code></figcaption>
+          <img src="images/02-results-sts.png" alt="Results: CIN and other rows pass with min max typ value" />
+          <figcaption>Figure -- Last results. Read left to right: which DUT, which test, datasheet min/max, what we measured, pass or fail. Buttons: Export STS datalog (PDF), Fill Excel numbers, Fetch limits. SIM Excel goes to <code>*_demo.xlsx</code> so the live lab book is not overwritten.</figcaption>
         </figure>
 
         <h3>11.1 Last results</h3>
@@ -550,34 +568,125 @@ Example (same part, two people):
 
       <!-- DEMO -->
       <section id="demo-sim">
-        <h2>12. DEMO (SIM) workflow</h2>
+        <h2>12. Practice run -- DEMO (SIM)</h2>
+        <p>Use this when the instruments are off, or you want a rehearsal. Same buttons as a real run. Numbers may be fake (typ / 0). The run must still finish.</p>
         <div class="steps">
-          <div class="step">Operator = you (not All). Family + Apply campaign.</div>
-          <div class="step">DUT 1, tick <strong>one</strong> test on Setup (not Tests page).</div>
-          <div class="step">Click <strong>DEMO (SIM)</strong>. Preflight checks USB <code>*IDN?</code>.</div>
-          <div class="step">If no USB: opens fake PyVISA, SIM loopback proof, runs same START path. Continue auto, sleeps skipped.</div>
-          <div class="step">If USB answered: DEMO refuses -- use Open Session + START (correct).</div>
-          <div class="step">Results: STS PDF, <code>report.json</code> merge. Fill Excel targets <code>*_demo.xlsx</code>.</div>
+          <div class="step">Top-right Operator = <strong>you</strong>. Left rail = family. Five boxes = product. Click <strong>Apply campaign</strong>.</div>
+          <div class="step">Leave DUT <strong>1</strong> and channel <strong>A</strong>. Open the test list, tick <strong>one</strong> test on Setup (example: Cin on RS1G07).</div>
+          <div class="step">Click <strong>DEMO (SIM)</strong>. The app checks USB first.</div>
+          <div class="step">No USB: fake instruments, Continue is automatic, then Run tab fills. USB answered: a message tells you to Open Session + START instead -- that is correct.</div>
+          <div class="step">Open <strong>Results</strong>. Export STS if you want the PDF. Fill Excel writes <code>*_demo.xlsx</code> only.</div>
         </div>
-        <div class="ok-box">Same START path, fake SCPI. Values may be typ / 0 / placeholder. The run must still finish.</div>
+        <figure>
+          <img src="images/10-run-timeline.png" alt="DEMO CIN run finished on the Run tab" />
+          <figcaption>Figure -- Real DEMO on this PC: Logic RS1G07, Cin, 3 of 3 steps done, about 4 pF. That is what "finished" looks like.</figcaption>
+        </figure>
+        <div class="ok-box">This DEMO ran 2026-09-14 on Eugene / RS1G07 / Version_1. Files landed in that campaign <code>sessions</code> folder (see Reports).</div>
       </section>
 
       <!-- USB -->
       <section id="usb-live">
-        <h2>13. USB live START workflow</h2>
+        <h2>13. Real instruments -- USB START</h2>
+        <p>Do this when the scope, PSU, generator, and DMM are powered and USB-connected. Close Ultra Sigma first.</p>
         <div class="steps">
-          <div class="step">Morning: <code>python -m ate.core.check_visa</code> -- want <code>KEEP USB0::...</code> and <code>preflight mode=usb</code>.</div>
-          <div class="step">Close Ultra Sigma and other VISA apps.</div>
-          <div class="step"><strong>Discover</strong> -- tiles green. Empty = alert "No USB instruments".</div>
-          <div class="step"><strong>Open Session</strong> -- hint shows IVI/VISA backend, not SIM.</div>
-          <div class="step">Tick one test. <strong>START</strong>.</div>
-          <div class="step">Click <strong>Continue</strong> at each gate (board / DUT). PSU powers socket on START.</div>
-          <div class="step">Run tab, then Results. Export STS. Fill Excel only if you intend to write the live book.</div>
+          <div class="step"><strong>Discover</strong> -- MSO PSU AWG DMM tiles turn green. Empty popup: power, cables, close Ultra Sigma, or DEMO instead.</div>
+          <div class="step"><strong>Open Session</strong> -- hint must say a VISA backend, not SIM. PSU is still OFF.</div>
+          <div class="step">Tick one test. Photogenic: Logic supply current, or OpAmp slew. Then <strong>START</strong>.</div>
+          <div class="step">Click <strong>Continue</strong> at each board/DUT pause. PSU turns on at START. Do not walk away on Select-all.</div>
+          <div class="step">Run tab, then Results. Export STS. Fill Excel only if you mean to write the live workbook.</div>
         </div>
-        <div class="shot-missing">
-          <strong>IMAGE K + M (capture)</strong>
-          <p class="hint">K: live session hint with VISA backend and green tiles. M: Discover empty alert.</p>
+        <div class="two-col">
+          <figure>
+            <img src="images/12-usb-live.png" alt="USB instruments answered: use Open Session then START not DEMO" />
+            <figcaption>Figure -- Gear is plugged in. DEMO refuses (correct). Discover until tiles are green, Open Session, tick one test, START. PSU stays off until START.</figcaption>
+          </figure>
+          <figure>
+            <img src="images/12-discover-empty.png" alt="No USB instruments Discover message" />
+            <figcaption>Figure -- Discover found nothing. Power the boxes, close Ultra Sigma, Discover again. Or use DEMO (SIM) if the bench is unplugged.</figcaption>
+          </figure>
         </div>
+      </section>
+
+      <section id="psu-bench">
+        <h2>13b. PSU channels -- which is 5 V, how many amps</h2>
+        <div class="warn">OpAmp <strong>5 V</strong> is the <em>span</em> (CH1 +2.5 V and CH2 +2.5 V wired as VSS). It is <strong>not</strong> 5 V on PSU CH1. If the DP832 shows OVP on CH1 and CH2, that is expected. CH3 OVP on Logic CIN/CPD or OpAmp BUFFER is a wiring mistake.</div>
+        <figure>
+          <img src="images/07-psu-wiring.png" alt="Setup wiring hint: PSU CH1 VDD 2.5 V, CH2 VSS 2.5 V, 100 mA" />
+          <figcaption>Figure 7 -- PSU channel map: volts, amps, OVP/OCP per family. OpAmp 5 V is two 2.5 V rails. <code>07-psu-wiring.png</code></figcaption>
+        </figure>
+        <table>
+          <thead>
+            <tr><th>Family</th><th>PSU CH1</th><th>PSU CH2</th><th>PSU CH3</th><th>Iset</th><th>OVP / OCP</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>OpAmp</strong> (RS622 BUFFER)</td>
+              <td>VDD <strong>2.5 V</strong> (not 5 V)</td>
+              <td>VSS <strong>2.5 V</strong> (+ to GND, - is VSS)</td>
+              <td>OFF</td>
+              <td>100 mA</td>
+              <td>2.8 V / 0.2 A on CH1 and CH2</td>
+            </tr>
+            <tr>
+              <td><strong>Logic</strong> CIN/CPD</td>
+              <td>VCC 1.8 to 5.0 V (often 3.3 V)</td>
+              <td>OFF</td>
+              <td>OFF</td>
+              <td>100 mA</td>
+              <td>Vset+0.3 V / 0.2 A on CH1 only</td>
+            </tr>
+            <tr>
+              <td><strong>Logic</strong> VOH/VOL</td>
+              <td>VCC</td>
+              <td>Vref</td>
+              <td>V+</td>
+              <td>100 mA (CH2 Ioh may be lower)</td>
+              <td>OVP lamps on all three used channels</td>
+            </tr>
+            <tr>
+              <td><strong>Level</strong> RS0204</td>
+              <td>VCCA</td>
+              <td>VCCB (VCCA &lt;= VCCB)</td>
+              <td>OFF unless Continue says</td>
+              <td>100 mA</td>
+              <td>Vset+0.3 V / 0.2 A</td>
+            </tr>
+            <tr>
+              <td><strong>LDO</strong> IQ</td>
+              <td>VOUT bias (not VIN)</td>
+              <td>VIN 2.0 / 3.3 / 5.0 V</td>
+              <td>OFF</td>
+              <td>100 mA</td>
+              <td>Vset+0.3 V (5.0 V rail = 5.3 V OVP)</td>
+            </tr>
+            <tr>
+              <td><strong>LDO</strong> VINMIN / LIR / LOR / IOUTMAX</td>
+              <td>VIN</td>
+              <td>load (LOR / IOUTMAX) else OFF</td>
+              <td>EN 5.0 V / 50 mA</td>
+              <td>VIN 400 mA; EN 50 mA</td>
+              <td>Vset+0.3 V. No AWG 5.5 V on EN</td>
+            </tr>
+            <tr>
+              <td><strong>LDO</strong> IEN</td>
+              <td>VIN</td>
+              <td>VEN 0 V or 5.0 V</td>
+              <td>OFF</td>
+              <td>100 mA</td>
+              <td>Vset+0.3 V (0 V still OVP 5.3 V)</td>
+            </tr>
+            <tr>
+              <td><strong>Analog SW</strong></td>
+              <td>V+</td>
+              <td>OFF unless Continue names it</td>
+              <td>OFF unless Continue names it</td>
+              <td>100 mA</td>
+              <td>Vset+0.3 V / 0.2 A</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>Scope (OpAmp/BUFFER): CH1 = IN+ / AWG, CH2 = VOUT. AWG CH1 = stimulus. SAFE IDLE turns AWG then PSU off before Continue waits.</p>
+        <p>Console shows this map on Setup <code>#psu-wiring-hint</code>. It changes with the family rail.</p>
       </section>
 
       <!-- GATES -->
@@ -590,10 +699,10 @@ Example (same part, two people):
           <li>Pin-1 wrong: Abort, rotate DUT, Continue.</li>
           <li>DEMO: gates auto-accept.</li>
         </ul>
-        <div class="shot-missing">
-          <strong>IMAGE L (capture)</strong>
-          <p class="hint">Continue gate modal or gate dock with badge.</p>
-        </div>
+        <figure>
+          <img src="images/08-continue-gate.png" alt="Continue or Abort gate: wire Logic board" />
+          <figcaption>Figure -- Live USB START pauses here. Read the list, wire the board, click <strong>Continue</strong>. Wrong pin-1: Abort, rotate the DUT, Continue. DEMO clicks this for you so you will not see it on SIM.</figcaption>
+        </figure>
       </section>
 
       <!-- REPORTS -->
@@ -615,9 +724,15 @@ Example (same part, two people):
             <tr><td><code>TAGS.txt</code></td><td>Human-readable tag list at campaign root</td></tr>
           </tbody>
         </table>
-        <div class="shot-missing">
-          <strong>IMAGE N + O (capture)</strong>
-          <p class="hint">Explorer <code>sessions\</code> with datalog.pdf; first page of STS PDF.</p>
+        <div class="two-col">
+          <figure>
+            <img src="images/13-sessions-folder.png" alt="Explorer sessions folder with datalog.pdf report.json run_log" />
+            <figcaption>Figure -- This Version's <code>sessions</code> folder. You want <code>datalog.pdf</code> (the STS sheet), <code>report.json</code> (latest numbers), and <code>session_*.json</code> (one file per run). OneDrive Status column should sync.</figcaption>
+          </figure>
+          <figure>
+            <img src="images/02-results-sts.png" alt="Results STS table: CIN CPD pass values" />
+            <figcaption>Figure -- Same numbers as the PDF: DUT, test, min/max/typ, value, pass/fail. Click Export STS datalog to write <code>datalog.pdf</code> if it is missing.</figcaption>
+          </figure>
         </div>
       </section>
 
@@ -670,7 +785,7 @@ ate/config/limits/rs1g07.yaml       # specs CIN_pF, CPD_pF</pre>
         <table>
           <tr><th>Tile</th><th>Typical model</th><th>Role</th></tr>
           <tr><td>MSO</td><td>MSO5072 class</td><td>Scope capture, screenshots</td></tr>
-          <tr><td>PSU</td><td>DP832</td><td><code>power_on_protected</code> only</td></tr>
+          <tr><td>PSU</td><td>DP832</td><td><code>power_on_protected</code> only. OpAmp CH1/CH2 = 2.5 V, not 5 V on CH1. See <a href="#psu-bench">PSU channels</a>.</td></tr>
           <tr><td>AWG</td><td>DG8xx</td><td>Stimulus per test</td></tr>
           <tr><td>DMM</td><td>DMM6500 (optional)</td><td>DC measurements when test requires</td></tr>
         </table>
@@ -678,7 +793,8 @@ ate/config/limits/rs1g07.yaml       # specs CIN_pF, CPD_pF</pre>
         <h3>17.3 Config files</h3>
         <table>
           <tr><th>File</th><th>Purpose</th></tr>
-          <tr><td><code>ate/config/cloud_db.txt</code></td><td>Local path to <code>#Test_Database</code></td></tr>
+          <tr><td><code>ate/config/cloud_db.txt</code></td><td>Local OneDrive path to <code>#Test_Database</code> (START writes this)</td></tr>
+          <tr><td><code>ate/config/sharepoint.url</code></td><td>Browser link: Handover / Jianhong / #Test_Database</td></tr>
           <tr><td><code>ate/config/owners.yaml</code></td><td>Operators and defaults</td></tr>
           <tr><td><code>ate/config/inventory.yaml</code></td><td>Tracking sheet SKUs</td></tr>
           <tr><td><code>ate/config/parts/&lt;key&gt;.yaml</code></td><td>enabled_tests, conditions, fixture</td></tr>
@@ -721,6 +837,8 @@ ate/config/limits/rs1g07.yaml       # specs CIN_pF, CPD_pF</pre>
         <table>
           <thead><tr><th>Problem</th><th>Fix</th></tr></thead>
           <tbody>
+            <tr><td>OneDrive: already syncing a shortcut</td><td>Do not click Sync. Use <strong>Add shortcut to OneDrive</strong>. If asked to Replace, click Replace.</td></tr>
+            <tr><td>START writes to a folder others never see</td><td>You are on a drag-copy. Switch <code>cloud_db.txt</code> to the OneDrive shortcut path (Figure C).</td></tr>
             <tr><td>Worker offline</td><td><code>run_ate_app.bat</code> or <code>restart_ate_worker.bat</code> (idle only)</td></tr>
             <tr><td>UI looks old</td><td>Ctrl+F5; check <code>app.js?v=</code></td></tr>
             <tr><td>Discover empty</td><td>USB, power, close Ultra Sigma, or use DEMO</td></tr>
@@ -736,7 +854,8 @@ ate/config/limits/rs1g07.yaml       # specs CIN_pF, CPD_pF</pre>
       <!-- CHECKS -->
       <section id="checks">
         <h2>19. Proof checks (run what you touched)</h2>
-        <pre>python -m ate.core.check_ui_contract
+        <pre>python -m ate.core.check_cloud_db
+python -m ate.core.check_ui_contract
 python -m ate.core.check_operator_tree
 python -m ate.core.check_sim_run
 python -m ate.core.check_visa
@@ -754,14 +873,21 @@ python -m ate.core.check_specs_datalog</pre>
         <table>
           <thead><tr><th>File</th><th>Section</th><th>Status</th></tr></thead>
           <tbody>
-            <tr><td><code>01-setup-campaign-session.png</code></td><td>Setup tab</td><td>in repo</td></tr>
-            <tr><td><code>02-results-sts.png</code></td><td>Results STS</td><td>in repo</td></tr>
-            <tr><td><code>03-tests-customize.png</code></td><td>Tests tab</td><td>in repo</td></tr>
-            <tr><td><code>04-test-database-folder.png</code></td><td>Install / cloud DB</td><td>in repo</td></tr>
-            <tr><td><code>06-cloud-db-txt.png</code></td><td>cloud_db.txt</td><td>in repo</td></tr>
-            <tr><td><code>05-boot-splash.png</code></td><td>Boot splash</td><td>capture when worker up</td></tr>
-            <tr><td><code>07-run-timeline.png</code></td><td>Run tab after DEMO</td><td>capture when worker up</td></tr>
-            <tr><td><code>08-continue-gate.png</code></td><td>Continue modal</td><td>USB START only</td></tr>
+            <tr><td><code>09-sharepoint-testdb.png</code></td><td>SharePoint Add shortcut</td><td>filled</td></tr>
+            <tr><td><code>04-test-database-folder.png</code></td><td>OneDrive shortcut in Explorer</td><td>filled</td></tr>
+            <tr><td><code>06-cloud-db-txt.png</code></td><td>cloud_db.txt</td><td>filled</td></tr>
+            <tr><td><code>05-boot-splash.png</code></td><td>Starting splash</td><td>filled</td></tr>
+            <tr><td><code>15-first-run.png</code></td><td>Who are you</td><td>filled</td></tr>
+            <tr><td><code>01-setup-campaign-session.png</code></td><td>Setup DUT / START / DEMO</td><td>filled (RS1G07 Eugene)</td></tr>
+            <tr><td><code>08-setup-dut-start.png</code></td><td>Same Setup close-up</td><td>filled</td></tr>
+            <tr><td><code>03-tests-customize.png</code></td><td>Tests tab</td><td>filled</td></tr>
+            <tr><td><code>10-run-timeline.png</code></td><td>Run tab after CIN DEMO</td><td>filled 2026-09-14</td></tr>
+            <tr><td><code>02-results-sts.png</code></td><td>Results STS table</td><td>filled CIN/CPD pass</td></tr>
+            <tr><td><code>08-continue-gate.png</code></td><td>Continue / Abort</td><td>filled</td></tr>
+            <tr><td><code>12-usb-live.png</code></td><td>USB: do not DEMO</td><td>filled</td></tr>
+            <tr><td><code>12-discover-empty.png</code></td><td>No USB instruments</td><td>filled</td></tr>
+            <tr><td><code>13-sessions-folder.png</code></td><td>sessions folder + datalog.pdf</td><td>filled</td></tr>
+            <tr><td><code>07-psu-wiring.png</code></td><td>PSU channel map</td><td>filled</td></tr>
           </tbody>
         </table>
         <p class="hint" style="margin-top:12px">Open: <code>docs/tutorial/ATE_TUTORIAL.html</code>. More shot IDs: <code>ATE_ONENOTE.md</code> shot list. Worker change -> idle <code>restart_ate_worker.bat</code>. UI-only -> Ctrl+F5.</p>
