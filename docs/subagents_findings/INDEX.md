@@ -1,5 +1,14 @@
 | Date | File | Keywords |
 |------|------|----------|
+| 2026-09-21 | 2026-09-21_dmm-dismiss-event-log.md | dmm, scpi, -113, syst-cle, event-log, sens-func, ioz, leftover-honest |
+| 2026-09-21 | 2026-09-21_fill-dict-demo-families.md | fill-excel, dict-cell, check_demo_families, dmm-png, leftover-13, leftover-honest |
+| 2026-09-21 | 2026-09-21_all-parts-sim-dmm-restore.md | check_all_parts, sim-265, dmm_read, seelim-isolate, physics-252, leftover-13, leftover-honest |
+| 2026-09-21 | 2026-09-21_dmm-scpi-header-log.md | dmm, scpi, -113, last_worker.log, dmm_scpi.log, ioz, seelim, leftover-honest |
+| 2026-09-21 | 2026-09-21_ioz-live-dmm-usb.md | ioz, dmm, screenshot, rs1g126, coerce, live-usb, fill-excel, leftover-honest |
+| 2026-09-21 | 2026-09-21_dmm-zero-scpi-header.md | dmm, scpi, -113, buffer, nplc, filter, screenshot, hcop, ch3, ioz, leftover-honest |
+| 2026-09-21 | 2026-09-21_pack-dmm-coerce.md | pack, zip, coerce_screenshot_from, dmm-only, leftover-19, leftover-honest |
+| 2026-09-21 | 2026-09-21_dmm-only-no-mso.md | screenshot_from, coerce, dmm-only, ioz, rs1g126, seelim, fill-excel, leftover-honest |
+| 2026-09-21 | 2026-09-21_ioz-vout-0p1.md | ioz, vout-sweep, 0.1v, see-lin, rs1g126, n=2, leftover-honest |
 | 2026-09-21 | 2026-09-21_usb-outputs-fetch-flip.md | failed-to-fetch, pic-steal, golden_auto, empty-workbook, fill-excel, csv, screenshot, session-identity |
 | 2026-09-21 | 2026-09-21_ioz-dmm-hcop.md | ioz, dmm, hcop, screenshot, rs1g126, seelim, fill-excel, leftover-honest |
 | 2026-09-21 | 2026-09-21_ioz-ui-start-dock.md | ioz, start, run-dock, parameters-details, screenshot-dmm, path-b-handoff, applyDb, continue, leftover-honest |

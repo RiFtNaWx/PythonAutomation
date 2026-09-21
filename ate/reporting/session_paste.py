@@ -33,7 +33,8 @@ def _latest_image(folder: Path) -> Path | None:
     if not files:
         return None
     files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    return files[0]
+    pngs = [p for p in files if p.suffix.lower() == ".png"]
+    return (pngs or files)[0]
 
 
 def paste_session_photos(

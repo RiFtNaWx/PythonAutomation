@@ -117,8 +117,20 @@ def _sim_load_timing_and_control() -> list[str]:
     dmm_join = " ".join(str(w).upper() for w in dmm.writes)
     if "*RST" in dmm_join:
         errors.append("DMM setup must not *RST (-113)")
-    if any(tok in dmm_join for tok in ("NPLC", "AZER", "AVER", "TRAC")):
-        errors.append("DMM setup must not send NPLC/AZER/AVER/TRAC")
+    if any(tok in dmm_join for tok in ("NPLC", "AZER", "AVER", "TRAC", "HCOP")):
+        errors.append("DMM setup must not send NPLC/AZER/AVER/TRAC/HCOP")
+    from dmm_setup import dmm_write_ok, is_banned_dmm_scpi
+
+    if not is_banned_dmm_scpi(":HCOP:SDUM:DATA?"):
+        errors.append("is_banned_dmm_scpi must flag HCOP")
+    n_dmm = len(dmm.writes)
+    dmm_write_ok(dmm, "*RST")
+    dmm_write_ok(dmm, ":SENS:CURR:NPLC 1")
+    if len(dmm.writes) != n_dmm:
+        errors.append("dmm_write_ok must skip *RST/NPLC (no -113 dialog)")
+    skip_err = str(dmm.query("SYST:ERR?")).strip()
+    if not skip_err.startswith("0"):
+        errors.append(f"skip banned DMM header SYST:ERR want 0 got {skip_err!r}")
 
     stop_output(awg)
     power_off(psu)
@@ -140,15 +152,17 @@ def _sim_load_timing_and_control() -> list[str]:
     return errors
 
 
-_DMM_BAN_LN = ("*RST", "NPLC", "AZER", "AVER", ":TRAC", "MEAS:CURR")
-
-
 def _scan_live_banned_headers() -> list[str]:
     """Fail-closed: live helpers + ate/tests must not write AWG -116 / DMM -113."""
     from generator_setup import is_banned_awg_scpi
+    from dmm_setup import is_banned_dmm_scpi
 
     errors: list[str] = []
-    paths: list[Path] = [REPO_ROOT / "generator_setup.py"]
+    paths: list[Path] = [
+        REPO_ROOT / "generator_setup.py",
+        REPO_ROOT / "dmm_setup.py",
+        REPO_ROOT / "psu_setup.py",
+    ]
     for folder in (REPO_ROOT / "ate" / "tests", REPO_ROOT / "ate" / "drivers"):
         if folder.is_dir():
             paths.extend(sorted(folder.rglob("*.py")))
@@ -163,13 +177,11 @@ def _scan_live_banned_headers() -> list[str]:
             probe = ln.replace("{ch}", "1").replace("{channel}", "1")
             if is_banned_awg_scpi(probe):
                 errors.append(f"{rel}:{i} banned AWG header: {ln.strip()}")
-    dmm = REPO_ROOT / "dmm_setup.py"
-    for i, ln in enumerate(dmm.read_text(encoding="utf-8").splitlines(), 1):
-        if ".write(" not in ln:
-            continue
-        u = ln.upper()
-        if any(tok in u for tok in _DMM_BAN_LN):
-            errors.append(f"dmm_setup.py:{i} banned DMM6500 header: {ln.strip()}")
+            if path.name == "dmm_setup.py" or "dmm" in ln.lower():
+                # Only flag actual write/query string literals, not is_banned checks.
+                if ".write(" in ln or ".query(" in ln:
+                    if is_banned_dmm_scpi(probe) and "is_banned_dmm_scpi" not in ln:
+                        errors.append(f"{rel}:{i} banned DMM header: {ln.strip()}")
     return errors
 
 
@@ -218,6 +230,8 @@ def main() -> int:
         errors.append("classify_idn must not treat USB serial DG8Q as AWG")
     if "usbtmc_pnp_ok_serials" not in disc_src or "taskkill" not in disc_src:
         errors.append("live *IDN must skip PnP Unknown and taskkill hung viOpen")
+    if "def last_usb_map" not in disc_src or "def pnp_present" not in disc_src:
+        errors.append("discovery must expose last_usb_map / pnp_present for header tiles")
     if "open_timeout=8000" not in sess_src:
         errors.append("open_resource must set open_timeout=8000 (ghost USBTMC)")
     if 'timeout_ms=20000 if key == "MSO" else 12000' not in sess_src:

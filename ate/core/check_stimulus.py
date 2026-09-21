@@ -143,9 +143,32 @@ def main() -> int:
         errors.append(f"dmm_setup_current must switch to DCI, func={dmm.dmm_func!r}")
     if not any("CONF:CURR" in str(w).upper() for w in dmm.writes):
         errors.append("dmm_setup_current must write :CONF:CURR:DC so DMM6500 shows DCI")
+    if any("SENS:FUNC" in str(w).upper() for w in dmm.writes):
+        errors.append("dmm_setup_current must not send SENS:FUNC (CONF:CURR:DC is enough)")
     joined = " ".join(str(w).upper() for w in dmm.writes)
-    if any(tok in joined for tok in ("NPLC", "AZER", "AVER", "TRAC")):
-        errors.append("dmm_setup_current must not send NPLC/AZER/AVER/TRAC (DMM6500 -113)")
+    if any(tok in joined for tok in ("NPLC", "AZER", "AVER", "TRAC", "HCOP")):
+        errors.append("dmm_setup_current must not send NPLC/AZER/AVER/TRAC/HCOP (DMM6500 -113)")
+    from dmm_setup import dmm_read_avg, dmm_write_ok, is_banned_dmm_scpi
+
+    if not is_banned_dmm_scpi(":HCOP:SDUM:DATA:FORM PNG"):
+        errors.append("is_banned_dmm_scpi must flag HCOP FORM")
+    n_w = len(dmm.writes)
+    dmm_write_ok(dmm, ":SENS:CURR:NPLC 1")
+    if len(dmm.writes) != n_w:
+        errors.append("dmm_write_ok must not send banned NPLC")
+    err_ok = str(dmm.query("SYST:ERR?")).strip()
+    if not err_ok.startswith("0"):
+        errors.append(f"skipping NPLC must leave SYST:ERR 0 got {err_ok!r}")
+    avg = dmm_read_avg(dmm, n=5, nplc=1)
+    try:
+        float(avg)
+    except (TypeError, ValueError):
+        errors.append(f"dmm_read_avg must return a float, got {avg!r}")
+    avg_join = " ".join(str(w).upper() for w in dmm.writes)
+    if any(tok in avg_join for tok in ("NPLC", "AZER", "AVER", "TRAC", "HCOP")):
+        errors.append("dmm_read_avg must not send NPLC/AZER/AVER/TRAC/HCOP")
+    if not any(str(w).upper().replace(" ", "").startswith("*CLS") for w in dmm.writes):
+        errors.append("dmm_read_avg must *CLS / clear_active_buffer before the 5 reads")
     dmm_ua = SimResource("DMM")
     dmm_setup_current(dmm_ua, range_a=0.0001)
     joined_ua = " ".join(str(w) for w in dmm_ua.writes)

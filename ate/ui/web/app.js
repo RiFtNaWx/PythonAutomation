@@ -4073,7 +4073,7 @@ function testParamEditorHtml(t) {
     fields.push(paramNumInput("vcc", "VCC (V)", p.vcc ?? d.vcc ?? 5, 0.1));
   }
   const dcIds = ["icc", "delta_icc", "ii", "ioz", "input_threshold", "voh", "vol"];
-  if (dcIds.includes(t.id)) {
+  if (dcIds.includes(t.id) && t.id !== "ioz") {
     const modeKey = t.id === "icc" ? "icc_vcc_mode" : "vcc_mode";
     const modeVal = String(p[modeKey] || p.vcc_mode || p.icc_vcc_mode || (t.id === "icc" ? "named" : "") || "");
     const namedSel = modeVal === "named" ? " selected" : "";
@@ -4090,7 +4090,10 @@ function testParamEditorHtml(t) {
     notes.push("II Connected: DMM series the measured input. 2^n AWG combos at 0/5.5 (GT34=2, 1G08=4). Default named 2.0/3.3/5.5. Parameters step 0-5.6/0.1 is the golden sweep (VCC=0 is Ioff-like). No TRAC, no PSU-off between VCC. Stamp II_uA not IDD.");
   }
   if (t.id === "ioz") {
-    notes.push("IOZ: OE inactive. PSU+DMM. Not IOFF (VCC=0). One body in logic_dc.py.");
+    fields.push(paramNumInput("ioz_vout_start", "Vout start (V)", p.ioz_vout_start ?? d.ioz_vout_start ?? 0, 0.1));
+    fields.push(paramNumInput("ioz_vout_stop", "Vout stop (V)", p.ioz_vout_stop ?? d.ioz_vout_stop ?? 5.5, 0.1));
+    fields.push(paramNumInput("ioz_vout_step", "Vout step (V)", p.ioz_vout_step ?? d.ioz_vout_step ?? 0.1, 0.1));
+    notes.push("IOZ: OE inactive. PSU+DMM. VCC=3.6 V (ioz_vcc_list). Sweep forced Y 0 to 5.5 V step 0.1 (See Lin). Not two endpoints. Not IOFF (VCC=0). A=GND. Max |IOZ| 10 uA.");
   }
   if (t.id === "ioff" || t.id === "ioff_leakage") {
     const startVal = String(p.ioff_start || d.ioff_start || "ports").toLowerCase();
@@ -4176,10 +4179,15 @@ function testParamEditorHtml(t) {
   if (needsDmm) shotOpts += `<option value="dmm"${shotDmm}>DMM</option>`;
   if (!needsMso && !needsDmm) shotOpts += `<option value="mso"${shotMso}>MSO / scope</option>`;
   fields.push(`<label>Include screenshot<select data-param="screenshot_from">${shotOpts}</select></label>`);
+  if (needsDmm) {
+    fields.push(paramNumInput("dmm_avg_n", "DMM avg N", p.dmm_avg_n ?? d.dmm_avg_n ?? 5, 1));
+    fields.push(paramNumInput("dmm_nplc", "DMM NPLC (host wait)", p.dmm_nplc ?? d.dmm_nplc ?? 1, 1));
+  }
   notes.push("Settle/dwell override USB waits (dwell wins on DMM delta steps). ICC/ICCT ignore 0.05 s settle_s -- they use VCC dwell 2 s / VI dwell 1 s / 5 samples unless you set VCC dwell or Dwell above.");
-  notes.push("Include screenshot: pick the box on the bench. IOZ/ICC = DMM (HCOP leftover = reading card), never MSO. Timing = MSO JPEG. Write to save this Version.");
+  notes.push("Include screenshot: none disables. DMM = reading card in the lab_sheet folder (IOZ), never HCOP of the SCPI error dialog. Timing = MSO JPEG. Write to save this Version.");
+  notes.push("DMM filter: avg N (default 5) after *CLS clear. NPLC is the DMM MENU Rate -- :READ? already waits that; USB must not send NPLC/AVER/TRAC (-113).");
   if (String(t.id || "").toLowerCase() === "ioz") {
-    notes.unshift("IOZ RS1G126: pin1 OE / pin2 A strap GND / pin3 GND / pin4 Y / pin5 VCC. PSU CH1=VCC pin5, CH2=Y pin4 through DMM DCI, CH3=OE pin1 inactive L. AWG off. MSO unplugged. Probe CHA (Setup tick B only if you recable). Screenshot select = DMM (Write).");
+    notes.unshift("IOZ RS1G126: pin1 OE / pin2 A strap GND / pin3 GND / pin4 Y / pin5 VCC. PSU CH1=VCC pin5, CH2=Y pin4 through DMM DCI, CH3=OE pin1 inactive L (0 V). AWG off -- DG822 has no CH3 (OUTP3 is Error 116). MSO unplugged. Screenshot = DMM or none (Write).");
   }
   if (meta.hint) notes.unshift(meta.hint);
   const noteHtml = notes.map((n) => `<p class="hint">${escText(n)}</p>`).join("");

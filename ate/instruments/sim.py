@@ -32,6 +32,8 @@ def _awg_blank() -> dict[str, Any]:
 
 def _dmm_banned_header(cmd: str) -> bool:
     n = str(cmd or "").upper().replace(" ", "")
+    if "HCOP" in n:
+        return True
     if n.startswith("*RST"):
         return True
     if any(tok in n for tok in ("NPLC", "AZER", "AVER")):

@@ -99,6 +99,8 @@ class RunParams:
     dwell_s: Optional[float] = None
     vin_step: Optional[float] = None  # VIH/VIL VIN trip; None = 0.01 V
     screenshot_from: str = ""  # Parameters Write: none | mso | dmm
+    dmm_avg_n: Optional[int] = None  # host filter count; default 5
+    dmm_nplc: Optional[float] = None  # paces READ gap; does not send NPLC SCPI
     test_params: dict[str, dict[str, Any]] = field(default_factory=dict)
     progress_hook: Optional[Callable[..., None]] = field(default=None, repr=False)
     pause_hook: Optional[Callable[[str], bool]] = field(default=None, repr=False)
@@ -171,6 +173,16 @@ class RunParams:
         if raw.get("n_repeats") not in (None, ""):
             try:
                 kw["n_repeats"] = int(raw["n_repeats"])
+            except (TypeError, ValueError):
+                pass
+        if raw.get("dmm_avg_n") not in (None, ""):
+            try:
+                kw["dmm_avg_n"] = max(1, int(raw["dmm_avg_n"]))
+            except (TypeError, ValueError):
+                pass
+        if raw.get("dmm_nplc") not in (None, ""):
+            try:
+                kw["dmm_nplc"] = max(0.01, float(raw["dmm_nplc"]))
             except (TypeError, ValueError):
                 pass
         if raw.get("logic_inputs") not in (None, ""):
@@ -1165,6 +1177,17 @@ class ATECore:
     ) -> StepResult:
         assert self._instr is not None
         params = params.overlay_for(spec.id)
+        from ate.core.param_defaults import coerce_screenshot_from
+
+        raw_shot = str(getattr(params, "screenshot_from", "") or "")
+        shot = coerce_screenshot_from(raw_shot, spec.required_instruments)
+        if shot == "dmm" and raw_shot.strip().lower() in ("mso", "scope"):
+            self._log(
+                f"{spec.id} screenshot_from=mso skipped: "
+                "TestSpec is not MSO (IOZ/ICC = DMM); using DMM instead"
+            )
+        if shot != raw_shot.strip().lower():
+            params = replace(params, screenshot_from=shot)
         self._progress(
             spec.id,
             "running",
@@ -1233,21 +1256,9 @@ class ATECore:
                     summary = "OK"
                     data = {}
                 shot = str(getattr(params, "screenshot_from", "") or "").strip().lower()
-                need = {str(x).upper() for x in (spec.required_instruments or ())}
                 folder = str(spec.lab_sheet or spec.id or "DMM")
-                if not shot:
-                    if "MSO" in need or "SCOPE" in need:
-                        shot = "mso"
-                    elif "DMM" in need:
-                        shot = "dmm"
                 if shot in ("mso", "scope"):
-                    if "MSO" not in need and "SCOPE" not in need:
-                        self._log(
-                            f"{spec.id} screenshot_from=mso skipped: "
-                            "TestSpec is not MSO (IOZ/ICC = DMM); using DMM instead"
-                        )
-                        shot = "dmm"
-                    elif getattr(self._instr, "_simulated", False):
+                    if getattr(self._instr, "_simulated", False):
                         self._log(f"{spec.id} screenshot_from=mso skipped on SIM")
                     elif self._instr.scope is None:
                         self._log(f"{spec.id} screenshot_from=mso skipped: no MSO")

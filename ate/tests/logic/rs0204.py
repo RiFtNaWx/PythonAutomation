@@ -108,6 +108,12 @@ def _oe_enable(instr, vcca: float) -> None:
     setup_dc(instr.gen, 2, vcca)
 
 
+def _oe_disable(instr) -> None:
+    from generator_setup import setup_dc
+
+    setup_dc(instr.gen, 2, 0.0)
+
+
 def _avg_v(dmm, n: int = 3) -> float:
     from dmm_setup import dmm_read, dmm_setup_voltage
 
@@ -277,6 +283,38 @@ def _run_il(instr, params: RunParams) -> dict[str, Any]:
         "summary": f"Il n={len(rows)} last={last:.3f} uA",
         "data": {"VCCA": vcca, "VCCB": vccb, "rows": rows},
         "measurements": [{"id": "IL_uA", "value": mx, "unit": "uA"}] if mx is not None else [],
+    }
+
+
+def _run_ioz(instr, params: RunParams) -> dict[str, Any]:
+    """OE inactive Hi-Z leakage. Dual-rail; not Path B product_model."""
+    _require(instr, "PSU", "AWG", "DMM")
+    from generator_setup import setup_dc, stop_output
+
+    vcca, vccb, ilim = rails_from_params(params)
+    _pause(
+        params,
+        "IOZ: DMM in series with B1 (AWG CH1 -> DMM -> B1). OE=GND (Hi-Z). Continue.",
+    )
+    rows: list[dict[str, Any]] = []
+    try:
+        _power_dual(instr, vcca, vccb, ilim)
+        _oe_disable(instr)
+        for vin in (0.0, vccb):
+            setup_dc(instr.gen, 1, vin)
+            time.sleep(0.3)
+            rows.append({"VIN": vin, "IOZ_uA": _avg_a(instr.dmm, 5) * 1e6})
+    finally:
+        try:
+            stop_output(instr.gen)
+        except Exception:
+            pass
+        _power_down(instr)
+    mx = max((abs(float(r["IOZ_uA"])) for r in rows), default=None)
+    return {
+        "summary": f"IOZ n={len(rows)} worst={mx:.3f} uA" if mx is not None else "IOZ n=0",
+        "data": {"VCCA": vcca, "VCCB": vccb, "rows": rows, "oe": 0.0},
+        "measurements": [{"id": "IOZ_uA", "value": mx, "unit": "uA"}] if mx is not None else [],
     }
 
 
@@ -569,6 +607,7 @@ _RUN = {
     "vol": _run_vol,
     "icc": _run_icc,
     "il": _run_il,
+    "ioz": _run_ioz,
     "tpd": _run_tpd,
     "tp_rs0204": _run_tp,
     "tsu": _run_tsu,

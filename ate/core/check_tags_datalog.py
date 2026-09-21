@@ -55,6 +55,24 @@ def main() -> int:
         wb0.save(xlsx)
         wb0.close()
         ctx.sheet_map_path().write_text(
+            "component: OpAmp\npart: A17Check\npackage: TTSOP8\noperator: Chun Tak\n"
+            "version: Version_1\ntests: {}\nidentity:\n  tags: Summary!B2\n",
+            encoding="utf-8",
+        )
+        set_context(
+            component="OpAmp",
+            part="A17Check",
+            package="TTSOP8",
+            operator="Eugene",
+            version="Version_1",
+            model="A17CHECK",
+            part_key="a17check",
+            sample_size=2,
+        )
+        ctx = get_context()
+        if str(ctx.operator) != "Eugene":
+            errors.append("sheet_map PIC must not steal operator folder")
+        ctx.sheet_map_path().write_text(
             "component: OpAmp\npart: A17Check\npackage: TTSOP8\noperator: Eugene\n"
             "version: Version_1\ntests: {}\nidentity:\n  tags: Summary!B2\n",
             encoding="utf-8",
@@ -223,12 +241,23 @@ def main() -> int:
 
         begin_session({"unit_index": 1, "dut_indices": [1, 2], "run_label": "a17check"})
         sess = current_session() or {}
+        sid = str(sess.get("session_id") or "")
         sess_tags = (sess.get("params") or {}).get("tags") or []
         ctx_tags = (sess.get("context") or {}).get("tags") or []
         if "project:imported" not in sess_tags:
             errors.append("START params must stamp campaign tags")
         if "project:imported" not in ctx_tags:
             errors.append("START context missing campaign tags")
+        set_context(
+            component="OpAmp",
+            part="A17Other",
+            package="TTSOP8",
+            operator="Eugene",
+            version="Version_1",
+            model="A17OTHER",
+            part_key="a17other",
+            sample_size=2,
+        )
         record_step(
             "ort",
             success=True,
@@ -237,6 +266,21 @@ def main() -> int:
             dut=1,
             measurements=[{"id": "demo_v", "unit": "V", "min": -1, "max": 1, "value": 0.1}],
         )
+        set_context(
+            component="OpAmp",
+            part="A17Check",
+            package="TTSOP8",
+            operator="Eugene",
+            version="Version_1",
+            model="A17CHECK",
+            part_key="a17check",
+            sample_size=2,
+        )
+        ctx = get_context()
+        if sid:
+            stayed = ctx.sessions_dir() / f"{sid}.json"
+            if not stayed.is_file():
+                errors.append("session JSON must stay on the START campaign folder")
         record_step(
             "voh_load",
             success=True,
@@ -258,6 +302,35 @@ def main() -> int:
         svg_pts = ctx.sessions_dir() / "points" / "voh_load_DUT1.svg"
         if not svg_pts.is_file() or "<svg" not in svg_pts.read_text(encoding="utf-8"):
             errors.append("sessions/points/voh_load_DUT1.svg plot missing after record_step")
+        record_step(
+            "ioz",
+            success=True,
+            summary="dmm shot",
+            fixture_mode="LOGIC",
+            dut=1,
+            measurements=[{"id": "IOZ_uA", "unit": "uA", "value": 2.8}],
+            data={
+                "data": {
+                    "rows": [{"VCC": 3.6, "IOZ_uA": 2.8}],
+                    "screenshot": r"C:\tmp\ioz.png",
+                    "screenshot_from": "dmm",
+                    "screenshots": [r"C:\tmp\ioz.png"],
+                }
+            },
+        )
+        ioz_row = next(
+            (
+                s
+                for s in (current_session() or {}).get("steps") or []
+                if s.get("test_id") == "ioz"
+            ),
+            None,
+        )
+        if not ioz_row or (ioz_row.get("data") or {}).get("screenshot_from") != "dmm":
+            errors.append("record_step must keep DMM screenshot on session data")
+        dlog = Path(__file__).with_name("datalog.py").read_text(encoding="utf-8")
+        if 'rglob("screenshots/*")' in dlog:
+            errors.append("run_log must not glob historical MSO jpg leftovers")
         record_step(
             "gbw",
             success=True,

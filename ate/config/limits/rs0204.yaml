@@ -44,6 +44,10 @@ specs:
   unit: uA
   max: 2
   source: local RS0204 RevA.5 Ioff Full
+- id: IOZ_uA
+  test: ioz
+  unit: uA
+  source: OE inactive Hi-Z (do not invent Full max from Ioff)
 - id: VOL_V
   test: vol
   unit: V

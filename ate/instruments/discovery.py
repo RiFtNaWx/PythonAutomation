@@ -380,6 +380,28 @@ def find_instruments(*, rm=None, force: bool = False) -> dict[str, str]:
     return instruments
 
 
+def last_usb_map() -> dict[str, str]:
+    """Last Discover *IDN map. Empty until Discover / find_instruments."""
+    return dict(_CACHE.get("map") or {})
+
+
+def pnp_present() -> dict[str, str]:
+    """visa_known keys whose USBTMC serial is Windows Status=OK. No *IDN."""
+    known = load_known_visa()
+    ok_sn = usbtmc_pnp_ok_serials()
+    out: dict[str, str] = {}
+    if not ok_sn:
+        return out
+    for kind in _KNOWN_ORDER:
+        url = str(known.get(kind) or "").strip()
+        if not url:
+            continue
+        sn = visa_serial(url)
+        if sn and sn in ok_sn:
+            out[kind] = url
+    return out
+
+
 def visa_inventory(*, force: bool = True) -> dict[str, Any]:
     """KEEP = *IDN mapping only. yaml/PnP ghosts go in skip. No list_resources."""
     skip: list[str] = []

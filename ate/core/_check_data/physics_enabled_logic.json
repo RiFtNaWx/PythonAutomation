@@ -1,7 +1,7 @@
 {
-  "n": 202,
-  "realized": 195,
-  "leftover": 7,
+  "n": 203,
+  "realized": 202,
+  "leftover": 1,
   "rows": [
     {
       "part_key": "rs0204",
@@ -44,6 +44,13 @@
       "status": "REALIZED",
       "why": "",
       "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "ioz",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
     },
     {
       "part_key": "rs0204",
@@ -188,8 +195,8 @@
     {
       "part_key": "rs1g00",
       "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "status": "REALIZED",
+      "why": "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
       "file": "ate/tests/logic/wraps.py"
     },
     {
@@ -223,8 +230,8 @@
     {
       "part_key": "rs1g02",
       "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "status": "REALIZED",
+      "why": "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
       "file": "ate/tests/logic/wraps.py"
     },
     {
@@ -258,8 +265,8 @@
     {
       "part_key": "rs1g04",
       "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "status": "REALIZED",
+      "why": "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
       "file": "ate/tests/logic/wraps.py"
     },
     {
@@ -888,8 +895,8 @@
     {
       "part_key": "rs1g86",
       "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "status": "REALIZED",
+      "why": "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
       "file": "ate/tests/logic/wraps.py"
     },
     {
@@ -1329,8 +1336,8 @@
     {
       "part_key": "rs2g08",
       "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "status": "REALIZED",
+      "why": "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
       "file": "ate/tests/logic/wraps.py"
     },
     {
@@ -1364,8 +1371,8 @@
     {
       "part_key": "rs2g32",
       "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "status": "REALIZED",
+      "why": "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
       "file": "ate/tests/logic/wraps.py"
     },
     {
@@ -1425,48 +1432,6 @@
       "status": "LEFTOVER",
       "why": "10 mA platform; datasheet 64 mA leftover",
       "file": "ate/tests/logic/rs0302.py"
-    },
-    {
-      "part_key": "rs1g00",
-      "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-      "file": "ate/tests/logic/wraps.py"
-    },
-    {
-      "part_key": "rs1g02",
-      "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-      "file": "ate/tests/logic/wraps.py"
-    },
-    {
-      "part_key": "rs1g04",
-      "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-      "file": "ate/tests/logic/wraps.py"
-    },
-    {
-      "part_key": "rs1g86",
-      "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-      "file": "ate/tests/logic/wraps.py"
-    },
-    {
-      "part_key": "rs2g08",
-      "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-      "file": "ate/tests/logic/wraps.py"
-    },
-    {
-      "part_key": "rs2g32",
-      "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-      "file": "ate/tests/logic/wraps.py"
     }
   ]
 }

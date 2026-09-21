@@ -55,7 +55,9 @@ from ate.tests.logic.product_model import (
     merge_vcc_grid,
     missing_data_path_keys,
     missing_truth_vectors,
+    panel_payload,
     panel_save_keys,
+    pin_port_map_rows,
     pins_named_in_wire_map,
     recipe_channels,
     sim_icc_plan,
@@ -82,6 +84,7 @@ _PATH_B_IDS = (
     "voh",
     "vol",
     "ioz",
+    "ioff",
 )
 
 # CONFIRMED Path B SIM walk (JH 11). Archive 123/74 optional PARKED if present;
@@ -495,6 +498,12 @@ def _buf126_ok() -> list[str]:
     en = set(enabled_tests_for_part("rs1g126") or [])
     if "ioz" not in en:
         errors.append("rs1g126 enabled_tests must include ioz")
+    if "ioff" not in en:
+        errors.append("rs1g126 enabled_tests must include ioff (VCC=0, not IOZ)")
+    rec126 = m.recipe if isinstance(m.recipe, dict) else {}
+    conds126 = rec126.get("ioff_conditions") if isinstance(rec126.get("ioff_conditions"), list) else []
+    if len(conds126) != 3:
+        errors.append(f"rs1g126 recipe.ioff_conditions must be See Lin 3 recables, got {len(conds126)}")
     for ac in ("ten", "tdis"):
         if ac not in en:
             errors.append(f"rs1g126 must keep AC id {ac}")
@@ -537,6 +546,50 @@ def _buf126_ok() -> list[str]:
     if lookup_pass_mode(m, "VOL", "vol") != "max_only":
         errors.append("rs1g126 pass_mode VOL must be max_only")
     errors += _fail_closed_until_signed("rs1g126", m)
+    return errors
+
+
+def _oe_ioz_ok() -> list[str]:
+    """Every enable-pin SKU keeps working IOZ. oe none stays ioz-off."""
+    from ate.fixture.modes import part_has_oe
+    from ate.tests.logic import logic_dc as ldc
+
+    errors: list[str] = []
+    for path in sorted(PARTS_DIR.glob("*.yaml")):
+        pk = path.stem.lower()
+        en = [str(x).strip().lower() for x in (enabled_tests_for_part(pk) or [])]
+        if part_has_oe(pk):
+            if "ioz" not in en:
+                errors.append(f"{pk} enable-pin must enable ioz")
+            specs = load_part_specs(pk)
+            if not any(str(s.get("id") or "") == "IOZ_uA" for s in specs):
+                errors.append(f"{pk} enable-pin must have limits IOZ_uA")
+            if has_product_model(pk):
+                m = load_product_model(pk)
+                if m is None or not m.has_oe():
+                    errors.append(f"{pk} oe_active/product_model.oe mismatch")
+                    continue
+                when = str((m.recipe or {}).get("ioz_when") or "").lower().replace("-", "_")
+                if "inactive" not in when:
+                    errors.append(f"{pk} recipe.ioz_when must be oe_inactive")
+        elif "ioz" in en:
+            errors.append(f"{pk} has no OE -- do not enable ioz")
+    m126 = load_product_model("rs1g126")
+    if m126 is not None:
+        fake = SimpleNamespace(psu=object(), dmm=object(), gen=None, scope=None)
+        try:
+            ldc._require_for(fake, m126, "ioz")
+        except RuntimeError as exc:
+            errors.append(f"ioz must accept PSU+DMM without AWG, got {exc}")
+        try:
+            ldc._require_for(fake, m126, "icc")
+            errors.append("icc on rs1g126 must still require AWG")
+        except RuntimeError as exc:
+            if "AWG" not in str(exc):
+                errors.append(f"icc should still need AWG, got {exc!r}")
+    hid = enabled_tests_for_part("rs1g126", catalog={"enabled_tests": ["icc"]})
+    if "ioz" not in [str(x).lower() for x in (hid or [])]:
+        errors.append("OE Version catalog must keep ioz")
     return errors
 
 
@@ -599,7 +652,7 @@ def _settle_loop_ok() -> list[str]:
         errors.append("_run_delta_icc must walk delta_icc_vectors (12 for A/B/C, never SeeLim 6)")
     if "others_high" in delta_src:
         errors.append("_run_delta_icc must not subset others_high True/False (SeeLim-6 class)")
-    for name in ("_run_icc", "_run_delta_icc", "_run_ii", "_run_ioz"):
+    for name in ("_run_icc", "_run_delta_icc", "_run_ii", "_run_ioz", "_run_ioff"):
         body = _fn_src(src, name)
         if not body:
             errors.append(f"logic_dc {name} missing")
@@ -700,9 +753,11 @@ def _settle_loop_ok() -> list[str]:
         errors.append(f"tight current settle without stable_eps_A must be RuntimeError, got {exc!r}")
     try:
         ramp_i = ldc._wait_settled_current_ua(_RampDmm(), fast, setup=False)
-        if abs(float(ramp_i) - 1e5) > 1.0:
+        # Drain spends 1 SYST:ERR? (float stub, not an error), then 5 :READ? mean.
+        # n=1 -> 0.1 A (drain), n=2..6 -> 0.2..0.6 A, mean 0.4 A = 4e5 uA.
+        if abs(float(ramp_i) - 4e5) > 1.0:
             errors.append(
-                f"NON_TIGHT must measure once (RampDmm first=0.1A -> 1e5 uA), got {ramp_i!r}"
+                f"NON_TIGHT must 5-read mean after drain (RampDmm -> 4e5 uA), got {ramp_i!r}"
             )
     except RuntimeError as exc:
         errors.append(f"NON_TIGHT must not timeout-FAIL, got {exc!r}")
@@ -1613,6 +1668,20 @@ def _registry_ok() -> list[str]:
         errors.append("delta_icc must be logic_dc._run_delta_icc")
     if get("ioz") is None or get("ioz").run is not ldc._run_ioz:
         errors.append("ioz must be logic_dc._run_ioz")
+    if get("ioff") is None or get("ioff").run is not ldc._run_ioff:
+        errors.append("ioff must be logic_dc._run_ioff (not SeeLim wrap)")
+    from ate.core.test_detect import source_for_spec as _ioz_src
+
+    ioz_src = _ioz_src(get("ioz")) if get("ioz") is not None else {}
+    if "logic_dc.py" not in str(ioz_src.get("file") or "").replace("\\", "/") or ioz_src.get("kind") != "ate":
+        errors.append(f"ioz list source must be ate logic_dc.py, got {ioz_src}")
+    m126 = load_product_model("rs1g126")
+    if m126 is not None:
+        fake = SimpleNamespace(psu=object(), dmm=object(), gen=None, scope=None)
+        try:
+            ldc._require_for(fake, m126, "ioz")
+        except RuntimeError as exc:
+            errors.append(f"ioz must accept PSU+DMM without AWG, got {exc}")
     p = _params(part="rs1g08", vcc=1.65, current_limit_a=0.05)
     try:
         ldc._run_ioz(None, p)
@@ -1657,6 +1726,27 @@ def _seelim_wrap_ok() -> list[str]:
         errors.append("resolve_current_tests must return an existing file or None")
     if not visa_before and "pyvisa" in sys.modules:
         errors.append("seelim_dc locator must not import pyvisa")
+    if "test_ioz" in text:
+        errors.append("seelim_dc must not trigger golden test_ioz -- logic_dc owns one IOZ")
+    if "test_ioff" in text:
+        errors.append("seelim_dc must not trigger golden test_ioff -- logic_dc owns one IOFF")
+    if "_restore_repo_helpers" not in text:
+        errors.append("SeeLim isolate must restore repo dmm_setup after golden")
+    from ate.core.paths import REPO_ROOT as _repo
+    from ate.tests.logic.seelim_dc import _golden_dir, _isolated_folder
+
+    gold = _golden_dir("rs1g126")
+    if gold.is_dir():
+        with _isolated_folder(gold):
+            pass
+        import dmm_setup as _dmm_after
+
+        want = (_repo / "dmm_setup.py").resolve()
+        got = Path(getattr(_dmm_after, "__file__", "") or "").resolve()
+        if got != want:
+            errors.append(f"after SeeLim isolate dmm_setup must be repo helper, got {got}")
+        if not callable(getattr(_dmm_after, "dmm_read", None)):
+            errors.append("repo dmm_setup must expose dmm_read after SeeLim isolate")
     return errors
 
 
@@ -1686,8 +1776,10 @@ def _panel_ok() -> list[str]:
         errors.append("app.js must save Logic DC product_model")
     if "renderLogicDc" not in js or "save_test_params" not in js:
         errors.append("app.js must visualise recipe + save Version overlay")
-    if "icc_corner_rows" not in js or "Enabled tests" not in js or "fail-open" not in js:
+    if "icc_corner_rows" not in js or "Enabled tests (SKU)" not in js or "fail-open" not in js:
         errors.append("app.js must visualise enabled tests, ICC corners, fail-open")
+    if "catalog hid ioz" not in js:
+        errors.append("Logic DC panel must say when this Version catalog hid ioz")
     if "logic-dc-stable-eps-a" not in js or "stable_eps_A" not in js:
         errors.append("Logic DC panel must edit stable_eps_A (overlay; null = NON_TIGHT)")
     if "Customise Parameters" not in js:
@@ -1777,6 +1869,22 @@ def _panel_ok() -> list[str]:
         errors.append("worker must expose get_product_model / save_product_model")
     if 'method == "save_test_params"' not in text:
         errors.append("worker must expose save_test_params")
+    try:
+        p = panel_payload("rs1g126")
+    except Exception as exc:
+        errors.append(f"rs1g126 panel_payload failed: {exc!r}")
+        return errors
+    if "ioz" not in (p.get("enabled_tests") or []):
+        errors.append("rs1g126 panel enabled_tests must include ioz")
+    if not p.get("has_oe"):
+        errors.append("rs1g126 panel must set has_oe")
+    if not p.get("icc_corner_rows"):
+        errors.append("rs1g126 panel must include icc_corner_rows")
+    if not p.get("pin_port_map"):
+        errors.append("rs1g126 panel must include pin_port_map")
+    m = load_product_model("rs1g126")
+    if m is not None and not pin_port_map_rows(m):
+        errors.append("rs1g126 pin_port_map_rows empty")
     return errors
 
 
@@ -2026,6 +2134,11 @@ def _handoff_ok() -> list[str]:
         errors.append("logic_dc.py must call path_b_handoff on Path B runs")
     if not wraps.is_file() or "path_b_handoff" not in wraps.read_text(encoding="utf-8"):
         errors.append("wraps.py must surface path_b_handoff for Path B AC ids")
+    handoff_fn = model_src[model_src.find("def path_b_handoff") : model_src.find("def path_b_handoff") + 1800]
+    if 'tid != "ioz"' not in handoff_fn:
+        errors.append("path_b_handoff must skip IOZ begin dump (DUT Continue only)")
+    if 'Path B {tid}: save paths' in handoff_fn:
+        errors.append("path_b_handoff must not popup save-paths after PASS")
     runner_src = runner.read_text(encoding="utf-8") if runner.is_file() else ""
     if (
         "checklist=None" not in runner_src
@@ -2088,6 +2201,8 @@ def _excel_lock_ok() -> list[str]:
         errors.append("excel_lock.py must write sessions/csv + path_b_write.json")
     if "sessions/csv" not in src:
         errors.append("excel_lock.py CSV dest must be sessions/csv")
+    if 'suffix.lower() == ".png"' not in src:
+        errors.append("Path B Excel must prefer DMM PNG over leftover MSO jpg")
     runner_src = Path(__file__).resolve().parents[1] / "core" / "runner.py"
     rtxt = runner_src.read_text(encoding="utf-8")
     if "bind_golden_auto" not in rtxt or "coerce_golden_auto_lab_report" not in rtxt:
@@ -2102,6 +2217,10 @@ def _excel_lock_ok() -> list[str]:
     ).read_text(encoding="utf-8")
     if "bind_golden_auto" not in dtxt:
         errors.append("lab_report_path must bind fill/plot to golden_auto Version path")
+    if "context_from_identity" not in dtxt:
+        errors.append("session JSON/Excel fill must use START campaign identity")
+    if "st_size >= 64" not in src:
+        errors.append("golden_auto must rebuild an empty workbook")
     for line in src.splitlines():
         if "_filled.xlsx" in line and re.search(r"\.save\s*\(", line):
             errors.append("excel_lock.py must not save _filled.xlsx")
@@ -3016,17 +3135,56 @@ def _draft_scaffold_ok() -> list[str]:
     low125 = next((r for r in ranges125 if abs(float(r.get("start") or 0) - 1.65) < 1e-9), None)
     if low125 is None or _formula_tok(low125.get("VIL_max")) != _formula_tok("0.3*VCC"):
         errors.append("rs1g125 VIL 1.65-1.95 must stay 0.3*VCC (not G08 0.15*VCC)")
-    src_ioz = inspect.getsource(ldc._run_ioz)
+    src_ioz = inspect.getsource(ldc._run_ioz) + inspect.getsource(ldc._ioz_drive_inactive)
     if "ioz_force_vector" not in src_ioz:
         errors.append("logic_dc _run_ioz must use ioz_force_vector (OE inactive only)")
     if "oe_active_level" in src_ioz:
         errors.append("logic_dc _run_ioz must not force OE active")
+    if "_ioz_drive_inactive" not in src_ioz:
+        errors.append("_run_ioz must drive OE on PSU CH3 via _ioz_drive_inactive")
+    if "_apply_levels(instr, model, inactive" in src_ioz:
+        errors.append("_run_ioz must not _apply_levels AWG pin_drive")
+    ioz_src = inspect.getsource(ldc._run_ioz)
+    if "_ioz_vout_points" not in ioz_src:
+        errors.append("_run_ioz must sweep VOUT via _ioz_vout_points (not two endpoints)")
+    if "stop_output" not in ioz_src:
+        errors.append("_run_ioz must park AWG (no DG822 CH3 / OUTP3)")
+    end_src = inspect.getsource(ldc._end_powered)
+    if "screenshot_from" not in end_src or 'shot == "dmm"' not in end_src:
+        errors.append("Path B DMM tests must capture DMM only when screenshot_from=dmm")
+    for name in ("_run_icc", "_run_delta_icc", "_run_ii", "_run_ioz", "_run_ioff"):
+        body = inspect.getsource(getattr(ldc, name))
+        if "_end_powered" not in body:
+            errors.append(f"{name} must _end_powered (DMM shot before power_down)")
+    wait_src = inspect.getsource(ldc._wait_settled)
+    if "dmm_read_avg" not in wait_src:
+        errors.append("_wait_settled must dmm_read_avg (clear buffer + 5 mean)")
+    m126 = load_product_model("rs1g126")
+    if m126 is None:
+        errors.append("rs1g126 product_model missing for IOZ VOUT sweep check")
+    else:
+        vouts126 = ldc._ioz_vout_points(_params(part="rs1g126", vcc=3.6), m126)
+        if len(vouts126) != 56 or abs(vouts126[0]) > 1e-9 or abs(vouts126[-1] - 5.5) > 1e-9:
+            errors.append(
+                f"rs1g126 IOZ VOUT must be 0..5.5 / 0.1 = 56 pts (See Lin), got n={len(vouts126)} {vouts126[:3]}..{vouts126[-1:]}"
+            )
+        elif any(abs(b - a - 0.1) > 1e-6 for a, b in zip(vouts126, vouts126[1:])):
+            errors.append("rs1g126 IOZ VOUT step must be 0.1 V")
+    req_src = inspect.getsource(ldc._require_for)
+    if "ioz" not in req_src or "ioff" not in req_src:
+        errors.append("_require_for must skip AWG for ioz and ioff (See Lin PSU+DMM)")
+    ioz_spec = get("ioz")
+    if ioz_spec is not None and "AWG" in (ioz_spec.required_instruments or []):
+        errors.append("ioz TestSpec must not list AWG")
+    ioff_spec = get("ioff")
+    if ioff_spec is not None and "AWG" in (ioff_spec.required_instruments or []):
+        errors.append("ioff TestSpec must not list AWG")
 
     # RS164 sequential -- NOT gate 2^n
     if not is_sequential(m164):
         errors.append("rs164 product_class/recipe.runner must be sequential_shift_register")
     en164 = {str(x).strip().lower() for x in (enabled_tests_for_part("rs164") or [])}
-    for banned in ("icc", "delta_icc", "input_threshold", "vth", "voh", "vol", "ioz"):
+    for banned in ("icc", "delta_icc", "input_threshold", "vth", "voh", "vol", "ioz", "ioff"):
         if banned in en164:
             errors.append(f"rs164 must not enable Path B {banned} (not combinational 2^n)")
     plan = sim_icc_plan(m164)
@@ -3584,7 +3742,7 @@ def _seq_stub_ok() -> list[str]:
         if dual_channel_continue(m):
             errors.append(f"{part} must not set dual_channel_continue (1Gxx; 2Gxx only)")
         en = {str(x).strip().lower() for x in (enabled_tests_for_part(part) or [])}
-        for banned in ("icc", "delta_icc", "input_threshold", "vth", "voh", "vol", "ioz"):
+        for banned in ("icc", "delta_icc", "input_threshold", "vth", "voh", "vol", "ioz", "ioff"):
             if banned in en:
                 errors.append(f"{part}: sequential must not enable Path B {banned}")
         plan = sim_icc_plan(m)
@@ -4385,6 +4543,7 @@ def check_logic_dc() -> list[str]:
     errors += _status_tokens_ok()
     errors += _rs1g97_holds()
     errors += _buf126_ok()
+    errors += _oe_ioz_ok()
     errors += _rs1gt34_ok()
     errors += _threshold_search_ok()
     errors += _enabled_voh_vol_tables_ok()

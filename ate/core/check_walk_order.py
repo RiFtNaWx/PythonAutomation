@@ -113,6 +113,16 @@ def main() -> int:
     dmm_over = RunParams(test_params={"ioz": {"screenshot_from": "dmm"}}).overlay_for("ioz")
     if getattr(dmm_over, "screenshot_from", "") != "dmm":
         errors.append("overlay_for must apply screenshot_from=dmm")
+    none_clean = _clean_test_param_block({"screenshot_from": "none"})
+    if none_clean.get("screenshot_from") != "none":
+        errors.append("Write screenshot_from=none must persist (disable DMM shot)")
+    avg_over = RunParams(
+        test_params={"ioz": {"dmm_avg_n": 5, "dmm_nplc": 1, "screenshot_from": "dmm"}}
+    ).overlay_for("ioz")
+    if getattr(avg_over, "dmm_avg_n", None) != 5:
+        errors.append("overlay_for must apply dmm_avg_n=5")
+    if getattr(avg_over, "dmm_nplc", None) != 1:
+        errors.append("overlay_for must apply dmm_nplc=1")
     rtxt = Path(__file__).with_name("runner.py").read_text(encoding="utf-8")
     cap = rtxt[rtxt.find("def capture_screenshot") : rtxt.find("def operator_respond")]
     if "_reopen_mso_after_visa" not in cap:
@@ -135,13 +145,111 @@ def main() -> int:
         errors.append("DMM6500 must not send HCOP DATA:FORM (1.7.16a -113)")
     if "_reading_png" not in dtxt:
         errors.append("DMM HCOP leftover must write a reading-card PNG, never MSO")
+    if "def is_banned_dmm_scpi" not in dtxt:
+        errors.append("dmm_setup must expose is_banned_dmm_scpi")
+    if "def clear_active_buffer" not in dtxt or "def dmm_drain_errors" not in dtxt:
+        errors.append("dmm_setup must drain SYST:ERR and clear buffer before READ")
+    if "dmm_scpi.log" not in dtxt:
+        errors.append("dmm_setup must append DMM write/SYST:ERR to ate/worker/dmm_scpi.log")
+    if "def dmm_dismiss_header" not in dtxt or "SYST:CLE" not in dtxt:
+        errors.append("dmm_setup must SYST:CLE leftover Event Log once (not every READ)")
+    sess_src = (Path(__file__).resolve().parents[1] / "instruments" / "session.py").read_text(
+        encoding="utf-8"
+    )
+    if "dmm_dismiss_header" not in sess_src:
+        errors.append("USB Open Session must dismiss leftover DMM Event Log")
+    if "def dmm_read_avg" not in dtxt or "statistics.mean" not in dtxt:
+        errors.append("dmm_read_avg must mean n readings (host filter, no AVER SCPI)")
+    if ".write(" in dtxt and "HCOP" in dtxt:
+        for i, ln in enumerate(dtxt.splitlines(), 1):
+            if ".write(" in ln and "HCOP" in ln.upper():
+                errors.append(f"dmm_setup.py:{i} must not write HCOP")
+    from dmm_setup import is_banned_dmm_scpi
+
+    if not is_banned_dmm_scpi("*RST") or not is_banned_dmm_scpi(":HCOP:SDUM:DATA?"):
+        errors.append("is_banned_dmm_scpi must flag *RST and HCOP")
+    if not is_banned_dmm_scpi(":SENS:CURR:NPLC 1") or not is_banned_dmm_scpi(
+        ":TRAC:CLE 'defbuffer1'"
+    ):
+        errors.append("is_banned_dmm_scpi must flag NPLC/TRAC")
+    if is_banned_dmm_scpi(":CONF:CURR:DC") or is_banned_dmm_scpi("*CLS"):
+        errors.append("is_banned_dmm_scpi must allow CONF:CURR:DC and *CLS")
+    if is_banned_dmm_scpi("SYST:CLE"):
+        errors.append("is_banned_dmm_scpi must allow SYST:CLE (Event Log dismiss)")
+    if not is_banned_dmm_scpi(":SENS:FUNC 'CURR:DC'"):
+        errors.append("is_banned_dmm_scpi must skip extra SENS:FUNC (1.7.16a -113)")
     from dmm_setup import _reading_png
 
     card = _reading_png("DMM6500 DCI", "2.8 uA")
     if not card.startswith(b"\x89PNG"):
         errors.append("DMM reading card must be a real PNG")
-    if "if not shot:" not in rtxt:
+    if "coerce_screenshot_from" not in rtxt:
         errors.append("empty screenshot_from must auto MSO/DMM from TestSpec instruments")
+    wtxt = (Path(__file__).resolve().parents[1] / "worker" / "server.py").read_text(
+        encoding="utf-8"
+    )
+    if "coerce_screenshot_from" not in wtxt:
+        errors.append("list_tests must coerce screenshot_from from TestSpec instruments")
+    from ate.core.param_defaults import coerce_screenshot_from
+    from ate.core.registry import known_families, load_family_tests
+
+    if coerce_screenshot_from("mso", frozenset({"DMM", "PSU"})) != "dmm":
+        errors.append("DMM-only stale mso must coerce to dmm")
+    if coerce_screenshot_from("", frozenset({"DMM"})) != "dmm":
+        errors.append("DMM-only empty shot must be dmm")
+    if coerce_screenshot_from("mso", frozenset({"MSO", "AWG"})) != "mso":
+        errors.append("MSO TestSpec must keep mso")
+    if coerce_screenshot_from("mso", frozenset({"PSU"})) != "none":
+        errors.append("PSU-only stale mso must not capture MSO")
+    for fam in known_families():
+        try:
+            specs = load_family_tests(fam)
+        except Exception as exc:
+            errors.append(f"load_family_tests({fam}): {exc}")
+            continue
+        for spec in specs:
+            req = spec.required_instruments
+            need = {str(x).upper() for x in (req or ())}
+            has_mso = "MSO" in need or "SCOPE" in need
+            has_dmm = "DMM" in need
+            stale = coerce_screenshot_from("mso", req)
+            empty = coerce_screenshot_from("", req)
+            if has_dmm and not has_mso:
+                if stale != "dmm":
+                    errors.append(
+                        f"{fam}.{spec.id} DMM-only stale mso must be dmm, got {stale}"
+                    )
+                if empty != "dmm":
+                    errors.append(
+                        f"{fam}.{spec.id} DMM-only empty shot must be dmm, got {empty}"
+                    )
+            elif has_mso:
+                if stale != "mso":
+                    errors.append(
+                        f"{fam}.{spec.id} MSO spec must keep mso, got {stale}"
+                    )
+                if empty != "mso":
+                    errors.append(
+                        f"{fam}.{spec.id} MSO spec empty shot must be mso, got {empty}"
+                    )
+            else:
+                if stale != "none":
+                    errors.append(
+                        f"{fam}.{spec.id} no MSO/DMM must not capture MSO, got {stale}"
+                    )
+    from ate.core.param_defaults import LOGIC_TEST_DEFAULTS
+
+    if (LOGIC_TEST_DEFAULTS.get("icc") or {}).get("screenshot_from") != "dmm":
+        errors.append("LOGIC icc default screenshot_from must be dmm")
+    if (LOGIC_TEST_DEFAULTS.get("ioz") or {}).get("screenshot_from") != "dmm":
+        errors.append("LOGIC ioz default screenshot_from must be dmm")
+    if (LOGIC_TEST_DEFAULTS.get("ioff") or {}).get("screenshot_from") != "dmm":
+        errors.append("LOGIC ioff default screenshot_from must be dmm")
+    ldc_txt = Path(__file__).resolve().parents[1].joinpath("tests", "logic", "logic_dc.py").read_text(encoding="utf-8")
+    if "def _end_powered" not in ldc_txt or "_end_powered" not in ldc_txt.split("def _run_icc", 1)[-1]:
+        errors.append("logic_dc DMM tests must _end_powered before power_down")
+    if (LOGIC_TEST_DEFAULTS.get("tp") or {}).get("screenshot_from") == "dmm":
+        errors.append("LOGIC tp must keep MSO screenshot (not DMM default)")
     from ate.core.progress import who_has_tests
 
     who_rows = who_has_tests(limit=20)

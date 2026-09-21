@@ -46,6 +46,7 @@ _PATH_B_DC = frozenset(
         "voh",
         "vol",
         "ioz",
+        "ioff",
     }
 )
 
@@ -160,8 +161,11 @@ def _confirmed_catalog(pm: Any) -> list[str]:
                 errors.append("rs1g07 SIM: voh must stay SKIP/N_A")
             if not pm.is_open_drain(m):
                 errors.append("rs1g07 SIM: open_drain required (VOH N_A)")
-        if part == "rs1g97" and "ioz" in en:
-            errors.append("rs1g97 SIM: ioz must stay OFF")
+        if m.has_oe():
+            if "ioz" not in en:
+                errors.append(f"{part} SIM: has_oe must enable ioz")
+        elif "ioz" in en:
+            errors.append(f"{part} SIM: ioz must stay OFF")
     return errors
 
 

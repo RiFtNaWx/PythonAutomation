@@ -20,6 +20,7 @@ vcca: 1.8
 vcc: 1.8
 vccb: 3.3
 current_limit: 0.05
+oe_active: high
 htol_ns: 230
 timing:
   timeout_s: 4.0
@@ -32,6 +33,7 @@ enabled_tests:
   - vol
   - icc
   - il
+  - ioz
   - tpd
   - tp_rs0204
   - tsu
@@ -51,6 +53,7 @@ fixture_modes:
       - "PSU CH1 = VCCA, CH2 = VCCB. VCCA must be <= VCCB."
       - "Continue waits before VOH and before VOL -- dual-rail wiring differs."
       - "OE is AWG CH2 = VCCA (enable) except Tsk (tie OE to VCCA on the board)."
+      - "IOZ: OE=GND (inactive). DMM in series with B1. Do not copy single-rail Path B."
       - "Tsu/Th are datasheet ten/tdis (OE). Cpd is pin Cio, not dynamic Cpd."
     tests:
       - vih
@@ -59,6 +62,7 @@ fixture_modes:
       - vol
       - icc
       - il
+      - ioz
       - tpd
       - tp_rs0204
       - tsu

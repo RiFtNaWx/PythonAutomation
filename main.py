@@ -1,5 +1,6 @@
 # main.py
 
+from datetime import datetime
 from instruments import Instruments
 from logic_tests import *
 from opa_tests import *
@@ -86,7 +87,18 @@ def main():
     instr = Instruments()
     logger = DataLogger(test_name="OPA_GBW_SR_Test", user_id="user")
     results = []
-    
+
+    # Pre-flight: confirm USB-VISA resources (not ASRL/COM hub fallback)
+    print("\n=== VISA resource pre-flight ===")
+    for name, session in (("scope", instr.scope), ("psu", instr.psu), ("gen", instr.gen)):
+        res = getattr(session, "resource_name", None) or "(unknown)"
+        print(f"  {name}: {res}")
+        if str(res).upper().startswith("ASRL"):
+            print(
+                f"WARNING: {name} enumerated as serial, not USB-VISA — check hub "
+                f"connection"
+            )
+
     try:
         instr.reset_all()
 
@@ -99,12 +111,31 @@ def main():
             print(f"\nRunning OPA tests at VCC={vcc}V")
             # results.append(test_opa_gbw(instr, vcc, logger))
             # results.append(test_opa_sr(instr, vcc, logger))
-            results.append(test_settlingTime(instr, vcc, logger))
+            run_tag = datetime.now().strftime("%Y-%m-%d %H%M%S")
+            results.append(
+                test_vos_sweep(
+                    instr,
+                    vcc=vcc,
+                    gain=201,
+                    sheet_name=f"vos sweep {run_tag}",
+                )
+            )
+            # results.append(test_settlingTime(instr, vcc, logger))
             # results.append(test_SSR(instr, vcc, logger))
             # results.append(test_LSR(instr, vcc, logger))
             # results.append(test_ORT(instr, vcc, logger))
-            # results.append(test_powerONtime(instr, vcc, logger))  
-            
+            # results.append(test_powerONtime(instr, vcc, logger))
+
+        for r in results:
+            if r and "fit" in r:
+                f = r["fit"]
+                print(
+                    f"\n=== VOS SWEEP RESULT ===\n"
+                    f"slope={f['slope']:.4f} V/V  "
+                    f"intercept={f['intercept']*1000:.4f} mV  "
+                    f"R2={f['r_squared']:.6f}  "
+                    f"VOS={f['vos_mV']:.4f} mV\n"
+                )
 
     except Exception as e:
         print(f"Error occurred during testing: {e}")

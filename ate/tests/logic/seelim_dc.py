@@ -2,7 +2,7 @@
 
 Does not import Lim.* / Ariff.*. Does not rewrite the golden.
 input() / _prompt become pause_hook Continue so the worker is not blocked.
-icc / ioz keep the existing Logic ids and dispatch by part (RS0204 / RS1G125 stay).
+icc keeps the existing Logic id and dispatches by part. IOZ is logic_dc only.
 """
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ from typing import Any, Iterator
 from ate.core.paths import REPO_ROOT
 from ate.core.registry import TestSpec, register
 from ate.core.runner import RunParams
-from ate.tests.logic.ariff_dc import _run_ioz as _ariff_ioz
 from ate.tests.logic.rs0204 import _run_icc as _rs0204_icc
 
 _LOGIC = "LOGIC"
@@ -69,6 +68,36 @@ def resolve_current_tests(part: str):
     return path if path.is_file() else None
 
 
+_REPO_HELPERS = ("dmm_setup", "psu_setup", "generator_setup", "scope_setup")
+
+
+def _repo_helper_path(name: str) -> Path:
+    return (REPO_ROOT / f"{name}.py").resolve()
+
+
+def _restore_repo_helpers() -> None:
+    """SeeLim goldens ship dmm_setup.py. Path B must keep the repo module."""
+    import importlib
+
+    repo = str(REPO_ROOT)
+    if repo not in sys.path:
+        sys.path.append(repo)
+    for name in _REPO_HELPERS:
+        want = _repo_helper_path(name)
+        if not want.is_file():
+            continue
+        mod = sys.modules.get(name)
+        raw = Path(getattr(mod, "__file__", "") or "")
+        try:
+            same = bool(mod) and raw.resolve() == want
+        except OSError:
+            same = False
+        if same:
+            continue
+        sys.modules.pop(name, None)
+        importlib.import_module(name)
+
+
 def _ensure_repo_setup() -> None:
     repo = str(REPO_ROOT)
     if repo not in sys.path:
@@ -100,6 +129,7 @@ def _isolated_folder(folder: Path) -> Iterator[None]:
         for name in _SIBLINGS:
             sys.modules.pop(name, None)
         sys.modules.update(saved)
+        _restore_repo_helpers()
 
 
 @contextmanager
@@ -305,12 +335,6 @@ def _run_icc(instr, params: RunParams) -> dict[str, Any]:
     return _rs0204_icc(instr, params)
 
 
-def _run_ioz(instr, params: RunParams) -> dict[str, Any]:
-    if _part_key(params) == "rs1g126":
-        return run_see_lim(instr, params, "current_tests.py", "test_ioz")
-    return _ariff_ioz(instr, params)
-
-
 _NOTE = "SeeLim original goldens/see_lin -- Continue, not stdin"
 
 _register(
@@ -338,26 +362,10 @@ _register(
     notes=_NOTE,
 )
 _register(
-    "ioff",
-    "Power-off leakage (IOFF)",
-    "IOFF",
-    frozenset({"PSU", "DMM"}),
-    _run_named("current_tests.py", "test_ioff", frozenset({"rs1g126"})),
-    notes=_NOTE,
-)
-_register(
     "input_threshold",
     "Input threshold (VIH/VIL)",
     "InputThreshold",
     frozenset({"PSU", "DMM"}),
     _run_named("threshold_tests.py", "test_input_threshold", _SEE_LIM_PARTS),
     notes=_NOTE + " -- same physics as vih_vil; do not enable both",
-)
-_register(
-    "ioz",
-    "High-Z output leakage (IOZ)",
-    "IOZ",
-    frozenset({"PSU", "DMM"}),
-    _run_ioz,
-    notes=_NOTE + " on RS1G126; Ariff Path B on RS1G125",
 )

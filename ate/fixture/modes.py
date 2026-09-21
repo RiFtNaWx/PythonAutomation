@@ -443,6 +443,36 @@ def _part_yaml(part: str) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def part_has_oe(part: str) -> bool:
+    """True when this SKU has an output-enable pin (Path B oe or oe_active).
+
+    Analog-switch OE (leakage_off) and LDO EN are not this gate.
+    """
+    data = _part_yaml(part)
+    pm = data.get("product_model") if isinstance(data.get("product_model"), dict) else {}
+    oe = pm.get("oe") if isinstance(pm, dict) else None
+    if isinstance(oe, dict):
+        active = oe.get("active", oe.get("mode", oe.get("level")))
+        if active not in (None, "", "none", "None", False):
+            return str(active).strip().lower() not in ("none", "no", "off")
+    elif isinstance(oe, str) and oe.strip() and oe.strip().lower() not in ("none", "no", "off"):
+        return True
+    raw = str(data.get("oe_active") or "").strip().lower()
+    return raw in ("high", "low")
+
+
+def _keep_oe_ioz(part: str, ids: list[str] | None) -> list[str] | None:
+    """Catalog cannot hide ioz on an enable-pin SKU. oe none stays ioz-off."""
+    if ids is None:
+        return None
+    out = [str(x) for x in ids]
+    if not part_has_oe(part):
+        return out
+    if not any(x.strip().lower() == "ioz" for x in out):
+        out.append("ioz")
+    return out
+
+
 def logic_catalog_for_ui(part: str = "rs29511") -> list[dict[str, Any]]:
     """Logic fixture modes only -- never merge OPA BUFFER/G11 defaults."""
     data = _part_yaml(part)
@@ -485,19 +515,19 @@ def enabled_tests_for_part(part: str, catalog: dict[str, Any] | None = None) -> 
     if isinstance(catalog, dict):
         raw = catalog.get("enabled_tests")
         if isinstance(raw, list) and raw:
-            return [str(x) for x in raw]
+            return _keep_oe_ioz(part, [str(x) for x in raw])
     data = _part_yaml(part)
     raw = data.get("enabled_tests")
     if isinstance(raw, list) and raw:
-        return [str(x) for x in raw]
+        return _keep_oe_ioz(part, [str(x) for x in raw])
     modes = data.get("fixture_modes") or {}
     logic = modes.get("LOGIC") if isinstance(modes, dict) else None
     if isinstance(logic, dict):
         tests = logic.get("tests")
         if isinstance(tests, list) and tests:
-            return [str(x) for x in tests]
+            return _keep_oe_ioz(part, [str(x) for x in tests])
     if isinstance(raw, list):
-        return []
+        return _keep_oe_ioz(part, [])
     return None
 
 

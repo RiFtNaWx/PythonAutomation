@@ -113,7 +113,18 @@ _AUTHOR_OPS = {
 # Path A / Test program: only this person's originals for these SKUs.
 _PART_OWN_IDS = {
     "rs1g97": ("icc", "delta_icc", "ii", "input_threshold"),
-    "rs1g126": ("ioff", "ioz", "icc", "ii", "delta_icc", "input_threshold"),
+    "rs1g126": (
+        "ioff",
+        "ioz",
+        "icc",
+        "ii",
+        "delta_icc",
+        "input_threshold",
+        "voh",
+        "vol",
+        "ten",
+        "tdis",
+    ),
 }
 
 _PHYSICS_DUP = (
@@ -392,6 +403,35 @@ def snippet_for_id(tid: str) -> dict[str, Any]:
                 "trigger": str(row.get("trigger") or ""),
                 "family": str(row.get("family") or ""),
             }
+    return {}
+
+
+def source_for_spec(spec: Any) -> dict[str, Any]:
+    """What START runs. ate/tests body wins leftover snippet_map wraps."""
+    run = getattr(spec, "run", None)
+    run_file = ""
+    run_line = 0
+    fn = str(getattr(run, "__name__", "") or "")
+    if run is not None:
+        try:
+            run_file = inspect.getsourcefile(run) or ""
+            run_line = inspect.getsourcelines(run)[1]
+        except Exception:
+            pass
+    posix = str(run_file).replace("\\", "/").lower()
+    if "ate/tests/" in posix:
+        return {"file": run_file, "lineno": run_line, "fn": fn, "kind": "ate"}
+    mapped = snippet_for_id(str(getattr(spec, "id", "") or ""))
+    if mapped.get("file"):
+        return {
+            "file": mapped.get("file") or "",
+            "lineno": mapped.get("lineno") or 0,
+            "fn": mapped.get("fn") or fn,
+            "trigger": mapped.get("trigger") or "",
+            "kind": "wrap",
+        }
+    if run_file:
+        return {"file": run_file, "lineno": run_line, "fn": fn, "kind": "ate"}
     return {}
 
 

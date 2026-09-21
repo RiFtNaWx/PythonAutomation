@@ -123,12 +123,6 @@ LEFTOVER_PAIRS: dict[tuple[str, str], str] = {
     ("rs358", "noise"): LEFTOVER_REASON["noise"],
     ("lm358", "settling"): LEFTOVER_REASON["settling"],
     ("rs8551", "noise"): LEFTOVER_REASON["noise"],
-    ("rs1g00", "supply_current"): "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-    ("rs1g02", "supply_current"): "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-    ("rs1g04", "supply_current"): "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-    ("rs1g86", "supply_current"): "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-    ("rs2g08", "supply_current"): "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-    ("rs2g32", "supply_current"): "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
 }
 
 # Pair realized wins over leftover ids (RS29511 tp is not CMOS wrap).
@@ -145,6 +139,12 @@ REALIZED_PAIRS: dict[tuple[str, str], str] = {
     ("rs164", "supply_current"): "eugene_cap IDD Path B",
     ("rs1g74", "supply_current"): "eugene_cap IDD Path B",
     ("rs1g123", "supply_current"): "eugene_cap IDD Path B",
+    ("rs1g00", "supply_current"): "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
+    ("rs1g02", "supply_current"): "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
+    ("rs1g04", "supply_current"): "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
+    ("rs1g86", "supply_current"): "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
+    ("rs2g08", "supply_current"): "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
+    ("rs2g32", "supply_current"): "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
     ("rs622", "vos_sweep"): "Path B G201 CHAN2 VOUT; SIM Vos_dut=0 slope~201 not CHAN1=AWG",
     ("rs622", "ac_gain_check"): "Path B G201 CHAN2 VPP/amp; closed-loop GAIN_VV not AOL_dB",
     ("rs622", "ac_vin_sweep"): "Path B G201 CHAN2 VPP/amp sweep; closed-loop GAIN_VV not AOL_dB",

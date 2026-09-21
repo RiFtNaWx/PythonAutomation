@@ -21,7 +21,7 @@ from ate.core.paths import JSONRPC_HOST, JSONRPC_PORT
 from ate.core.registry import active_family, all_tests, family_labels, known_families, refresh_family_table
 from ate.core.runner import ATECore, RunParams
 
-WORKER_VERSION = "0.2.40"
+WORKER_VERSION = "0.2.41"
 
 
 def _merged_test_params(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -68,7 +68,7 @@ def _build_run_params(params: dict[str, Any]) -> RunParams:
     dut_indices: list[int] = []
     if isinstance(duts_raw, list) and duts_raw:
         dut_indices = [int(x) for x in duts_raw]
-    part = str(p.get("part") or ctx.part_key or "").strip()
+    part = str(p.get("part_key") or p.get("part") or ctx.part_key or "").strip().lower()
     gain_profile = str(p.get("gain_profile") or "default")
     run_label = str(p.get("run_label") or "").strip()
     raw_vccb = p.get("vccb")
@@ -135,6 +135,46 @@ def _build_run_params(params: dict[str, Any]) -> RunParams:
 
         rp.research_excel = str(RESEARCH_EXCEL_PATH)
     return rp
+
+
+def _pin_run_campaign(p: dict[str, Any]) -> None:
+    """Bind worker campaign to START payload before instruments run. PIC cannot steal."""
+    op = str((p or {}).get("operator") or "").strip()
+    if not op:
+        return
+    from ate.core.database import set_context
+
+    set_context(
+        component=(p or {}).get("component"),
+        part=(p or {}).get("part"),
+        package=(p or {}).get("package"),
+        operator=op,
+        version=(p or {}).get("version"),
+        model=(p or {}).get("model"),
+        part_key=(p or {}).get("part_key"),
+        year=(p or {}).get("year"),
+    )
+
+
+def _session_bound_ctx(p: dict[str, Any] | None = None):
+    """Excel/STS writes follow START folder. UI payload wins if the SKU differs."""
+    from ate.core.database import context_from_identity, get_context, last_session_identity
+
+    payload = p or {}
+    ident = last_session_identity()
+    op = str(payload.get("operator") or "").strip()
+    if op:
+        _pin_run_campaign(payload)
+        same_part = str(ident.get("part") or "").strip().lower() == str(
+            payload.get("part") or ""
+        ).strip().lower()
+        same_op = str(ident.get("operator") or "").strip().lower() == op.lower()
+        if ident.get("part") and same_part and same_op:
+            return context_from_identity(ident)
+        return get_context()
+    if ident.get("part"):
+        return context_from_identity(ident)
+    return get_context()
 
 
 def _run_sequence_worker(ids: list[str], rp: RunParams) -> None:
@@ -276,7 +316,6 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
         from ate.core.database import get_context, load_test_params
         from ate.core.param_defaults import catalog_for_ui
         from ate.fixture.modes import enabled_tests_for_part
-        import inspect
 
         ctx = get_context()
         defaults = {
@@ -306,31 +345,24 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
         info_map = test_info_map(pk)
         part_specs = apply_version_spec_overlay(load_part_specs(pk))
         from ate.core.stimulus import for_test as stimulus_for
-        from ate.core.test_detect import snippet_for_id
+        from ate.core.test_detect import source_for_spec
 
         fam = str(core.family or "")
         cat = catalog_for_ui(pk, fam)
         saved = (load_test_params(ctx).get("tests") or {})
+        from ate.core.param_defaults import coerce_screenshot_from
+
         out = []
         for t in specs:
-            mapped = snippet_for_id(t.id)
-            if mapped.get("file"):
-                source = {
-                    "file": mapped.get("file") or "",
-                    "lineno": mapped.get("lineno") or 0,
-                    "fn": mapped.get("fn") or "",
-                    "trigger": mapped.get("trigger") or "",
-                }
-            else:
-                try:
-                    src_file = inspect.getsourcefile(t.run) or ""
-                    src_line = inspect.getsourcelines(t.run)[1]
-                    source = {"file": src_file, "lineno": src_line} if src_file else {}
-                except Exception:
-                    source = {}
+            source = source_for_spec(t)
             defaults_row = dict((cat.get("tests") or {}).get(t.id) or {})
             overlay = dict(saved.get(str(t.id).lower()) or {})
             merged = {**defaults_row, **overlay}
+            shot_def = coerce_screenshot_from("", t.required_instruments)
+            defaults_row.setdefault("screenshot_from", shot_def)
+            merged["screenshot_from"] = coerce_screenshot_from(
+                merged.get("screenshot_from"), t.required_instruments
+            )
             spec_rows = [
                 s
                 for s in part_specs
@@ -666,6 +698,14 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
             from ate.instruments.sim import bus_snapshot
 
             status["sim_bus"] = bus_snapshot()
+        try:
+            from ate.instruments.discovery import last_usb_map, pnp_present
+
+            status["usb"] = last_usb_map()
+            status["pnp"] = pnp_present()
+        except Exception:
+            status["usb"] = {}
+            status["pnp"] = {}
         return status
 
     if method == "get_timeline":
@@ -703,6 +743,7 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
     if method == "run_sequence":
         ids = list(params.get("test_ids") or [])
         p = params.get("params") or {}
+        _pin_run_campaign(p)
         rp = _build_run_params({**p, "test_ids": ids})
         results = core.run_sequence(ids, rp)
         return [
@@ -723,11 +764,18 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
         p = params.get("params") or {}
         if core.busy:
             raise RuntimeError("Runner busy")
-        rp = _build_run_params({**p, "test_ids": ids})
         with _State.lock:
             if _State.run_thread and _State.run_thread.is_alive():
                 raise RuntimeError("Run thread already active")
             core.claim_async_run()
+            try:
+                _pin_run_campaign(p)
+                rp = _build_run_params({**p, "test_ids": ids})
+            except Exception:
+                with core._lock:
+                    core._busy = False
+                    core._async_claimed = False
+                raise
             _State.run_thread = threading.Thread(
                 target=_run_sequence_worker,
                 args=(ids, rp),
@@ -1266,11 +1314,10 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
 
     if method == "export_datalog":
         from ate.core.datalog import load_report, report_path
-        from ate.core.database import get_context
         from ate.reporting.sts_datalog import export_latest_report
 
-        doc = load_report()
-        c = get_context()
+        c = _session_bound_ctx(params or {})
+        doc = load_report(ctx=c)
         paths = export_latest_report(
             doc, sessions_dir=c.sessions_dir(), version_dir=c.root()
         )
@@ -1304,7 +1351,12 @@ def dispatch(method: str, params: dict[str, Any]) -> Any:
     if method == "fill_workbook":
         from ate.reporting.session_values import fill_workbook_from_report
 
-        return fill_workbook_from_report(demo=bool(core.simulated), copy_golden=True)
+        ctx = _session_bound_ctx(params or {})
+        return fill_workbook_from_report(
+            demo=bool(core.simulated),
+            copy_golden=True,
+            ctx=ctx,
+        )
 
     if method == "list_specs":
         from ate.core.database import get_context

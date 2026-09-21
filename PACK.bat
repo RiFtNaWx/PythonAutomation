@@ -20,6 +20,6 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo Zip is on Desktop and in dist\
+echo Zip is on Desktop, dist\, and D:\ATE_Console\ when D: exists
 echo Give operators the zip. Vibe-coders keep using git clone.
 exit /b 0

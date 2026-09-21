@@ -85,11 +85,11 @@ LOGIC_TEST_DEFAULTS: dict[str, dict[str, Any]] = {
     "tr": {"vcc": 1.8, "vccb": 3.3},
     "tf": {"vcc": 1.8, "vccb": 3.3},
     "tsk": {"vcc": 1.8, "vccb": 3.3},
-    "ioz": {"vcc": 3.6, "screenshot_from": "dmm"},
-    "delta_icc": {"vcc": 1.65},
-    "ii": {"vcc": 1.65},
-    "ioff": {"vcc": 5.5},
-    "input_threshold": {"vcc": 1.65},
+    "ioz": {"vcc": 3.6, "screenshot_from": "dmm", "dmm_avg_n": 5, "dmm_nplc": 1},
+    "delta_icc": {"vcc": 1.65, "screenshot_from": "dmm"},
+    "ii": {"vcc": 1.65, "screenshot_from": "dmm"},
+    "ioff": {"vcc": 5.5, "screenshot_from": "dmm"},
+    "input_threshold": {"vcc": 1.65, "screenshot_from": "dmm"},
     "cpd": {"vcc": 1.8, "vccb": 3.3},
     "tw": {"vcc": 1.8, "vccb": 3.3},
 }
@@ -109,6 +109,57 @@ POWER_TEST_DEFAULTS: dict[str, dict[str, Any]] = {
     "ioutmax": {"vcc": 5.0},
     "enable_current": {"vcc": 5.0},
 }
+
+
+def coerce_screenshot_from(shot: str, required) -> str:
+    """Never capture MSO unless the TestSpec lists MSO/SCOPE."""
+    s = str(shot or "").strip().lower()
+    if s in ("off", "0"):
+        s = "none"
+    need = {str(x).upper() for x in (required or ())}
+    has_mso = "MSO" in need or "SCOPE" in need
+    has_dmm = "DMM" in need
+    if s in ("none",):
+        return "none"
+    if s in ("mso", "scope"):
+        if has_mso:
+            return "mso"
+        if has_dmm:
+            return "dmm"
+        return "none"
+    if s in ("dmm",):
+        return "dmm" if has_dmm else "none"
+    if has_mso:
+        return "mso"
+    if has_dmm:
+        return "dmm"
+    return "none"
+
+
+_LOGIC_MSO_SHOT_IDS = frozenset(
+    {
+        "tp",
+        "tidle",
+        "tdis",
+        "ten",
+        "tpd",
+        "tp_rs0204",
+        "tsu",
+        "th",
+        "fmax",
+        "tr",
+        "tf",
+        "tsk",
+        "tw",
+    }
+)
+for _tid, _row in LOGIC_TEST_DEFAULTS.items():
+    if _tid not in _LOGIC_MSO_SHOT_IDS and isinstance(_row, dict):
+        _row.setdefault("screenshot_from", "dmm")
+for _block in (LIM_TEST_DEFAULTS, POWER_TEST_DEFAULTS):
+    for _row in _block.values():
+        if isinstance(_row, dict):
+            _row.setdefault("screenshot_from", "dmm")
 
 # Per-family timing lookup (non-opamp must not inherit OPA settle/timeout)
 FAMILY_TIMING: dict[str, dict[str, dict[str, float]]] = {

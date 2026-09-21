@@ -1,23 +1,25 @@
+# Legacy file map — prefer README.md and TEST_DESIGN.md
+
+See:
+  README.md                 — overview, bench setup, how a run works
+  WORKFLOW.md               — first-time install, push / PR, ownership
+  TEST_DESIGN.md            — where to change code + new test tutorials (Voffset, DC sweep)
+  PYVISA_OPA_DEEP_DIVE.md   — full PyVISA / OPA architecture deep dive
+
 LabAutomation/
-├── configurations.py          # Global test configuration: VCC ranges, limits, filenames, sample count
-├── instruments.py     # VISA abstraction layer: instrument discovery, connection, basic I/O
-├── scope_setup.py     # Oscilloscope configuration: channels, timebase, triggers, measurements
-├── dmm_setup.py   	   # DMM configuration and measurement functions (V, I, continuity)
-├── psu_setup.py   	   # Power supply setup: channel config, voltage/current limits, sequencing
-├── generator_setup.py # Signal generator setup: waveform type, frequency, amplitude, duty cycle
-├── logic_tests.py     # Logic device test cases: threshold levels, propagation delay, disable timing
-├── datalog.py         # Test data logging: results, pass/fail status, metadata, CSV/Excel output
-└── main.py            # Main execution entry: test flow control and sequence orchestration
-└── utils.py           # common utility functions and classes for logging setup, error handling decorators, safe module imports, progress indication, binary data parsing, and file size formatting used across the application.
+├── configurations.py   # Global test configuration: VCC ranges, limits, filenames
+├── instruments.py      # VISA abstraction: discovery, connection, basic I/O
+├── scope_setup.py      # Oscilloscope: channels, timebase, triggers, measurements
+├── dmm_setup.py        # DMM: V, I, capacitance setup + read
+├── psu_setup.py        # Power supply: channel config, limits, sequencing
+├── generator_setup.py  # Signal generator: waveform, freq, amplitude, offset
+├── logic_tests.py      # Logic device test cases
+├── opa_tests.py        # OPA test cases
+├── datalog.py          # Results + pass/fail Excel output
+├── limits.py           # Datasheet limits only (no logic)
+├── utils.py            # Timers, binary parse, helpers
+└── main.py             # Entry: open instruments, run tests, cleanup
 
-
-
-# workflow test marker
-
-To add on in future
-├── limits.py        		# Datasheet limits only (no logic), add pass/fail criteria
-├── ldo_tests.py	 		# LDO test cases: threshold levels, propagation delay, disable timing
-├── level_shifter_tests.py  # Level Shifter test cases: threshold levels, propagation delay, disable timing
-├── opamp_tests.py          # OPA test cases: threshold levels, propagation delay, disable timing
-
-
+Future / product modules:
+├── ldo_tests.py
+└── level_shifter_tests.py

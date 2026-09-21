@@ -55,7 +55,7 @@ _BY_ID: dict[str, dict[str, str]] = {
     "ioff_leakage": {"wave": "DC", "detail": "PSU + AWG DC leakage"},
     "ioz": {
         "wave": "DC",
-        "detail": "PSU CH1=VCC CH2=Y force CH3=OE Hi-Z; DMM DCI on Y; AWG CH1=0 if present",
+        "detail": "PSU CH1=VCC CH2=Y force PSU CH3=OE inactive; DMM DCI on Y",
     },
     "input_leakage_sweep": {
         "wave": "DC",
@@ -256,6 +256,23 @@ def for_test(
         return {
             "wave": "off",
             "detail": "RS0204 Cio: DUT unpowered, DMM CAP (not dynamic Cpd)",
+        }
+    if tid in ("voh", "vol") and pk and pk != "rs0204" and fam != "level":
+        kind = "VOH" if tid == "voh" else "VOL"
+        return {
+            "wave": "DC",
+            "detail": (
+                f"{kind}: PSU CH1=VCC CH2=Y-load; AWG pin_drive; DMM on Y "
+                "(Logic DC, not dual-rail)"
+            ),
+        }
+    if tid == "ioz" and pk and pk != "rs0204":
+        return {
+            "wave": "DC",
+            "detail": (
+                "PSU CH1=VCC CH2=Y force through DMM PSU CH3=OE inactive. "
+                "Strap A to GND. DMM DCI on Y."
+            ),
         }
     if tid == "vih_vil" and pk == "rs1gt34":
         return {

@@ -15,6 +15,15 @@ def main() -> int:
     fill_txt = fill_src.read_text(encoding="utf-8")
     if "mkdtemp" not in fill_txt or "ate_xlsx_" not in fill_txt:
         errors.append("fill_workbook_from_report must fill a local temp xlsx then copy dest")
+    if "st_size < 64" not in fill_txt:
+        errors.append("empty workbook must rebuild standard golden")
+    paste_txt = (
+        Path(__file__).resolve().parents[1] / "reporting" / "session_paste.py"
+    ).read_text(encoding="utf-8")
+    if 'suffix.lower() == ".png"' not in paste_txt:
+        errors.append("paste_session_photos must prefer DMM PNG over leftover MSO jpg")
+    if "def _cell_value" not in fill_txt:
+        errors.append("fill must dump dict/list cells (openpyxl Cannot convert {} to Excel)")
     tmp = Path(tempfile.mkdtemp(prefix="ate_a19_values_"))
     from openpyxl import Workbook, load_workbook
 
@@ -445,6 +454,70 @@ def main() -> int:
         if filled_n["Slew Rate"]["D20"].comment is None:
             errors.append("filled number cell must have an ATE comment")
         filled_n.close()
+
+    class _SweepCtx:
+        def lab_report_path(self):
+            return xlsx
+
+        def load_sheet_map(self):
+            return {
+                "tests": {
+                    "IOZ": {
+                        "excel_sheet": "GBW",
+                        "folder": "IOZ",
+                        "paste": {"values": {"IOZ_uA": "B12"}},
+                    }
+                }
+            }
+
+    wb_s = load_workbook(xlsx)
+    if "Sweep" not in wb_s.sheetnames:
+        wb_s.create_sheet("Sweep")
+    wb_s["GBW"]["B12"] = None
+    wb_s.save(xlsx)
+    wb_s.close()
+    try:
+        res_dict = fill_workbook_from_report(
+            report={
+                "steps": [
+                    {
+                        "test_id": "ioz",
+                        "dut": 1,
+                        "channel": "CHA",
+                        "measurements": [
+                            {"id": "IOZ_uA", "value": {"max": 2.59}, "unit": "uA"}
+                        ],
+                        "data": {
+                            "rows": [
+                                {"VCC": 3.6, "fix": {"OE": "L"}, "IOZ_uA": 2.59}
+                            ]
+                        },
+                    }
+                ]
+            },
+            workbook_path=xlsx,
+            ctx=_SweepCtx(),
+            copy_golden=True,
+        )
+    except Exception as exc:
+        errors.append(f"dict cells must dump not raise: {exc}")
+    else:
+        if str(res_dict.get("status") or "") == "error":
+            errors.append(f"dict cells must dump not error: {res_dict}")
+        else:
+            dest = Path(str(res_dict.get("excel") or xlsx))
+            dumped = load_workbook(dest)
+            b12 = dumped["GBW"]["B12"].value
+            if not (isinstance(b12, str) and "max" in b12):
+                errors.append(f"dict measurement must json-dump, got {b12!r}")
+            if "Sweep" in dumped.sheetnames:
+                found_fix = False
+                for row in dumped["Sweep"].iter_rows(min_row=2, values_only=True):
+                    if any(isinstance(v, str) and "OE" in v for v in row if v is not None):
+                        found_fix = True
+                if not found_fix:
+                    errors.append("Sweep dict field fix must json-dump, not crash")
+            dumped.close()
 
     if errors:
         print("FAIL check_session_values:")

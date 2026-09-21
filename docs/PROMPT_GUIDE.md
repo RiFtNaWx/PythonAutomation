@@ -11,7 +11,7 @@ How (edit / debug / three add-test paths): [VIBE_CODE.md](VIBE_CODE.md). Where: 
 ## Speak -> what we can actually do (paste this)
 
 ```
-Translate what I said into this repo only. Read docs/PROMPT_GUIDE.md Speak table. Golden SCPI lives in psu_setup.py (DP832 power_on_protected), generator_setup.py (DG822 Pro APPL SQU/DC, OUTP, LOAD INF), dmm_setup.py (DMM6500 :CONF + :READ?, never *RST, never NPLC/AZER/AVER/TRAC), scope_setup.py (MSO5072). Call those helpers from ate/tests/<family>/. Never invent a header. Rigol -116 / DMM6500 -113 = delete the write. IDD OVP is 5.6 V not 5.5 (Vset=OVP trips). Do not search online for SCPI.
+Translate what I said into this repo only. Read docs/PROMPT_GUIDE.md Speak table. Golden SCPI lives in psu_setup.py (DP832 power_on_protected), generator_setup.py (DG822 Pro APPL SQU/DC, OUTP, LOAD INF), dmm_setup.py (DMM6500 :CONF + drain SYST:ERR + 5x :READ? mean, never *RST, never NPLC/AZER/AVER/TRAC/HCOP), scope_setup.py (MSO5072). Call those helpers from ate/tests/<family>/. Never invent a header. Rigol -116 / DMM6500 -113 = delete the write. IDD OVP is 5.6 V not 5.5 (Vset=OVP trips). Do not search online for SCPI.
 ```
 
 ### Operator speak -> code
@@ -22,9 +22,9 @@ Translate what I said into this repo only. Read docs/PROMPT_GUIDE.md Speak table
 | Protection / OVP / OC lamp | Keep `PROT:STAT ON`. IDD **OVP=5.6 V** (not 5.5). Default else Vset+0.3, ceiling 6.0 V | 10% of 5.0 = 5.5 at Vset 5.5 (trips). Rewrite STAT every step |
 | AWG square 1/5/10 MHz | `setup_square` after `:OUTP1 OFF` (APPL carries freq). No `:SOUR1:FREQ` | `:FUNC:SQU:DCYC`, `:SOUR1:FREQ`, `:OUTP3` (Error 116 on DG822 Pro) |
 | AWG DC / CH1 then CH2 | `setup_dc(gen, ch, volts)` + `:OUTP:LOAD INF` | `:APPL:DC` web arity. Keysight `:VOLT:OFFS` |
-| DMM current / IDD / CIN | `dmm_setup_current` + `:READ?`. Front panel must show DCI | `*RST` (**-113**). `:MEAS:CURR?`. `:SENS:CURR:NPLC` / AZER / AVER / `TRAC:CLE` |
-| DMM voltage / VOH | `dmm_setup_voltage` | AUTO current range. Web Keysight/Keithley snippets |
-| Error -113 on DMM | Same class as Rigol -116. Delete the write. Allowlist is the `dmm_setup.py` header | Google Keithley averaging |
+| DMM current / IDD / CIN | `dmm_setup_current` + `dmm_read_avg` (clear buffer, 5x `:READ?`, mean). Front panel DCI. NPLC/Filter on the box MENU. | `*RST` (**-113**). `:MEAS:CURR?`. `:SENS:CURR:NPLC` / AZER / AVER / `TRAC:CLE` / HCOP |
+| DMM voltage / VOH | `dmm_setup_voltage` + 5-read mean | AUTO current range. Web Keysight/Keithley snippets |
+| Error -113 on DMM | Same class as Rigol -116. Delete the write. Drain `SYST:ERR?` before every READ so the dialog never sticks. | Google Keithley averaging / TRAC:CLE |
 | Error -116 on AWG | Delete OUTP3/4, FUNC:SQU:DCYC, SOUR FREQ. APPL:SQU after OUTP OFF | DG4000 / web Rigol |
 | Scope shot / slew | `ate/drivers/mso5072.py` `capture_jpeg` | AUToscale, Tek `:HARDCOPY` |
 | Sweep VCC 0 to 5 step 0.5 | Setup **VCC start/stop/step** then START. Delta Supply uses it | Hardcode a second sweep in runner.py |
@@ -34,8 +34,8 @@ Translate what I said into this repo only. Read docs/PROMPT_GUIDE.md Speak table
 
 | Hit | Cause | Fix that stayed |
 |-----|--------|-----------------|
-| DMM Error **-113** | `*RST`, `:SENS:CURR:NPLC` / AZER / AVER / `:TRAC:CLE` | `dmm_setup.py` allowlist. IDD uses 5 s settle + one `:READ?` |
-| DMM stays DCV | Only `:SENS:FUNC` without `:CONF:` | `:CONF:CURR:DC 0.01` then `SENS:FUNC 'CURR:DC'` |
+| DMM Error **-113** | `*RST`, `:SENS:CURR:NPLC` / AZER / AVER / `:TRAC:CLE` / HCOP | `dmm_setup.py` allowlist. Drain `SYST:ERR?`. Host filter = 5x `:READ?` mean after `*CLS`. Never screenshot the error dialog. |
+| DMM stays DCV | Only `:SENS:FUNC` without `:CONF:` | `:CONF:CURR:DC` (no extra FUNC/RANG) |
 | DCI AUTO hangs | `:RANG:AUTO ON` on current | Fixed `:SENS:CURR:DC:RANG 0.01` |
 | AWG Error **-116** | `:OUTP3/4`, `:FUNC:SQU:DCYC`, `:SOUR1:FREQ` | 2-ch `APPL:SQU` after OUTP OFF |
 | CIN_pF ~ 0 | C used wanted Hz; AWG did not step | Use APPL Hz; OFF then APPL |

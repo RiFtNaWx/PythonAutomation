@@ -84,6 +84,15 @@ def main() -> int:
             recs = list(pathmod.TEST_DB_ROOT.rglob("records/*.json"))
             if not any(ids[0] in p.name for p in recs):
                 errors.append(f"{part} must write records/ for {ids[0]}")
+            if part_key == "rs2323":
+                pngs = list(pathmod.TEST_DB_ROOT.rglob("*.png"))
+                jpgs = list(pathmod.TEST_DB_ROOT.rglob("*.jpg")) + list(
+                    pathmod.TEST_DB_ROOT.rglob("*.jpeg")
+                )
+                if not pngs:
+                    errors.append("RS2323 iplus DEMO must write DMM png")
+                if jpgs:
+                    errors.append("RS2323 iplus DEMO must not write MSO jpg")
             core.close_session()
     except Exception as exc:
         errors.append(f"DEMO families crashed: {exc}")

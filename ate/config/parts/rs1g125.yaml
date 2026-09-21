@@ -204,6 +204,9 @@ product_model:
       vcc_min: 3.0
       offset_v: 0.6
       map_to: delta_icc
+  pin_drive:
+    A: {src: psu, ch: 3}
+    OE: {src: awg, ch: 1}
   recipe:
     settle_s: 0.05
     stable_n: 3
@@ -212,6 +215,10 @@ product_model:
     settle_timeout_s: 2.0
     icc_corners: data x OE
     ioz_when: oe_inactive
+    ioz_vcc_list: [3.6]
+    ioz_vout_start: 0.0
+    ioz_vout_stop: 5.5
+    ioz_vout_step: 0.1
     search:
       status: PROPOSED_FROM_LIVE
       vih:

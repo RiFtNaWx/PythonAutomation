@@ -63,6 +63,9 @@ REQUIRED = [
     "ate/config/inventory.yaml",
     "ate/config/cloud_db.example.txt",
     "ate/config/sharepoint.url",
+    "ate/core/param_defaults.py",
+    "ate/core/runner.py",
+    "dmm_setup.py",
     "00_START_HERE.txt",
     "START.bat",
     "run_ate_app.bat",
@@ -196,6 +199,9 @@ def desktop_dir() -> Path:
 def zip_paths() -> list[Path]:
     name = f"ATE_Console_Try_{date.today().isoformat()}.zip"
     dests = [desktop_dir() / name, REPO / "dist" / name]
+    d_root = Path("D:/")
+    if d_root.exists():
+        dests.append(d_root / "ATE_Console" / name)
     return dests
 
 
@@ -238,6 +244,16 @@ def main() -> int:
         if want not in names:
             print(f"FAIL pack_ate_console: {rel} not packed")
             return 1
+    if "def coerce_screenshot_from" not in (
+        REPO / "ate" / "core" / "param_defaults.py"
+    ).read_text(encoding="utf-8"):
+        print("FAIL pack_ate_console: param_defaults must coerce DMM-only screenshot_from")
+        return 1
+    if "capture_dmm_screenshot" not in (REPO / "ate" / "core" / "runner.py").read_text(
+        encoding="utf-8"
+    ):
+        print("FAIL pack_ate_console: runner must capture DMM screenshots")
+        return 1
     print("OK pack check: required console files present")
     bat = (REPO / "START.bat").read_text(encoding="utf-8")
     if 'mkdir "#Test_Database"' in bat or "mkdir #Test_Database" in bat:

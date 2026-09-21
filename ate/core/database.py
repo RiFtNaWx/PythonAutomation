@@ -464,6 +464,7 @@ class RunSession:
 _lock = threading.Lock()
 _active: Optional[DbContext] = None
 _current_session: Optional[RunSession] = None
+_last_session_ident: dict[str, Any] = {}
 
 
 def _read_bench_defaults() -> dict[str, Any]:
@@ -989,6 +990,30 @@ def get_context() -> DbContext:
         return _active
 
 
+def context_from_identity(ident: dict[str, Any] | None) -> DbContext:
+    """Campaign folder from a session snapshot. Does not steal _active or PIC."""
+    raw = ident if isinstance(ident, dict) else {}
+    if not str(raw.get("part") or "").strip():
+        return get_context()
+    pk = str(raw.get("part_key") or raw.get("part") or "").strip().lower()
+    return DbContext(
+        component=str(raw.get("component") or ""),
+        part=str(raw.get("part") or ""),
+        package=str(raw.get("package") or ""),
+        operator=str(raw.get("operator") or ""),
+        version=str(raw.get("version") or "Version_1"),
+        model=str(raw.get("model") or ""),
+        sample_size=int(raw.get("sample_size") or 1),
+        part_key=pk,
+        year=str(raw.get("year") or ""),
+    )
+
+
+def last_session_identity() -> dict[str, Any]:
+    with _lock:
+        return dict(_last_session_ident)
+
+
 def set_context(
     *,
     component: Optional[str] = None,
@@ -1046,8 +1071,7 @@ def set_context(
             ctx.component = str(sm.get("component") or ctx.component)
             ctx.part = str(sm.get("part") or ctx.part)
             ctx.package = str(sm.get("package") or ctx.package)
-            if sm.get("operator"):
-                ctx.operator = require_write_operator(str(sm.get("operator")))
+            # PIC / sheet_map.operator is tracking owner, not the campaign folder.
             ctx.version = str(sm.get("version") or ctx.version)
             if sm.get("sample_size"):
                 ctx.sample_size = int(sm["sample_size"])
@@ -1292,8 +1316,12 @@ _TEST_PARAM_FLOATS = (
     "icc_vcc_step",
     "icc_vcc_start",
     "icc_vcc_stop",
+    "ioz_vout_start",
+    "ioz_vout_stop",
+    "ioz_vout_step",
+    "dmm_nplc",
 )
-_TEST_PARAM_INTS = ("n_repeats", "logic_inputs", "sample_size")
+_TEST_PARAM_INTS = ("n_repeats", "logic_inputs", "sample_size", "dmm_avg_n")
 _TEST_PARAM_STRS = ("icc_vcc_mode", "vcc_mode")
 
 
@@ -1399,6 +1427,9 @@ def _clean_test_param_block(raw: Any) -> dict[str, Any]:
     icc_list = _clean_float_list(src.get("icc_vcc_list"), cap=80)
     if icc_list:
         out["icc_vcc_list"] = icc_list
+    ioz_list = _clean_float_list(src.get("ioz_vout_list"), cap=80)
+    if ioz_list:
+        out["ioz_vout_list"] = ioz_list
     for key in _TEST_PARAM_STRS:
         raw = str(src.get(key) or "").strip().lower()
         if not raw:
@@ -1412,6 +1443,8 @@ def _clean_test_param_block(raw: Any) -> dict[str, Any]:
     shot = str(src.get("screenshot_from") or "").strip().lower()
     if shot in ("mso", "scope"):
         out["screenshot_from"] = "mso"
+    elif shot in ("dmm",):
+        out["screenshot_from"] = "dmm"
     elif shot in ("none", "off", "0"):
         out["screenshot_from"] = "none"
     levels = _clean_float_list(src.get("levels"), cap=8)
@@ -1614,11 +1647,17 @@ def record_step(
             row["measurements"] = stamped
         if data:
             inner = data.get("data") if isinstance(data.get("data"), dict) else data
+            payload: dict[str, Any] = {}
             rows = inner.get("rows") if isinstance(inner, dict) else None
             if isinstance(rows, list) and rows:
-                payload: dict[str, Any] = {"rows": rows}
+                payload["rows"] = rows
                 if isinstance(inner, dict) and inner.get("vcc_sweep"):
                     payload["vcc_sweep"] = inner["vcc_sweep"]
+            for src in (data, inner if isinstance(inner, dict) else {}):
+                for key in ("screenshot", "screenshots", "screenshot_from"):
+                    if src.get(key) and key not in payload:
+                        payload[key] = src[key]
+            if payload:
                 row["data"] = payload
         session.steps.append(row)
         if artifacts:
@@ -1628,13 +1667,13 @@ def record_step(
     try:
         from ate.core.datalog import sync_report_from_session
 
-        sync_report_from_session(snap.to_dict())
+        sync_report_from_session(snap.to_dict(), ctx=context_from_identity(snap.context))
     except Exception:
         pass
 
 
 def end_session(status: str = "completed") -> Optional[Path]:
-    global _current_session
+    global _current_session, _last_session_ident
     with _lock:
         session = _current_session
         if session is None:
@@ -1643,12 +1682,14 @@ def end_session(status: str = "completed") -> Optional[Path]:
         session.status = status
         _current_session = None
         snap = session
+        _last_session_ident = dict(snap.context or {})
+    ctx = context_from_identity(snap.context)
     path = _write_session(snap)
     try:
         from ate.core.datalog import archive_report, sync_report_from_session
 
-        sync_report_from_session(snap.to_dict())
-        archive_report(snap.to_dict())
+        sync_report_from_session(snap.to_dict(), ctx=ctx)
+        archive_report(snap.to_dict(), ctx=ctx)
     except Exception:
         pass
     imap = snap.instrument_map or {}
@@ -1657,13 +1698,13 @@ def end_session(status: str = "completed") -> Optional[Path]:
         try:
             from ate.reporting.session_paste import paste_session_photos
 
-            paste_session_photos(snap.to_dict())
+            paste_session_photos(snap.to_dict(), ctx=ctx)
         except Exception:
             pass
     try:
         from ate.reporting.session_values import fill_workbook_from_report
 
-        fill_workbook_from_report(ctx=get_context(), demo=sim, copy_golden=True)
+        fill_workbook_from_report(ctx=ctx, report=snap.to_dict(), demo=sim, copy_golden=True)
     except Exception:
         pass
     try:
@@ -1681,7 +1722,7 @@ def current_session() -> Optional[dict[str, Any]]:
 
 
 def _write_session(session: RunSession) -> Path:
-    ctx = get_context()
+    ctx = context_from_identity(getattr(session, "context", None))
     dest_dir = ctx.sessions_dir()
     dest_dir.mkdir(parents=True, exist_ok=True)
     path = dest_dir / f"{session.session_id}.json"

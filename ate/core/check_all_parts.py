@@ -490,11 +490,24 @@ def check_all_parts(family: str = "") -> list[str]:
     if _writes_rst(dmm):
         errors.append("dmm_setup.py must not write *RST")
     dmm_src = dmm.read_text(encoding="utf-8")
-    if ":CONF:CURR:DC" not in dmm_src or ":SENS:FUNC '{name}'" not in dmm_src:
-        errors.append("dmm_setup must CONF:CURR:DC + SENS:FUNC 'CURR:DC' so DMM6500 shows DCI")
+    if ":CONF:CURR:DC" not in dmm_src:
+        errors.append("dmm_setup must CONF:CURR:DC so DMM6500 shows DCI")
+    if "dmm_write_ok(dmm, f\":SENS:FUNC" in dmm_src:
+        errors.append("dmm_setup must not send extra SENS:FUNC (1.7.16a -113)")
+    if "def dmm_dismiss_header" not in dmm_src or "SYST:CLE" not in dmm_src:
+        errors.append("dmm_setup must SYST:CLE leftover Event Log")
     banned = _dmm_banned_writes(dmm)
     if banned:
         errors.append(f"dmm_setup banned DMM6500 writes {banned}")
+    from generator_setup import is_banned_awg_scpi
+
+    genp = REPO_ROOT / "generator_setup.py"
+    for i, ln in enumerate(genp.read_text(encoding="utf-8").splitlines(), 1):
+        if ".write(" not in ln and ".query(" not in ln:
+            continue
+        probe = ln.replace("{ch}", "1").replace("{channel}", "1")
+        if is_banned_awg_scpi(probe):
+            errors.append(f"generator_setup.py:{i} banned AWG header (Error 116)")
     if "\u666e\u6e90" in scope_src:
         errors.append("scope_setup.screenshot must not print Chinese demo (Windows TP crash)")
     ldo_src = ldo.read_text(encoding="utf-8")
@@ -923,6 +936,8 @@ def sim_run_all_enabled(family: str = "") -> tuple[list[str], dict[str, Any]]:
                                 f"{row['part_key']} {tid}: missing stamp "
                                 f"{'/'.join(MUST_STAMP_ANY[tid])}"
                             )
+                        else:
+                            stats["ok"] += 1
                     elif not _stamp_hit(ids_st, str(want)):
                         errors.append(
                             f"{row['part_key']} {tid}: missing stamp {want}"

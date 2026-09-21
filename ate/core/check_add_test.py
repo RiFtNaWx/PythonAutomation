@@ -389,6 +389,8 @@ def check_add_test() -> list[str]:
         errors.append("rs0204 tsu must stamp TEN_ns (MSO OE delay), not invent TSU_ns")
     if "TEN_ns" not in rs0204 or "TDIS_ns" not in rs0204:
         errors.append("rs0204 tsu/th must stamp MSO OE delay as TEN_ns/TDIS_ns")
+    if "IOZ_uA" not in rs0204:
+        errors.append("rs0204 ioz must stamp measurements id IOZ_uA")
     sim_src = _src(REPO / "ate" / "instruments" / "sim.py")
     if "v2 > vcc + 0.05" not in sim_src or "v2 >= 1.2" not in sim_src:
         errors.append("SIM DMM xlat must require VCCB rail (v2 > vcc and v2 >= 1.2), not Ariff VOH Vref")
@@ -428,6 +430,12 @@ def check_add_test() -> list[str]:
     got = enabled_tests_for_part("rs1g07", catalog=catalog)
     if got != ["cin"]:
         errors.append(f"catalog must win over part yaml, got {got!r}")
+    hid = enabled_tests_for_part("rs1g126", catalog={"enabled_tests": ["icc"]})
+    if "ioz" not in [str(x).lower() for x in (hid or [])]:
+        errors.append("enable-pin catalog must keep ioz (cannot hide)")
+    g97_cat = enabled_tests_for_part("rs1g97", catalog={"enabled_tests": ["icc"]})
+    if "ioz" in [str(x).lower() for x in (g97_cat or [])]:
+        errors.append("oe none catalog must not grow ioz")
 
     errors.extend(_check_ariff_dc_scale())
     errors.extend(_check_path_b_integrity())
@@ -529,8 +537,9 @@ def _check_ariff_dc_scale() -> list[str]:
     Skip Soo / dual-rail / DFF / shift / mono. Do not rewrite Eugene cin/cpd.
     """
     from ate.core.specs import load_part_specs, load_part_yaml
-    from ate.fixture.modes import enabled_tests_for_part
-    from ate.tests.logic.product_model import has_product_model
+    from ate.core.paths import PARTS_DIR
+    from ate.fixture.modes import enabled_tests_for_part, part_has_oe
+    from ate.tests.logic.product_model import has_product_model, load_product_model
 
     errors: list[str] = []
     path_b = {p.stem for p in (REPO / "ate" / "config" / "parts").glob("*.yaml") if has_product_model(p.stem)}
@@ -759,6 +768,23 @@ def _check_ariff_dc_scale() -> list[str]:
         if str(cfg.get("oe_active") or "").strip().lower() != "low":
             errors.append(f"{pk} /OE must set oe_active low")
 
+    for path in sorted(PARTS_DIR.glob("*.yaml")):
+        pk = path.stem.lower()
+        en = [str(x).strip().lower() for x in (enabled_tests_for_part(pk) or [])]
+        if part_has_oe(pk):
+            if "ioz" not in en:
+                errors.append(f"{pk} enable-pin must enable ioz")
+            specs = load_part_specs(pk)
+            if not any(str(s.get("id") or "") == "IOZ_uA" for s in specs):
+                errors.append(f"{pk} enable-pin must have limits IOZ_uA")
+            if has_product_model(pk):
+                m = load_product_model(pk)
+                when = str(((m.recipe if m else None) or {}).get("ioz_when") or "")
+                if "inactive" not in when.lower().replace("-", "_"):
+                    errors.append(f"{pk} recipe.ioz_when must be oe_inactive")
+        elif "ioz" in en:
+            errors.append(f"{pk} has no OE -- do not enable ioz")
+
     g97 = enabled_tests_for_part("rs1g97") or []
     for banned in ("vih_vil", "input_thresholds", "voh_load", "vol_load", "cin", "cpd", "tp", "ten", "tdis"):
         if banned in g97:
@@ -903,6 +929,10 @@ def _check_ariff_dc_scale() -> list[str]:
     if "vth" not in en2323:
         errors.append("rs2323 must enable Path B vth")
     en2227 = enabled_tests_for_part("rs2227") or []
+    if "leakage_off" not in en2227:
+        errors.append("rs2227 OE pin must enable leakage_off (IOZ Hi-Z)")
+    if "ioz" in en2227:
+        errors.append("rs2227 must not enable logic_dc ioz (USB leakage_off)")
     if any(x in en2227 for x in ("ron", "ton_toff", "con_coff", "tbbm", "vth", "iso", "xtalk")):
         errors.append("rs2227 must not enable RS2323-pinout analog tests until USB recipe")
     if "iso" not in en2323:
@@ -1205,6 +1235,27 @@ def _check_ariff_dc_scale() -> list[str]:
     if missing_stamp:
         errors.append(f"MUST_STAMP missing unique test_ids: {missing_stamp}")
     errors.extend(sim_skip_scpi_files())
+
+    from ate.core.registry import get as _get_spec, load_family as _lf
+    from ate.core.test_detect import source_for_spec as _src_spec
+    from ate.tests.logic import logic_dc as _ldc
+
+    _lf("logic")
+    ioz_spec = _get_spec("ioz")
+    if ioz_spec is None or ioz_spec.run is not _ldc._run_ioz:
+        errors.append("ioz TestSpec must be logic_dc._run_ioz (not seelim wrap)")
+    else:
+        src = _src_spec(ioz_spec)
+        posix = str(src.get("file") or "").replace("\\", "/").lower()
+        if "logic_dc.py" not in posix or src.get("kind") != "ate":
+            errors.append(f"ioz list_tests source must be ate logic_dc.py, got {src}")
+    ioff_spec = _get_spec("ioff")
+    if ioff_spec is None or ioff_spec.run is not _ldc._run_ioff:
+        errors.append("ioff TestSpec must be logic_dc._run_ioff (not seelim wrap)")
+    if "test_ioz" in seelim_src:
+        errors.append("seelim_dc must not trigger golden test_ioz -- logic_dc owns IOZ")
+    if "test_ioff" in seelim_src:
+        errors.append("seelim_dc must not trigger golden test_ioff -- logic_dc owns IOFF")
 
     return errors
 

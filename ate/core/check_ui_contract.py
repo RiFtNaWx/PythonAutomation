@@ -470,6 +470,8 @@ def main() -> int:
             errors.append("Parameters must expose VIN trip step (0.01 / 0.001)")
         if 'paramNumInput("vcc_step", "VCC step (V)"' not in js or "0.01" not in js[js.find('paramNumInput("vcc_step"') : js.find('paramNumInput("vcc_step"') + 120]:
             errors.append("VCC step input must allow 0.01")
+        if 'paramNumInput("ioz_vout_step"' not in js:
+            errors.append("IOZ Parameters must expose Vout step 0.1 (See Lin 0..5.5)")
         paint_c = js[js.find("function paintCampaign") : js.find("function currentDbSelection")]
         if "syncOwnerSelectFromFolder(sel.operator)" not in paint_c:
             errors.append("changing Operator folder must sync the header person")
@@ -490,6 +492,8 @@ def main() -> int:
             errors.append("Excel/STS export must bind the START campaign folder")
         if 'method == "cursor_prompt"' not in srv or 'method == "save_path_b_test"' not in srv:
             errors.append("worker must expose cursor_prompt and save_path_b_test")
+        if "coerce_screenshot_from" not in srv:
+            errors.append("list_tests must coerce screenshot_from from TestSpec instruments")
         set_tp = srv[srv.find('if method == "set_test_params"') : srv.find('if method == "import_tags"')]
         if "set_context" not in set_tp:
             errors.append("set_test_params must pin campaign from payload before save")
@@ -508,10 +512,14 @@ def main() -> int:
             errors.append("Parameters must expose screenshot_from (none | MSO | DMM)")
         if 'option value="dmm"' not in js:
             errors.append("screenshot_from must include DMM when the TestSpec needs DMM")
+        if 'option value="none"' not in js:
+            errors.append("screenshot_from must include none so DMM shot can be disabled")
         if 'needsDmm && !needsMso ? "dmm"' not in js:
             errors.append("DMM-only tests must default screenshot_from=dmm, never MSO")
         if "!needsMso && needsDmm" not in js:
             errors.append("stale screenshot_from=mso on DMM-only tests must coerce to dmm")
+        if 'paramNumInput("dmm_avg_n"' not in js or 'paramNumInput("dmm_nplc"' not in js:
+            errors.append("Parameters must expose DMM avg N + NPLC host wait (no SCPI NPLC)")
         if "campaignTestOrderIds" not in js or "initCampaignTestReorder" not in js:
             errors.append("Path A customize must HTML5-reorder enabled_tests (not A14 xyflow)")
         if "campaign-drag-handle" not in js:

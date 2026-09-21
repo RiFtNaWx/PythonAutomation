@@ -59,7 +59,7 @@ enabled_tests:
 
 fixture_modes:
   LOGIC:
-    label: "Logic board (RS1G97 / Path B DC)"
+    label: "Logic board (RS1G97)"
     board_class: general
     checklist:
       - "RS1G97 is configurable logic, not analog switch."

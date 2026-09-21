@@ -72,11 +72,15 @@ def write_run_log(doc: dict[str, Any], dest_dir: Path) -> Path:
 
     for art in doc.get("artifacts") or []:
         _add_shot(art.get("path") if isinstance(art, dict) else art)
-    camp = Path(dest).parent
-    if camp.is_dir():
-        for shot in sorted(camp.rglob("screenshots/*")):
-            if shot.suffix.lower() in {".jpg", ".jpeg", ".png", ".txt"}:
-                _add_shot(shot)
+    for step in doc.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        data = step.get("data") if isinstance(step.get("data"), dict) else {}
+        _add_shot(step.get("screenshot") or (data or {}).get("screenshot"))
+        for p in list(step.get("screenshots") or []) + list(
+            (data or {}).get("screenshots") or []
+        ):
+            _add_shot(p)
     if not seen:
         lines.append("  (none)")
     out = dest / "run_log.txt"
@@ -295,11 +299,11 @@ def _folder_for_test(test_id: str, ctx) -> str:
 
 def write_step_record(step: dict[str, Any], *, session: dict[str, Any] | None = None, ctx=None) -> Optional[Path]:
     """Append-only history: {test_key}/DUT_n/records/{test_id}_{timestamp}.json."""
-    from ate.core.database import get_context
+    from ate.core.database import context_from_identity
 
     if not isinstance(step, dict) or not step.get("test_id"):
         return None
-    c = ctx or get_context()
+    c = ctx or context_from_identity((session or {}).get("context"))
     tid = str(step.get("test_id"))
     folder = _folder_for_test(tid, c)
     dut = step.get("dut")
@@ -471,9 +475,9 @@ def sync_report_from_session(session: dict[str, Any], *, ctx=None) -> Path:
 
     Per-operator Version only. session_{id}.json remains the full START snapshot.
     """
-    from ate.core.database import get_context
+    from ate.core.database import context_from_identity, get_context
 
-    c = ctx or get_context()
+    c = ctx or context_from_identity((session or {}).get("context")) or get_context()
     c.sessions_dir().mkdir(parents=True, exist_ok=True)
     path = report_path(c)
 
@@ -572,9 +576,9 @@ def sync_report_from_session(session: dict[str, Any], *, ctx=None) -> Path:
 
 def archive_report(session: dict[str, Any], *, ctx=None) -> Optional[Path]:
     """Copy current report.json to sessions/archive/{session_id}.json."""
-    from ate.core.database import get_context
+    from ate.core.database import context_from_identity, get_context
 
-    c = ctx or get_context()
+    c = ctx or context_from_identity((session or {}).get("context")) or get_context()
     src = report_path(c)
     if not src.is_file():
         sync_report_from_session(session, ctx=c)

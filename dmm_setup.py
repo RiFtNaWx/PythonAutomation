@@ -2,38 +2,85 @@
 
 DMM6500 SYST:ERR **-113** = undefined header (same class as Rigol -116).
 Do not *RST. :CONF:<func> switches the front panel. Then :READ?.
+Live writes/SYST:ERR go to ate/worker/dmm_scpi.log -- last_worker.log is RPC only.
 
 Allowlist:
   *CLS
+  SYST:CLE
   :CONF:VOLT:DC
   :CONF:CURR:DC
   :CONF:CAP
-  :SENS:FUNC 'VOLT:DC' | 'CURR:DC' | 'CAP'   (single quotes)
+  (extra :SENS:FUNC after CONF is -113 on 1.7.16a -- CONF already switches)
   (VOLT RANG:AUTO is -113 -- CONF:VOLT:DC is enough)
   (CURR SENS:RANG / CONF 0.01 arity are -113 -- CONF:CURR:DC is enough)
   :SENS:CAP:RANG:AUTO ON
   :READ?
   SYST:ERR?
-  :HCOP:SDUM:DATA?   (optional; DMM6500 1.7.16a often -113)
 
-Banned: *RST, :MEAS:CURR?, :SENS:CURR:NPLC (no DC), :SENS:CURR:AZER,
-:SENS:CURR:AVER..., :TRAC:CLE. IDD averaging is the 5 s settle + one :READ?.
-Do not send :HCOP:SDUM:DATA:FORM -- that header is -113 on this box.
-Screen dump is DMM only -- not Rigol :DISP:DATA? (MSO). USB HCOP leftover
-falls back to a :READ? reading card PNG (still DMM, never MSO).
+Banned: *RST, :MEAS:CURR?, :SENS:CURR:NPLC / AZER / AVER / :TRAC:CLE,
+:HCOP:SDUM:DATA? and DATA:FORM. Do not send :HCOP:SDUM:DATA:FORM -- that
+header is -113 on this box. Those pop the front-panel error and block
+:READ? until OK -- then SAFE IDLE kills PSU outputs.
+
+Filter / NPLC / span-rdgs: set Rate + Filter on the box MENU. SCPI NPLC/AVER
+is -113 on 1.7.16a. Console filter is host-side: clear active buffer (*CLS +
+drain SYST:ERR), then n :READ? (default 5), then mean. :READ? already waits
+the box NPLC -- do not add a host sleep. Do not send TRAC:CLE.
+
+Screen dump is a :READ? reading-card PNG (still DMM, never MSO). Never HCOP
+(that screenshot is the SCPI header dialog).
 """
 from __future__ import annotations
 
+import statistics
 import struct
 import time
 import zlib
+from datetime import datetime
 from pathlib import Path
+
+# last_worker.log is HTTP RPC only -- print() never lands there. This file does.
+_SCPI_LOG = Path(__file__).resolve().parent / "ate" / "worker" / "dmm_scpi.log"
+
+
+def _trace(msg: str) -> None:
+    print(msg, flush=True)
+    try:
+        _SCPI_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with _SCPI_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(f"{datetime.now().strftime('%H:%M:%S')} {msg}\n")
+    except Exception:
+        pass
 
 _CONF = {
     "VOLT:DC": ":CONF:VOLT:DC",
     "CURR:DC": ":CONF:CURR:DC",
     "CAP": ":CONF:CAP",
 }
+
+
+def is_banned_dmm_scpi(cmd: str) -> bool:
+    """True if this DMM6500 1.7.16a would queue SYST:ERR -113."""
+    n = str(cmd or "").upper().replace(" ", "")
+    if n.startswith("*RST"):
+        return True
+    if "HCOP" in n:
+        return True
+    if "MEAS:CURR" in n:
+        return True
+    if any(tok in n for tok in ("NPLC", "AZER", "AVER")):
+        return True
+    if "TRAC" in n:
+        return True
+    if "RANG:AUTO" in n and "CAP" not in n:
+        return True
+    if "CURR:DC:RANG" in n:
+        return True
+    if "0.0001" in n or "1E-4" in n:
+        return True
+    if "SENS:FUNC" in n:
+        return True
+    return False
 
 
 def _syst_err(dmm) -> str:
@@ -43,26 +90,98 @@ def _syst_err(dmm) -> str:
         return ""
 
 
-def _func(dmm, name: str) -> None:
-    dmm.write("*CLS")
-    conf = _CONF.get(name)
-    if conf:
-        dmm.write(conf)
-    # Golden RS1G07 used single quotes. Keep them -- DMM6500 is picky.
-    dmm.write(f":SENS:FUNC '{name}'")
-    time.sleep(0.2)
+def dmm_drain_errors(dmm, *, limit: int = 10) -> list[str]:
+    """SYST:ERR? until 0. Clears the front-panel header dialog so :READ? is not blocked."""
+    found: list[str] = []
+    for _ in range(max(1, int(limit))):
+        err = _syst_err(dmm)
+        if not err or err.startswith("0"):
+            break
+        # Keithley is `-113,"Undefined header"`. A raw float is a :READ? stub, not an error.
+        if "," not in err and not err.lstrip().startswith("-"):
+            break
+        found.append(err)
+        _trace(f"DMM SYST:ERR drain {err}")
+    return found
+
+
+def clear_active_buffer(dmm) -> None:
+    """Clear error queue + active reading path. Never TRAC:CLE (that is -113)."""
+    try:
+        _trace("DMM write *CLS")
+        dmm.write("*CLS")
+    except Exception as exc:
+        _trace(f"DMM write fail '*CLS': {exc}")
+    dmm_drain_errors(dmm)
+
+
+_EVENT_LOG_CLEARED = False
+
+
+def dmm_dismiss_header(dmm) -> None:
+    """Drop leftover Event Log so the operator does not see old -113.
+
+    SYST:ERR? drains the queue. Keithley Event Log on screen is separate.
+    SYST:CLE clears that log. Send it once per worker process -- if this
+    firmware returns -113, do not retry.
+    """
+    global _EVENT_LOG_CLEARED
+    clear_active_buffer(dmm)
+    if _EVENT_LOG_CLEARED:
+        return
+    _EVENT_LOG_CLEARED = True
+    dmm_write_ok(dmm, "SYST:CLE")
+    dmm_drain_errors(dmm)
+
+
+def dmm_write_ok(dmm, cmd: str) -> bool:
+    """Write allowlist only. Drain immediately so a bad header never sticks on screen."""
+    if is_banned_dmm_scpi(cmd):
+        _trace(f"DMM skip banned header {cmd!r}")
+        return False
+    try:
+        _trace(f"DMM write {cmd}")
+        dmm.write(cmd)
+    except Exception as exc:
+        _trace(f"DMM write fail {cmd!r}: {exc}")
+        clear_active_buffer(dmm)
+        return False
     err = _syst_err(dmm)
     if err and not err.startswith("0"):
-        print(f"DMM SYST:ERR after CONF {name} {err}", flush=True)
+        if "," not in err and not err.lstrip().startswith("-"):
+            return True
+        _trace(f"DMM SYST:ERR after {cmd} {err}")
+        clear_active_buffer(dmm)
+        return False
+    return True
+
+
+def _func(dmm, name: str) -> None:
+    dmm_dismiss_header(dmm)
+    conf = _CONF.get(name)
+    if conf:
+        dmm_write_ok(dmm, conf)
+    # Do not send :SENS:FUNC '{name}' -- extra FUNC after CONF is -113 on 1.7.16a.
+    time.sleep(0.2)
+    dmm_drain_errors(dmm)
 
 
 def dmm_read(dmm):
-    return float(dmm.query(":READ?"))
+    """One recorded value: clear active buffer, 5 readings, mean."""
+    return dmm_read_avg(dmm)
 
 
-def dmm_read_avg(dmm, n=5):
-    values = [float(dmm.query(":READ?")) for _ in range(n)]
-    return sum(values) / len(values)
+def dmm_read_avg(dmm, n=5, nplc=1):
+    """Host-side repeat filter. Clear buffer, n readings, mean.
+
+    nplc is the Rate on the DMM MENU. :READ? already waits that NPLC -- do not
+    add a host sleep (it stacked past 50 ms SIM settle timeouts).
+    """
+    del nplc
+    clear_active_buffer(dmm)
+    count = max(1, int(n or 5))
+    values = [float(dmm.query(":READ?")) for _ in range(count)]
+    return float(statistics.mean(values))
 
 
 def dmm_setup_voltage(dmm):
@@ -82,23 +201,22 @@ def dmm_setup_current(dmm, range_a: float = 0.01):
     range_a is API compat only -- do not send 100 uA / 1 mA on the wire.
     """
     del range_a  # ponytail: CONF:CURR:DC only; extra FUNC/RANG were -113
-    dmm.write("*CLS")
-    dmm.write(":CONF:CURR:DC")
+    dmm_dismiss_header(dmm)
+    dmm_write_ok(dmm, ":CONF:CURR:DC")
     time.sleep(0.2)
-    err = _syst_err(dmm)
-    if err and not err.startswith("0"):
-        print(f"DMM SYST:ERR after CONF CURR:DC {err}", flush=True)
+    dmm_drain_errors(dmm)
     return dmm_read(dmm)
 
 
 def dmm_setup_current_continuous(dmm, avg_count=10, nplc=1):
-    """Same as dmm_setup_current. NPLC/AZER/AVER/TRAC were DMM6500 -113."""
+    """CONF only. Hardware NPLC/AZER/AVER/TRAC are -113; avg is dmm_read_avg."""
+    del avg_count, nplc
     return dmm_setup_current(dmm)
 
 
 def dmm_setup_cap(dmm):
     _func(dmm, "CAP")
-    dmm.write(":SENS:CAP:RANG:AUTO ON")
+    dmm_write_ok(dmm, ":SENS:CAP:RANG:AUTO ON")
     time.sleep(0.2)
     return dmm_read(dmm)
 
@@ -215,17 +333,20 @@ def _reading_png(line1: str, line2: str = "") -> bytes:
 
 
 def capture_screen(dmm, filepath, reading=None, unit: str = "A") -> str:
-    """DMM dump. Not MSO. DMM6500 1.7.16a has no USB HCOP -- reading card PNG."""
+    """DMM dump. Not MSO. Never HCOP (that PNG is the SCPI header dialog)."""
     path = Path(filepath)
     path.parent.mkdir(parents=True, exist_ok=True)
     if getattr(dmm, "simulated", False) or type(dmm).__name__ == "SimResource":
         dest = path.with_suffix(".png")
         dest.write_bytes(_SIM_PNG)
         return str(dest)
+    drained = dmm_drain_errors(dmm)
+    if drained:
+        _trace("DMM screen: drained header error; no HCOP")
     val = reading
     if val is None:
         try:
-            val = float(dmm.query(":READ?"))
+            val = dmm_read(dmm)
         except Exception:
             val = None
     if val is None:
@@ -234,5 +355,5 @@ def capture_screen(dmm, filepath, reading=None, unit: str = "A") -> str:
         body = f"{float(val):.6g} {unit}".strip()
     dest = path.with_suffix(".png")
     dest.write_bytes(_reading_png("DMM6500 DCI", body))
-    print(f"DMM HCOP leftover; reading card {body}", flush=True)
+    _trace(f"DMM reading card {body}")
     return str(dest)

@@ -29,6 +29,8 @@ SETTLE: measure-after-settle (recipe settle_s / stable_n / stable_eps_V / settle
 INSTRUMENT_SENSE IOZ: OE inactive via PSU CH3; DMM in series with Y; PSU CH2 force Vout.
   PSU+DMM required. AWG optional (data=L / GND strap). Dual-rail (no product_model)
   dispatches to rs0204._run_ioz. Not applicable when oe=none. Open-drain Y=Z is not IOZ.
+INSTRUMENT_SENSE IOFF: VCC=0 (unpowered). Force pin at recipe.ioff_force_v through DMM.
+  PSU+DMM only. Recable via pause_hook per recipe.ioff_conditions. Not IOZ (OE off, VCC on).
   Open-drain: skip VOH (not a push-pull high). Sequential shift register is
   not combinational 2^n ICC.
 
@@ -101,8 +103,8 @@ def _needs_mso(model: ProductModel, test_id: str) -> bool:
 def _require_for(instr, model: ProductModel, test_id: str = "") -> None:
     names = ["PSU", "DMM"]
     tid = str(test_id or "").strip().lower()
-    # IOZ: OE on PSU CH3 (ariff/See Lim). Do not FAIL-closed Missing AWG.
-    if tid != "ioz" and _needs_awg(model):
+    # IOZ/IOFF: PSU+DMM. Recable, not AWG. Do not FAIL-closed Missing AWG.
+    if tid not in ("ioz", "ioff") and _needs_awg(model):
         names.append("AWG")
     if _needs_mso(model, test_id):
         names.append("MSO")
@@ -180,6 +182,18 @@ def _model(params: Any) -> ProductModel:
             f"Logic DC: part {key!r} has no product_model "
             "(logic_inputs / pins / truth_table). Add YAML; do not fork Python."
         )
+    try:
+        avg_n = getattr(params, "dmm_avg_n", None)
+        if avg_n not in (None, ""):
+            model.recipe["dmm_avg_n"] = max(1, int(avg_n))
+    except (TypeError, ValueError):
+        pass
+    try:
+        nplc = getattr(params, "dmm_nplc", None)
+        if nplc not in (None, ""):
+            model.recipe["dmm_nplc"] = max(0.01, float(nplc))
+    except (TypeError, ValueError):
+        pass
     return model
 
 
@@ -269,7 +283,7 @@ def _meas(
     return row
 
 
-_CURRENT_SETTLE_IDS = frozenset({"icc", "delta_icc", "ii", "ioz"})
+_CURRENT_SETTLE_IDS = frozenset({"icc", "delta_icc", "ii", "ioz", "ioff"})
 
 
 def _current_settle_tag(model: ProductModel) -> str:
@@ -347,6 +361,61 @@ def _vcc_now(params: Any, model: ProductModel) -> float:
     return 5.0
 
 
+def _ioz_vout_points(params: Any, model: ProductModel) -> list[float]:
+    """See Lin test_ioz: VO 0..5.5 step 0.1 at VCC=3.6. Two-point list is not a sweep."""
+    block: dict[str, Any] = {}
+    raw = getattr(params, "test_params", None)
+    if isinstance(raw, dict):
+        maybe = raw.get("ioz")
+        if isinstance(maybe, dict):
+            block = maybe
+
+    def _num(key: str, default: float) -> float:
+        if block.get(key) not in (None, ""):
+            try:
+                return float(block[key])
+            except (TypeError, ValueError):
+                pass
+        rec = model.recipe.get(key)
+        if rec not in (None, ""):
+            try:
+                return float(rec)
+            except (TypeError, ValueError):
+                pass
+        return float(default)
+
+    lst = block.get("ioz_vout_list")
+    if not isinstance(lst, list):
+        lst = model.recipe.get("ioz_vout_list")
+    overlay_step = block.get("ioz_vout_step") not in (None, "")
+    if isinstance(lst, list) and len(lst) >= 3 and not overlay_step:
+        pts = []
+        for x in lst:
+            try:
+                pts.append(round(float(x), 3))
+            except (TypeError, ValueError):
+                pass
+        if pts:
+            return pts
+    start = _num("ioz_vout_start", 0.0)
+    stop = _num("ioz_vout_stop", 5.5)
+    step = _num("ioz_vout_step", 0.1)
+    if step <= 0:
+        step = 0.1
+    # See Lin _sweep_points: index grid, then guarantee stop.
+    n = int((stop - start) / step + 1e-9)
+    pts = [round(start + i * step, 4) for i in range(n + 1)]
+    if not pts or abs(pts[-1] - stop) > 1e-9:
+        pts.append(round(stop, 4))
+    if len(pts) > 80:
+        pts = pts[:80]
+        if abs(pts[-1] - stop) > 1e-9:
+            pts[-1] = round(stop, 4)
+    if not pts:
+        pts = [round(start, 4), round(stop, 4)]
+    return pts
+
+
 def _vcc_corners(params: Any, model: ProductModel, recipe_key: str = "") -> list[float]:
     """vcc_list / recipe lists only. vcc_op_min/max are range metadata, not a sweep."""
     overlay = getattr(params, "vcc_list", None)
@@ -406,7 +475,7 @@ def _wait_settled(
     (FAIL). Never returns the last reading. Sleep is capped by remaining time
     so this cannot hang forever.
     """
-    from dmm_setup import dmm_read, dmm_setup_current, dmm_setup_voltage
+    from dmm_setup import dmm_read_avg, dmm_setup_current, dmm_setup_voltage
 
     if kind not in ("voltage", "current"):
         raise RuntimeError(f"settle kind {kind!r} must be voltage or current")
@@ -416,6 +485,16 @@ def _wait_settled(
     except (TypeError, ValueError):
         n = 3
     n = max(1, n)
+    try:
+        avg_n = int(model.recipe.get("dmm_avg_n") or 5)
+    except (TypeError, ValueError):
+        avg_n = 5
+    avg_n = max(1, avg_n)
+    try:
+        nplc = float(model.recipe.get("dmm_nplc") or 1)
+    except (TypeError, ValueError):
+        nplc = 1.0
+    nplc = max(0.01, nplc)
     if kind == "current":
         eps_a = _recipe_optional_positive(model, "stable_eps_A")
         if eps_a is None:
@@ -431,7 +510,7 @@ def _wait_settled(
                 dmm_setup_current(dmm)
             if settle_s > 0:
                 time.sleep(settle_s)
-            return float(dmm_read(dmm))
+            return float(dmm_read_avg(dmm, n=avg_n, nplc=nplc))
         if eps_a <= 0:
             raise RuntimeError("stable_eps_A must be > 0 A (amps; not volts)")
         eps = eps_a
@@ -461,7 +540,7 @@ def _wait_settled(
                 f"settle timeout {timeout}s: DMM {kind} not stable "
                 f"(need {n} within {eps}, got {window!r})"
             )
-        v = float(dmm_read(dmm))
+        v = float(dmm_read_avg(dmm, n=avg_n, nplc=nplc))
         window.append(v)
         if len(window) > n:
             window = window[-n:]
@@ -570,7 +649,10 @@ def _force_psu(instr, ch: int, volts: float, ilim: float) -> None:
 
     v = float(volts)
     ovp = 5.6
-    if int(ch) == 3 and v > 5.0:
+    if v <= 0.0:
+        # 0 V rail: default V+0.3 trips DP832. See Lim ZERO_OVP=1.0.
+        ovp = 1.0
+    elif int(ch) == 3 and v > 5.0:
         # DP832 CH3 is 0-5 V. 5.5 + OVP 5.6 never enables; clamp so C still switches.
         v = 5.0
         ovp = 5.3
@@ -647,12 +729,11 @@ def _apply_levels(
         )
 
 
-def _avg_voltage(dmm, n: int = 3) -> float:
-    from dmm_setup import dmm_read, dmm_setup_voltage
+def _avg_voltage(dmm, n: int = 5) -> float:
+    from dmm_setup import dmm_read_avg, dmm_setup_voltage
 
     dmm_setup_voltage(dmm)
-    readings = [float(dmm_read(dmm)) for _ in range(max(1, n))]
-    return sum(readings) / len(readings)
+    return float(dmm_read_avg(dmm, n=max(1, n)))
 
 
 def _mid(vcc: float) -> float:
@@ -702,6 +783,7 @@ def _run_input_threshold(instr, params: Any) -> dict[str, Any]:
         vccs = _vcc_corners(params, model)
         schmitt = bool(model.schmitt)
         rows: list[dict[str, Any]] = []
+        data_th: dict[str, Any] = {}
         try:
             for vcc in vccs:
                 _power_vcc(instr, vcc, ilim)
@@ -752,7 +834,16 @@ def _run_input_threshold(instr, params: Any) -> dict[str, Any]:
                             rec["HYSTERESIS_V"] = hyst
                         rows.append(rec)
         finally:
-            _power_down(instr)
+            data_th["rows"] = rows
+            data_th["schmitt"] = schmitt
+            last_v = None
+            if rows:
+                last_row = rows[-1]
+                for key in ("VIH", "VT+", "VIL", "VT-"):
+                    if last_row.get(key) is not None:
+                        last_v = last_row.get(key)
+                        break
+            _end_powered(instr, params, data_th, folder="VTH", reading=last_v, unit="V")
         if not rows:
             raise RuntimeError("input_threshold: no isolation rows measured")
         last = rows[-1]
@@ -847,7 +938,7 @@ def _run_input_threshold(instr, params: Any) -> dict[str, Any]:
         return _finish(
             model,
             "input_threshold",
-            {"summary": summary, "data": {"rows": rows, "schmitt": schmitt}, "measurements": meas},
+            {"summary": summary, "data": data_th, "measurements": meas},
         )
 
 
@@ -872,6 +963,7 @@ def _run_icc(instr, params: Any) -> dict[str, Any]:
         vcc_awg = current_test_vcc_on_awg(model)
         vccs = _vcc_corners(params, model)
         rows: list[dict[str, Any]] = []
+        data: dict[str, Any] = {"instrument_sense": "DMM-on-VCC"}
         try:
             for vcc in vccs:
                 _power_vcc(instr, vcc, ilim, vcc_awg=vcc_awg)
@@ -895,14 +987,16 @@ def _run_icc(instr, params: Any) -> dict[str, Any]:
                 if not any_ok:
                     raise RuntimeError(f"icc: no corners at VCC={vcc}")
         finally:
-            _power_down(instr)
+            data["rows"] = rows
+            mx = max((abs(float(r["ICC_uA"])) for r in rows), default=0.0)
+            _end_powered(instr, params, data, folder="Icc", reading=mx, unit="uA")
         mx = max((abs(float(r["ICC_uA"])) for r in rows), default=0.0)
         return _finish(
             model,
             "icc",
             {
                 "summary": f"ICC n={len(rows)} max={mx:.3f} uA ({len(pins)} pins, 2^{len(pins)} corners)",
-                "data": {"rows": rows, "instrument_sense": "DMM-on-VCC"},
+                "data": data,
                 "measurements": [_meas(model, "ICC_uA", mx, "uA", test_id="icc")],
             },
         )
@@ -990,6 +1084,7 @@ def _run_delta_icc(instr, params: Any) -> dict[str, Any]:
         drives = current_test_drives(model)
         vcc_awg = current_test_vcc_on_awg(model)
         rows: list[dict[str, Any]] = []
+        data: dict[str, Any] = {"instrument_sense": "DMM-on-VCC"}
         try:
             for vcc in vccs:
                 _power_vcc(instr, vcc, ilim, vcc_awg=vcc_awg)
@@ -1029,7 +1124,9 @@ def _run_delta_icc(instr, params: Any) -> dict[str, Any]:
                         }
                     )
         finally:
-            _power_down(instr)
+            data["rows"] = rows
+            mx = max((abs(float(r["ICC_uA"])) for r in rows), default=0.0)
+            _end_powered(instr, params, data, folder="DeltaICC", reading=mx, unit="uA")
         if not rows:
             raise RuntimeError("delta_icc: no points")
         mx = max(abs(float(r["ICC_uA"])) for r in rows)
@@ -1038,7 +1135,7 @@ def _run_delta_icc(instr, params: Any) -> dict[str, Any]:
             "delta_icc",
             {
                 "summary": f"DeltaICC n={len(rows)} max={mx:.3f} uA {near_note}".strip(),
-                "data": {"rows": rows, "instrument_sense": "DMM-on-VCC"},
+                "data": data,
                 "measurements": [_meas(model, "DELTA_ICC_uA", mx, "uA", test_id="delta_icc")],
             },
         )
@@ -1052,6 +1149,7 @@ def _run_ii(instr, params: Any) -> dict[str, Any]:
         ilim = _current_limit(params, model)
         vccs = _vcc_corners(params, model, "ii_vcc_list")
         rows: list[dict[str, Any]] = []
+        data: dict[str, Any] = {"instrument_sense": "DMM-series-input"}
         try:
             for pin in model.logic_inputs:
                 vmax = None
@@ -1084,7 +1182,9 @@ def _run_ii(instr, params: Any) -> dict[str, Any]:
                         i_ua = _wait_settled_current_ua(instr.dmm, model, setup=False)
                         rows.append({"VCC": vcc, "PIN": pin, "VI": vi, "II_uA": i_ua})
         finally:
-            _power_down(instr)
+            data["rows"] = rows
+            mx = max((abs(float(r["II_uA"])) for r in rows), default=0.0)
+            _end_powered(instr, params, data, folder="II", reading=mx, unit="uA")
         if not rows:
             raise RuntimeError("ii: no points")
         mx = max(abs(float(r["II_uA"])) for r in rows)
@@ -1093,7 +1193,7 @@ def _run_ii(instr, params: Any) -> dict[str, Any]:
             "ii",
             {
                 "summary": f"II n={len(rows)} max_abs={mx:.3f} uA",
-                "data": {"rows": rows, "instrument_sense": "DMM-series-input"},
+                "data": data,
                 "measurements": [_meas(model, "II_uA", mx, "uA", test_id="ii")],
             },
         )
@@ -1268,6 +1368,10 @@ def _run_voh_path_b(instr, params: Any) -> dict[str, Any]:
             table = _voh_vol_table(key, "voh", model=model)
             rows: list[dict[str, Any]] = []
             meas: list[dict[str, Any]] = []
+            data_voh: dict[str, Any] = {
+                "limits": "existing yaml / voh_table only; else unspec",
+                "instrument_sense": "force-Y / DMM-sense-Vout",
+            }
             try:
                 if table:
                     from psu_setup import power_off, power_on_protected
@@ -1341,7 +1445,11 @@ def _run_voh_path_b(instr, params: Any) -> dict[str, Any]:
                         tag = str(vcc).replace(".", "p")
                         meas.append(_meas(model, f"VOH_{tag}V", vout, "V", test_id="voh"))
             finally:
-                _power_down(instr)
+                data_voh["rows"] = rows
+                last_v = None
+                if rows:
+                    last_v = rows[-1].get("VOH", rows[-1].get("Measured"))
+                _end_powered(instr, params, data_voh, folder="VOH", reading=last_v, unit="V")
             if not rows:
                 raise RuntimeError("voh: no points (no vcc_list / table)")
             return _finish(
@@ -1349,11 +1457,7 @@ def _run_voh_path_b(instr, params: Any) -> dict[str, Any]:
                 "voh",
                 {
                     "summary": f"VOH n={len(rows)} last={rows[-1].get('VOH', rows[-1].get('Measured'))}",
-                    "data": {
-                        "rows": rows,
-                        "limits": "existing yaml / voh_table only; else unspec",
-                        "instrument_sense": "force-Y / DMM-sense-Vout",
-                    },
+                    "data": data_voh,
                     "measurements": meas,
                 },
             )
@@ -1373,6 +1477,10 @@ def _run_vol_path_b(instr, params: Any) -> dict[str, Any]:
             table = _voh_vol_table(key, "vol", model=model)
             rows: list[dict[str, Any]] = []
             meas: list[dict[str, Any]] = []
+            data_vol: dict[str, Any] = {
+                "limits": "existing yaml / vol_table only; else unspec",
+                "instrument_sense": "force-Y / DMM-sense-Vout",
+            }
             try:
                 if table:
                     from psu_setup import power_off, power_on_protected
@@ -1450,7 +1558,11 @@ def _run_vol_path_b(instr, params: Any) -> dict[str, Any]:
                         tag = str(vcc).replace(".", "p")
                         meas.append(_meas(model, f"VOL_{tag}V", vout, "V", test_id="vol"))
             finally:
-                _power_down(instr)
+                data_vol["rows"] = rows
+                last_v = None
+                if rows:
+                    last_v = rows[-1].get("VOL", rows[-1].get("Measured"))
+                _end_powered(instr, params, data_vol, folder="VOL", reading=last_v, unit="V")
             if not rows:
                 raise RuntimeError("vol: no points")
             return _finish(
@@ -1458,11 +1570,7 @@ def _run_vol_path_b(instr, params: Any) -> dict[str, Any]:
                 "vol",
                 {
                     "summary": f"VOL n={len(rows)} last={rows[-1].get('VOL', rows[-1].get('Measured'))}",
-                    "data": {
-                        "rows": rows,
-                        "limits": "existing yaml / vol_table only; else unspec",
-                        "instrument_sense": "force-Y / DMM-sense-Vout",
-                    },
+                    "data": data_vol,
                     "measurements": meas,
                 },
             )
@@ -1473,7 +1581,7 @@ def _run_vol_path_b(instr, params: Any) -> dict[str, Any]:
 def _capture_dmm_now(
     instr, params: Any, folder: str, *, reading: float | None = None, unit: str = "A"
 ) -> str:
-    """DMM screen while rails still on. Folder = lab_sheet (IOZ), not spec.id."""
+    """DMM screen while rails still on. Folder = lab_sheet, not spec.id."""
     dmm = getattr(instr, "dmm", None)
     if dmm is None:
         return ""
@@ -1484,10 +1592,62 @@ def _capture_dmm_now(
 
     myt = timezone(timedelta(hours=8))
     dut = int(getattr(params, "unit_index", None) or 1)
-    out = ensure_screenshot_dir(str(folder or "IOZ"), dut)
+    folder_s = str(folder or "DMM")
+    out = ensure_screenshot_dir(folder_s, dut)
     ts = datetime.now(myt).strftime("%Y-%m-%d_%H%M%S")
-    path = out / f"ioz_{ts}.png"
+    stem = "".join(ch if ch.isalnum() else "_" for ch in folder_s).strip("_") or "dmm"
+    path = out / f"{stem.lower()}_{ts}.png"
     return capture_screen(dmm, path, reading=reading, unit=unit)
+
+
+def _end_powered(
+    instr,
+    params: Any,
+    data: dict[str, Any],
+    *,
+    folder: str,
+    reading: float | None = None,
+    unit: str = "A",
+) -> None:
+    """DMM card while DUT is live, then PSU/AWG off. Never MSO on DMM-only."""
+    shot = str(getattr(params, "screenshot_from", "") or "").strip().lower()
+    if shot == "dmm" and isinstance(data, dict) and not data.get("screenshot"):
+        try:
+            path = _capture_dmm_now(instr, params, folder, reading=reading, unit=unit)
+        except Exception as exc:
+            print(f"{folder} DMM screen skip: {exc}", flush=True)
+            path = ""
+        if path:
+            data["screenshot"] = path
+            data["screenshots"] = [path]
+            data["screenshot_from"] = "dmm"
+    _power_down(instr)
+
+
+def _ioff_conditions(model: ProductModel) -> list[dict[str, Any]]:
+    """See Lim IOFF recable list. Empty = not applicable (do not invent)."""
+    rec = model.recipe if isinstance(model.recipe, dict) else {}
+    raw = rec.get("ioff_conditions")
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        cid = str(row.get("id") or "").strip()
+        if not cid:
+            continue
+        wires = row.get("wires") or row.get("wiring") or []
+        if isinstance(wires, str):
+            wires = [wires]
+        out.append(
+            {
+                "id": cid,
+                "label": str(row.get("label") or cid),
+                "wires": [str(x) for x in wires if str(x).strip()],
+            }
+        )
+    return out
 
 
 def _run_ioz(instr, params: Any) -> dict[str, Any]:
@@ -1505,24 +1665,34 @@ def _run_ioz(instr, params: Any) -> dict[str, Any]:
             "Remove ioz from enabled_tests."
         )
     # INSTRUMENT_SENSE IOZ: OE inactive via PSU CH3; DMM-series-Y; PSU CH2 force Vout.
+    # AWG stays OFF (DG822 has no CH3 -- OUTP3 is -116). PSU CH3 is OE only.
     _require_for(instr, model, "ioz")
     with path_b_handoff(params, model, "ioz"):
         ilim = _current_limit(params, model)
         vccs = _vcc_corners(params, model, "ioz_vcc_list")
-        vouts_raw = model.recipe.get("ioz_vout_list")
-        rows: list[dict[str, Any]] = []
-        shot_path = ""
+        vouts = _ioz_vout_points(params, model)
         try:
+            avg_n = int(getattr(params, "dmm_avg_n", None) or 5)
+        except (TypeError, ValueError):
+            avg_n = 5
+        try:
+            nplc = float(getattr(params, "dmm_nplc", None) or 1)
+        except (TypeError, ValueError):
+            nplc = 1.0
+        model.recipe["dmm_avg_n"] = max(1, avg_n)
+        model.recipe["dmm_nplc"] = max(0.01, nplc)
+        rows: list[dict[str, Any]] = []
+        data: dict[str, Any] = {"instrument_sense": "DMM-series-Y / force-Vout"}
+        try:
+            if getattr(instr, "gen", None) is not None:
+                from generator_setup import stop_output
+
+                stop_output(instr.gen)
             for vcc in vccs:
                 _power_vcc(instr, vcc, ilim)
                 _wait_settled_current_ua(instr.dmm, model)
                 inactive = _ioz_drive_inactive(instr, model, vcc, ilim)
                 _wait_settled_current_ua(instr.dmm, model, setup=False)
-                if isinstance(vouts_raw, list) and vouts_raw:
-                    vouts = [float(x) for x in vouts_raw]
-                else:
-                    vmax = _vmax_for_ii(model, vcc)
-                    vouts = [0.0, float(vmax)]
                 for vo in vouts:
                     _force_psu(instr, 2, vo, ilim)
                     i_ua = _wait_settled_current_ua(instr.dmm, model, setup=False)
@@ -1534,28 +1704,13 @@ def _run_ioz(instr, params: Any) -> dict[str, Any]:
                             "IOZ_uA": i_ua,
                         }
                     )
-            shot = str(getattr(params, "screenshot_from", "") or "").strip().lower()
-            if shot not in ("none", "off", "0") and rows:
-                last_ua = float(rows[-1]["IOZ_uA"])
-                try:
-                    shot_path = _capture_dmm_now(
-                        instr, params, "IOZ", reading=last_ua, unit="uA"
-                    )
-                except Exception as exc:
-                    print(f"ioz DMM screen skip: {exc}", flush=True)
         finally:
-            _power_down(instr)
+            data["rows"] = rows
+            mx = max((abs(float(r["IOZ_uA"])) for r in rows), default=0.0)
+            _end_powered(instr, params, data, folder="IOZ", reading=mx, unit="uA")
         if not rows:
             raise RuntimeError("ioz: no points")
         mx = max(abs(float(r["IOZ_uA"])) for r in rows)
-        data: dict[str, Any] = {
-            "rows": rows,
-            "instrument_sense": "DMM-series-Y / force-Vout",
-        }
-        if shot_path:
-            data["screenshot"] = shot_path
-            data["screenshots"] = [shot_path]
-            data["screenshot_from"] = "dmm"
         return _finish(
             model,
             "ioz",
@@ -1565,6 +1720,78 @@ def _run_ioz(instr, params: Any) -> dict[str, Any]:
                 "measurements": [_meas(model, "IOZ_uA", mx, "uA", test_id="ioz")],
             },
         )
+
+
+def _run_ioff(instr, params: Any) -> dict[str, Any]:
+    """Power-off leakage. VCC=0. Recable per recipe.ioff_conditions. Not IOZ."""
+    model = _model(params)
+    conds = _ioff_conditions(model)
+    if not conds:
+        raise RuntimeError(
+            "ioff: recipe.ioff_conditions missing (VCC=0 / force pin through DMM). "
+            "Remove ioff from enabled_tests. Do not invent conditions."
+        )
+    _require_for(instr, model, "ioff")
+    rec = model.recipe if isinstance(model.recipe, dict) else {}
+    try:
+        force_v = float(rec.get("ioff_force_v") if rec.get("ioff_force_v") is not None else 5.5)
+    except (TypeError, ValueError):
+        force_v = 5.5
+    ilim = _current_limit(params, model)
+    rows: list[dict[str, Any]] = []
+    data: dict[str, Any] = {"instrument_sense": "VCC=0 / DMM-series-forced-pin"}
+    with path_b_handoff(params, model, "ioff"):
+        try:
+            if getattr(instr, "gen", None) is not None:
+                from generator_setup import stop_output
+
+                stop_output(instr.gen)
+            for cond in conds:
+                wires = list(cond.get("wires") or [])
+                wires.extend(
+                    [
+                        "VCC pin -> PSU CH1 (0 V)",
+                        f"Forced pin through DMM -> PSU CH2 ({force_v} V)",
+                        "MSO not connected",
+                        "Then Continue",
+                    ]
+                )
+                if not _pause(
+                    params,
+                    f"IOFF: {cond.get('label') or cond.get('id')} (VCC=0). Recable, then Continue.",
+                    wires,
+                ):
+                    raise RuntimeError(f"ioff: operator stopped before {cond.get('id')}")
+                _force_psu(instr, 1, 0.0, ilim)
+                _force_psu(instr, 2, force_v, ilim)
+                _force_psu(instr, 3, 0.0, ilim)
+                _wait_settled_current_ua(instr.dmm, model)
+                i_ua = _wait_settled_current_ua(instr.dmm, model, setup=False)
+                rows.append(
+                    {
+                        "id": cond.get("id"),
+                        "label": cond.get("label"),
+                        "VCC": 0.0,
+                        "Vforce": force_v,
+                        "IOFF_uA": i_ua,
+                    }
+                )
+        finally:
+            data["rows"] = rows
+            mx = max((abs(float(r["IOFF_uA"])) for r in rows), default=0.0)
+            _end_powered(instr, params, data, folder="IOFF", reading=mx, unit="uA")
+    if not rows:
+        raise RuntimeError("ioff: no points")
+    mx = max(abs(float(r["IOFF_uA"])) for r in rows)
+    return _finish(
+        model,
+        "ioff",
+        {
+            "summary": f"IOFF n={len(rows)} max_abs={mx:.3f} uA (VCC=0)",
+            "data": data,
+            "measurements": [_meas(model, "IOFF_uA", mx, "uA", test_id="ioff")],
+        },
+    )
 
 
 def _run_icc_dispatch(instr, params: Any) -> dict[str, Any]:
@@ -1657,5 +1884,13 @@ _register(
     frozenset({"PSU", "DMM"}),
     _run_ioz,
     notes="OE off. PSU CH1=VCC CH2=Y CH3=OE. DMM on Y. Not IOFF (VCC=0).",
+)
+_register(
+    "ioff",
+    "IOFF (VCC=0)",
+    "IOFF",
+    frozenset({"PSU", "DMM"}),
+    _run_ioff,
+    notes="Power-off leakage. VCC CH1=0. Force pin through DMM. Recable. Not IOZ.",
 )
 

@@ -895,10 +895,12 @@ def _embed_latest_shot(ws, ctx: Any, folder: str, start_row: int = 3) -> None:
     if not files:
         return
     files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    pngs = [p for p in files if p.suffix.lower() == ".png"]
+    pick = pngs[0] if pngs else files[0]
     try:
         from openpyxl.drawing.image import Image as XLImage
 
-        pic = XLImage(str(files[0]))
+        pic = XLImage(str(pick))
         pic.anchor = f"A{max(3, int(start_row))}"
         ws.add_image(pic)
     except Exception:

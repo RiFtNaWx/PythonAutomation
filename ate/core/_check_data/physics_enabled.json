@@ -1,7 +1,7 @@
 {
-  "n": 264,
-  "realized": 245,
-  "leftover": 19,
+  "n": 265,
+  "realized": 252,
+  "leftover": 13,
   "rows": [
     {
       "part_key": "lm358",
@@ -93,6 +93,13 @@
       "status": "REALIZED",
       "why": "",
       "file": "ate/tests/logic/rs0204.py"
+    },
+    {
+      "part_key": "rs0204",
+      "test_id": "ioz",
+      "status": "REALIZED",
+      "why": "",
+      "file": "ate/tests/logic/logic_dc.py"
     },
     {
       "part_key": "rs0204",
@@ -237,8 +244,8 @@
     {
       "part_key": "rs1g00",
       "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "status": "REALIZED",
+      "why": "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
       "file": "ate/tests/logic/wraps.py"
     },
     {
@@ -272,8 +279,8 @@
     {
       "part_key": "rs1g02",
       "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "status": "REALIZED",
+      "why": "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
       "file": "ate/tests/logic/wraps.py"
     },
     {
@@ -307,8 +314,8 @@
     {
       "part_key": "rs1g04",
       "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "status": "REALIZED",
+      "why": "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
       "file": "ate/tests/logic/wraps.py"
     },
     {
@@ -694,7 +701,7 @@
       "test_id": "ioff",
       "status": "REALIZED",
       "why": "",
-      "file": "ate/tests/logic/seelim_dc.py"
+      "file": "ate/tests/logic/logic_dc.py"
     },
     {
       "part_key": "rs1g126",
@@ -937,8 +944,8 @@
     {
       "part_key": "rs1g86",
       "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "status": "REALIZED",
+      "why": "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
       "file": "ate/tests/logic/wraps.py"
     },
     {
@@ -1511,8 +1518,8 @@
     {
       "part_key": "rs2g08",
       "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "status": "REALIZED",
+      "why": "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
       "file": "ate/tests/logic/wraps.py"
     },
     {
@@ -1546,8 +1553,8 @@
     {
       "part_key": "rs2g32",
       "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
+      "status": "REALIZED",
+      "why": "Path B ICC 2^n (logic_dc); UNCONFIRMED HOLD",
       "file": "ate/tests/logic/wraps.py"
     },
     {
@@ -1868,34 +1875,6 @@
       "file": "ate/tests/logic/rs0302.py"
     },
     {
-      "part_key": "rs1g00",
-      "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-      "file": "ate/tests/logic/wraps.py"
-    },
-    {
-      "part_key": "rs1g02",
-      "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-      "file": "ate/tests/logic/wraps.py"
-    },
-    {
-      "part_key": "rs1g04",
-      "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-      "file": "ate/tests/logic/wraps.py"
-    },
-    {
-      "part_key": "rs1g86",
-      "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-      "file": "ate/tests/logic/wraps.py"
-    },
-    {
       "part_key": "rs2227",
       "test_id": "usb_ron",
       "status": "LEFTOVER",
@@ -1936,20 +1915,6 @@
       "status": "LEFTOVER",
       "why": "1 MHz high-Z, not 110 MHz 50 ohm RF (MSO 70 MHz)",
       "file": "ate/tests/lim/xtalk.py"
-    },
-    {
-      "part_key": "rs2g08",
-      "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-      "file": "ate/tests/logic/wraps.py"
-    },
-    {
-      "part_key": "rs2g32",
-      "test_id": "supply_current",
-      "status": "LEFTOVER",
-      "why": "no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD",
-      "file": "ate/tests/logic/wraps.py"
     },
     {
       "part_key": "rs358",

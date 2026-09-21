@@ -34,6 +34,13 @@ class Instruments:
         self.psu = self._open("PSU", required=False)
         self.gen = self._open("AWG", required=False)
         self.dmm = self._open("DMM", required=False)
+        if self.dmm is not None:
+            try:
+                from dmm_setup import dmm_dismiss_header
+
+                dmm_dismiss_header(self.dmm)
+            except Exception as exc:
+                print(f"DMM drain at open: {exc}", flush=True)
         for key, handle in (
             ("PSU", self.psu),
             ("AWG", self.gen),

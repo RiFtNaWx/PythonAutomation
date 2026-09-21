@@ -8,13 +8,14 @@ from contextlib import nullcontext
 
 from ate.core.registry import TestSpec, register
 from ate.core.runner import RunParams
-from ate.tests.logic.product_model import has_product_model, load_product_model, path_b_handoff
+from ate.tests.logic.product_model import (
+    has_product_model,
+    is_sequential,
+    load_product_model,
+    path_b_handoff,
+)
 
 _LOGIC_FIXTURE = "LOGIC"
-# Scale-wave UNCONFIRMED: no eugene_cap IDD body (check_logic_dc._NEXT_WAVE_SKUS).
-_SUPPLY_CURRENT_LEFTOVER_DRAFT = frozenset(
-    {"rs1g00", "rs1g02", "rs1g04", "rs1g86", "rs2g08", "rs2g32"}
-)
 
 
 def _part(params: RunParams) -> str:
@@ -56,23 +57,12 @@ def _run_supply_current(instr, params: RunParams):
         return run_icc(instr, params)
     if pk in _IDD_PARTS:
         return run_idd(instr, params)
-    if pk in _SUPPLY_CURRENT_LEFTOVER_DRAFT:
-        return {
-            "summary": (
-                f"{pk}: supply_current LEFTOVER "
-                "(no eugene_cap IDD; UNCONFIRMED DRAFT numbers HOLD)"
-            ),
-            "data": {"status": "LEFTOVER", "greenable": False},
-            "measurements": [
-                {
-                    "id": "ICC_uA",
-                    "value": 0.0,
-                    "unit": "uA",
-                    "greenable": False,
-                    "status": "LEFTOVER",
-                }
-            ],
-        }
+    if has_product_model(pk):
+        model = load_product_model(pk)
+        if model is not None and not is_sequential(model):
+            from ate.tests.logic.logic_dc import _run_icc_dispatch
+
+            return _run_icc_dispatch(instr, params)
     raise RuntimeError(f"{pk}: supply_current has no Path B body (logic_tests wrap blocked)")
 
 

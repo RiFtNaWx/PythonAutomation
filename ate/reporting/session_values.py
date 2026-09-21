@@ -7,6 +7,7 @@ Skips FILL_ME. Does not run OpAmp golden layout on other families.
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 import shutil
@@ -23,6 +24,16 @@ _LOG = logging.getLogger("ate.session_values")
 _CELL_RE = re.compile(r"^[A-Z]{1,3}\d{1,5}$")
 _ERROR_TOKENS = {"#VALUE!", "#REF!", "#N/A", "#DIV/0!", "#NAME?", "#NULL!", "#NUM!"}
 _ATE_NOTE = "ATE"
+
+
+def _cell_value(val: Any) -> Any:
+    """openpyxl rejects dict/list. Dump those. Keep numbers."""
+    if val is None or isinstance(val, (int, float, str, bool)):
+        return val
+    try:
+        return json.dumps(val, ensure_ascii=True, sort_keys=True)
+    except TypeError:
+        return str(val)
 
 
 def _cell_token(raw: Any) -> str:
@@ -184,7 +195,7 @@ def _write_sweep_sheet(wb, steps: list[Any]) -> int:
             for col, h in enumerate(headers, 1):
                 if col <= 3:
                     continue
-                ws.cell(rix, col).value = row.get(h)
+                ws.cell(rix, col).value = _cell_value(row.get(h))
             rix += 1
             n += 1
     return n
@@ -457,7 +468,7 @@ def fill_workbook_from_report(
     if not isinstance(tests, dict):
         return {"filled": 0, "skipped": 0, "status": "no_sheet_map"}
     src = Path(workbook_path) if workbook_path else c.lab_report_path()
-    if not src.is_file():
+    if not src.is_file() or src.stat().st_size < 64:
         try:
             from ate.core.provision_operator import create_clean_golden_workbook
 
@@ -475,7 +486,7 @@ def fill_workbook_from_report(
                 src = cand
         except Exception:
             pass
-    if not src.is_file():
+    if not src.is_file() or src.stat().st_size < 64:
         return {"filled": 0, "skipped": 0, "status": "no_workbook", "excel": str(src)}
     path = _golden_dest(src, demo=demo, copy_golden=copy_golden)
 
@@ -505,7 +516,7 @@ def fill_workbook_from_report(
             mid = str(m.get("id") or "")
             if mid and mid in values:
                 for cell in _expand_cells(values[mid], dut, channel):
-                    writes.append((*_sheet_and_cell(cell, sheet), m.get("value")))
+                    writes.append((*_sheet_and_cell(cell, sheet), _cell_value(m.get("value"))))
             if result_written:
                 continue
             for cell in _expand_cells(values.get("result"), dut, channel):
@@ -560,7 +571,7 @@ def fill_workbook_from_report(
             if isinstance(target, MergedCell):
                 skipped += 1
                 continue
-            target.value = val
+            target.value = _cell_value(val)
             n += 1
             if _annotate(target, f"paste.values {sh}!{cell} from report.json", allow=annotate):
                 notes += 1
