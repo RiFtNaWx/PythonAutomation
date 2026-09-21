@@ -1,5 +1,12 @@
 | Date | File | Keywords |
 |------|------|----------|
+| 2026-09-21 | 2026-09-21_usb-outputs-fetch-flip.md | failed-to-fetch, pic-steal, golden_auto, empty-workbook, fill-excel, csv, screenshot, session-identity |
+| 2026-09-21 | 2026-09-21_ioz-dmm-hcop.md | ioz, dmm, hcop, screenshot, rs1g126, seelim, fill-excel, leftover-honest |
+| 2026-09-21 | 2026-09-21_ioz-ui-start-dock.md | ioz, start, run-dock, parameters-details, screenshot-dmm, path-b-handoff, applyDb, continue, leftover-honest |
+| 2026-09-21 | 2026-09-21_start-click-noop.md | start, ioz, btn-start, applyDb, loadTests, runPollActive, waitForRunComplete, DELAY, WAIT, Continue, leftover-honest |
+| 2026-09-21 | 2026-09-21_ioz-continue-vs-opamp.md | ioz, pause_hook, continue, path-b-handoff, vos, screenshot_from, awg-tiles, leftover-honest |
+| 2026-09-21 | 2026-09-21_one-ioz-awg-tile.md | ioz, path-b, wrap, awg-tile, pnp, logic_dc, seelim, leftover-honest |
+| 2026-09-21 | 2026-09-21_all-parts-sim-fill.md | check_all_parts, physics_scale, sim-248, leftover-19, fill-excel, rs622, leftover-honest |
 | 2026-09-21 | 2026-09-21_ioz-no-awg.md | ioz, awg, psu-ch3, rs1g126, missing-instruments, seelim, leftover-honest |
 | 2026-09-21 | 2026-09-21_aup-delta-ioz-shot.md | aup, delta-idd, yaml-vcc, ioz, screenshot_from, seeLim, rs1g126, leftover-honest |
 | 2026-09-21 | 2026-09-21_oe-pin-ioz.md | ioz, oe, enable-pin, rs1g125, rs1g126, rs0204, catalog, psu-ch3, leftover-honest |

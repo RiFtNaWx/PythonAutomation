@@ -559,6 +559,12 @@ class SimResource:
         n = _norm(text)
         if n == "*CLS" or n.startswith("*CLS"):
             self._syst_err = '0,"No error"'
+        if "HCOP" in n and "DATA?" in n and self.kind == "DMM":
+            from dmm_setup import _SIM_PNG
+
+            payload = _SIM_PNG
+            hdr = f"#{len(str(len(payload)))}{len(payload)}".encode()
+            self._pending_raw = hdr + payload
         if self.kind == "AWG" and is_banned_awg_scpi(text):
             self._syst_err = '-116,"Undefined header"'
         if self.kind == "DMM" and _dmm_banned_header(text):
@@ -708,6 +714,19 @@ class SimResource:
             return [float(self.query(cmd))]
         except Exception:
             return [0.0]
+
+    def query_binary_values(self, cmd: str, **_kw: Any):
+        self.write(cmd)
+        raw = self.read_raw()
+        if raw[:1] == b"#":
+            try:
+                nlen = int(chr(raw[1]))
+                nbytes = int(raw[2 : 2 + nlen])
+                raw = raw[2 + nlen : 2 + nlen + nbytes]
+            except (ValueError, IndexError):
+                pass
+        container = _kw.get("container") or bytes
+        return container(raw)
 
 
 def loopback_check(

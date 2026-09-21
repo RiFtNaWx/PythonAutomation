@@ -85,7 +85,7 @@ LOGIC_TEST_DEFAULTS: dict[str, dict[str, Any]] = {
     "tr": {"vcc": 1.8, "vccb": 3.3},
     "tf": {"vcc": 1.8, "vccb": 3.3},
     "tsk": {"vcc": 1.8, "vccb": 3.3},
-    "ioz": {"vcc": 3.6},
+    "ioz": {"vcc": 3.6, "screenshot_from": "dmm"},
     "delta_icc": {"vcc": 1.65},
     "ii": {"vcc": 1.65},
     "ioff": {"vcc": 5.5},

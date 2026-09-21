@@ -1218,6 +1218,50 @@ def model_gaps(model: ProductModel) -> list[str]:
     return gaps
 
 
+def pin_port_map_rows(model: ProductModel) -> list[dict[str, Any]]:
+    """Pin table for #logic-dc-pin-map. pins + pin_drive + wire_map only. Do not invent nets."""
+    wm = model.wire_map if isinstance(model.wire_map, dict) else {}
+    psu = wm.get("psu") if isinstance(wm.get("psu"), dict) else {}
+    awg = wm.get("awg") if isinstance(wm.get("awg"), dict) else {}
+    rows: list[dict[str, Any]] = []
+    for p in model.pins:
+        key = str(p.name or "").strip().upper()
+        inst = ""
+        ch = ""
+        note = ""
+        dm = (model.pin_drive or {}).get(p.name)
+        if dm is not None:
+            inst = str(getattr(dm, "src", "") or "").upper()
+            if getattr(dm, "ch", None) is not None:
+                ch = f"CH{dm.ch}"
+        for label, block in (("PSU", psu), ("AWG", awg)):
+            for ch_name, spec in block.items():
+                if not isinstance(spec, dict):
+                    continue
+                if str(spec.get("pin") or "").strip().upper() != key:
+                    continue
+                inst = inst or label
+                ch = ch or str(ch_name)
+                if spec.get("use"):
+                    extra = f"{label} {ch_name} {spec.get('use')}"
+                    note = f"{note}; {extra}" if note else extra
+                    if label == "PSU" and inst and inst != "PSU":
+                        note = f"{note}; IOZ uses {label} {ch_name} not {inst}"
+        if str(p.role or "").lower() == "gnd":
+            inst = inst or "GND"
+        rows.append(
+            {
+                "pin": p.name,
+                "number": p.number,
+                "instrument": inst,
+                "channel": ch,
+                "role": p.role,
+                "note": note,
+            }
+        )
+    return rows
+
+
 def panel_payload(part_key: str) -> dict[str, Any]:
     """Minimal Logic DC editor payload. Empty present=false when no product_model."""
     key = str(part_key or "").strip().lower()
@@ -1246,6 +1290,8 @@ def panel_payload(part_key: str) -> dict[str, Any]:
         },
     }
     ui = model_to_ui(model)
+    from ate.fixture.modes import enabled_tests_for_part
+
     return {
         "present": True,
         "part": model.part,
@@ -1274,6 +1320,10 @@ def panel_payload(part_key: str) -> dict[str, Any]:
         "threshold_isolation": ui.get("threshold_isolation"),
         "icc_corners": ui.get("icc_corners"),
         "icc_pins": ui.get("icc_pins"),
+        "icc_corner_rows": ui.get("icc_corner_rows") or [],
+        "has_oe": model.has_oe(),
+        "enabled_tests": list(enabled_tests_for_part(key) or []),
+        "pin_port_map": pin_port_map_rows(model),
         "logic_inputs": list(model.logic_inputs),
         "gaps": model_gaps(model),
         "pins": [{"name": p.name, "role": p.role, "number": p.number} for p in model.pins],
@@ -2296,6 +2346,10 @@ def format_stimulus_lines(model: ProductModel, test_id: str) -> list[str]:
         lines.append(
             f"force: {model.oe_pin}={model.oe_inactive_level()} (data don't-care)"
         )
+        lines.append(
+            "No AWG. PSU CH1=VCC CH2=Y force through DMM CH3=OE inactive. "
+            "Strap A to GND."
+        )
     elif tid in _AC_HANDOFF_IDS:
         lines.append("AC wrap: Vcc from params; MSO on output_pin Y")
     if dual_channel_continue(model):
@@ -2325,7 +2379,7 @@ def format_settle_lines(model: ProductModel, test_id: str) -> list[str]:
     if tid in _CURRENT_HANDOFF_IDS:
         lines.append(current_null if _stable_eps_a_null(model) else current_tight)
     elif tid in _AC_HANDOFF_IDS:
-        lines.append("AC wrap: no Path B _wait_settled in wraps.py")
+        lines.append("AC wrap: no extra DC settle wait")
         lines.append(voltage)
         lines.append(current_null if _stable_eps_a_null(model) else current_tight)
     else:
@@ -2346,6 +2400,9 @@ def format_measure_lines(model: ProductModel, test_id: str) -> list[str]:
         sense = "MSO " + ", ".join(str(k) for k in scope) if scope else "see wire_map"
     mode = lookup_pass_mode(model, tid, tid) or (model.pass_mode or {}).get(tid)
     extra = []
+    if tid == "ioz":
+        extra.append("IOZ_uA max_only; DMM on Y; MSO not in circuit")
+        return [f"Measure + pass_mode: DMM -> {sense or 'Y'}; {'; '.join(extra)}"]
     if tid in ("voh",):
         extra.append("voh=min_only")
     elif tid in ("vol",):
@@ -2381,7 +2438,9 @@ def format_fail_lines(
     attach = attach_path_line(model, test_id, dut_index)
     return [
         f"FAIL: {str(err or '')[:160]}",
-        "Capture scope PNG or phone photo of the FAIL",
+        "Capture DMM reading or phone photo of the FAIL"
+        if str(test_id or "").strip().lower() == "ioz"
+        else "Capture scope PNG or phone photo of the FAIL",
         f"Attach path: {attach}",
         "Then Continue (next DUT) or Abort",
     ]
@@ -2448,29 +2507,27 @@ def operator_pause(params: Any, title: str, checklist: Optional[list[str]] = Non
 
 @contextmanager
 def path_b_handoff(params: Any, model: ProductModel, test_id: str):
-    """Continue prompts: wire, stimulus, settle, measure; FAIL attach; save path."""
+    """Wire-map Continue except IOZ (DUT gate already asked). No success popup."""
     tid = str(test_id or "").strip().lower()
     if not wire_map_has_test(model, tid):
         yield
         return
     begin = format_handoff_begin(model, tid)
-    if not operator_pause(params, f"Path B {tid}: verify wire map then Continue", begin):
-        raise RuntimeError(f"{tid}: operator aborted wire-map verify")
+    # IOZ is PSU+DMM like OpAmp: fixture + DUT Continue only. Recipe JSON stays in Setup panel.
+    if tid != "ioz":
+        tag = str(tid or "").strip().upper() or "TEST"
+        if not operator_pause(params, f"{tag}: verify wire map then Continue", begin):
+            raise RuntimeError(f"{tid}: operator aborted wire-map verify")
     try:
         yield
     except Exception as exc:
         dut = getattr(params, "unit_index", None) if params is not None else None
+        tag = str(tid or "").strip().upper() or "TEST"
         operator_pause(
             params,
-            f"Path B {tid} FAIL: capture scope/photo",
+            f"{tag} FAIL: capture photo",
             format_fail_lines(model, tid, str(exc), dut),
         )
         raise
-    else:
-        dut = getattr(params, "unit_index", None) if params is not None else None
-        operator_pause(
-            params,
-            f"Path B {tid}: save paths",
-            format_save_lines(model, tid, dut),
-        )
+    # ponytail: skip success "save paths" Continue -- OpAmp does not popup after PASS.
 

@@ -26,8 +26,9 @@ SETTLE: measure-after-settle (recipe settle_s / stable_n / stable_eps_V / settle
   stable_eps_A is null: tight-settle claims stay FAIL-closed; honest path waits
   settle_s once then measures and tags settle=NON_TIGHT (not greenable as
   tight-settle). Do not invent a uA default.
-INSTRUMENT_SENSE IOZ: OE inactive; DMM in series with Y; PSU CH2 force Vout.
-  Not applicable when oe=none. Open-drain Y=Z is not IOZ.
+INSTRUMENT_SENSE IOZ: OE inactive via PSU CH3; DMM in series with Y; PSU CH2 force Vout.
+  PSU+DMM required. AWG optional (data=L / GND strap). Dual-rail (no product_model)
+  dispatches to rs0204._run_ioz. Not applicable when oe=none. Open-drain Y=Z is not IOZ.
   Open-drain: skip VOH (not a push-pull high). Sequential shift register is
   not combinational 2^n ICC.
 
@@ -70,7 +71,7 @@ from ate.tests.logic.product_model import (
     vectors_for_output,
 )
 
-_NOTE = "Path B Logic DC -- product_model YAML; not a per-chip fork"
+_NOTE = "Logic DC -- product_model YAML; one body per id"
 
 _LOGIC_FIXTURE = "LOGIC"
 
@@ -99,7 +100,9 @@ def _needs_mso(model: ProductModel, test_id: str) -> bool:
 
 def _require_for(instr, model: ProductModel, test_id: str = "") -> None:
     names = ["PSU", "DMM"]
-    if _needs_awg(model):
+    tid = str(test_id or "").strip().lower()
+    # IOZ: OE on PSU CH3 (ariff/See Lim). Do not FAIL-closed Missing AWG.
+    if tid != "ioz" and _needs_awg(model):
         names.append("AWG")
     if _needs_mso(model, test_id):
         names.append("MSO")
@@ -174,7 +177,7 @@ def _model(params: Any) -> ProductModel:
     model = load_product_model(key, overlay=overlay or None)
     if model is None:
         raise RuntimeError(
-            f"Path B Logic DC: part {key!r} has no product_model "
+            f"Logic DC: part {key!r} has no product_model "
             "(logic_inputs / pins / truth_table). Add YAML; do not fork Python."
         )
     return model
@@ -611,6 +614,15 @@ def _apply_pin(
         _force_psu(instr, drive.ch, volts, ilim)
         return
     raise RuntimeError(f"Unknown pin_drive src {drive.src!r}")
+
+
+def _ioz_drive_inactive(instr, model: ProductModel, vcc: float, ilim: float) -> dict[str, str]:
+    """OE Hi-Z on PSU CH3. Data pins are GND/VCC straps. Never AWG."""
+    inactive = ioz_force_vector(model)
+    oe_pin = str(model.oe_pin or "OE").upper()
+    oe_lv = inactive.get(oe_pin) or model.oe_inactive_level()
+    _force_psu(instr, 3, logic_volts(oe_lv, vcc), ilim)
+    return inactive
 
 
 def _apply_levels(
@@ -1458,26 +1470,53 @@ def _run_vol_path_b(instr, params: Any) -> dict[str, Any]:
         _sim_bus_end(instr)
 
 
+def _capture_dmm_now(
+    instr, params: Any, folder: str, *, reading: float | None = None, unit: str = "A"
+) -> str:
+    """DMM screen while rails still on. Folder = lab_sheet (IOZ), not spec.id."""
+    dmm = getattr(instr, "dmm", None)
+    if dmm is None:
+        return ""
+    from datetime import datetime, timedelta, timezone
+
+    from ate.reporting.lab_report import ensure_screenshot_dir
+    from dmm_setup import capture_screen
+
+    myt = timezone(timedelta(hours=8))
+    dut = int(getattr(params, "unit_index", None) or 1)
+    out = ensure_screenshot_dir(str(folder or "IOZ"), dut)
+    ts = datetime.now(myt).strftime("%Y-%m-%d_%H%M%S")
+    path = out / f"ioz_{ts}.png"
+    return capture_screen(dmm, path, reading=reading, unit=unit)
+
+
 def _run_ioz(instr, params: Any) -> dict[str, Any]:
+    key = str(getattr(params, "part", None) or "").strip().lower()
+    if not has_product_model(key):
+        if _is_dual_rail(key):
+            return _legacy_dual_rail("ioz", instr, params)
+        raise RuntimeError(
+            f"ioz: part {key!r} has no Path B product_model and is not dual-rail."
+        )
     model = _model(params)
     if not model.has_oe():
         raise RuntimeError(
             f"ioz: oe is none on {model.part} -- IOZ is not applicable. "
             "Remove ioz from enabled_tests."
         )
-    # INSTRUMENT_SENSE IOZ: OE inactive; DMM in series with Y; PSU CH2 force Vout.
+    # INSTRUMENT_SENSE IOZ: OE inactive via PSU CH3; DMM-series-Y; PSU CH2 force Vout.
     _require_for(instr, model, "ioz")
     with path_b_handoff(params, model, "ioz"):
         ilim = _current_limit(params, model)
         vccs = _vcc_corners(params, model, "ioz_vcc_list")
         vouts_raw = model.recipe.get("ioz_vout_list")
         rows: list[dict[str, Any]] = []
+        shot_path = ""
         try:
             for vcc in vccs:
                 _power_vcc(instr, vcc, ilim)
                 _wait_settled_current_ua(instr.dmm, model)
-                inactive = ioz_force_vector(model)
-                _apply_levels(instr, model, inactive, vcc, ilim)
+                inactive = _ioz_drive_inactive(instr, model, vcc, ilim)
                 _wait_settled_current_ua(instr.dmm, model, setup=False)
                 if isinstance(vouts_raw, list) and vouts_raw:
                     vouts = [float(x) for x in vouts_raw]
@@ -1495,17 +1534,34 @@ def _run_ioz(instr, params: Any) -> dict[str, Any]:
                             "IOZ_uA": i_ua,
                         }
                     )
+            shot = str(getattr(params, "screenshot_from", "") or "").strip().lower()
+            if shot not in ("none", "off", "0") and rows:
+                last_ua = float(rows[-1]["IOZ_uA"])
+                try:
+                    shot_path = _capture_dmm_now(
+                        instr, params, "IOZ", reading=last_ua, unit="uA"
+                    )
+                except Exception as exc:
+                    print(f"ioz DMM screen skip: {exc}", flush=True)
         finally:
             _power_down(instr)
         if not rows:
             raise RuntimeError("ioz: no points")
         mx = max(abs(float(r["IOZ_uA"])) for r in rows)
+        data: dict[str, Any] = {
+            "rows": rows,
+            "instrument_sense": "DMM-series-Y / force-Vout",
+        }
+        if shot_path:
+            data["screenshot"] = shot_path
+            data["screenshots"] = [shot_path]
+            data["screenshot_from"] = "dmm"
         return _finish(
             model,
             "ioz",
             {
                 "summary": f"IOZ n={len(rows)} max_abs={mx:.3f} uA",
-                "data": {"rows": rows, "instrument_sense": "DMM-series-Y / force-Vout"},
+                "data": data,
                 "measurements": [_meas(model, "IOZ_uA", mx, "uA", test_id="ioz")],
             },
         )
@@ -1529,6 +1585,7 @@ def _register(
     lab_sheet: str,
     required: frozenset[str],
     run,
+    notes: str | None = None,
 ) -> None:
     register(
         TestSpec(
@@ -1539,7 +1596,7 @@ def _register(
             lab_sheet=lab_sheet,
             run=run,
             dual_channel=False,
-            notes=_NOTE,
+            notes=notes or _NOTE,
         )
     )
 
@@ -1599,5 +1656,6 @@ _register(
     "IOZ",
     frozenset({"PSU", "DMM"}),
     _run_ioz,
+    notes="OE off. PSU CH1=VCC CH2=Y CH3=OE. DMM on Y. Not IOFF (VCC=0).",
 )
 

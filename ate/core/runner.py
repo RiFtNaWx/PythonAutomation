@@ -98,7 +98,7 @@ class RunParams:
     timeout_s: Optional[float] = None
     dwell_s: Optional[float] = None
     vin_step: Optional[float] = None  # VIH/VIL VIN trip; None = 0.01 V
-    screenshot_from: str = ""  # Parameters Write: none | mso
+    screenshot_from: str = ""  # Parameters Write: none | mso | dmm
     test_params: dict[str, dict[str, Any]] = field(default_factory=dict)
     progress_hook: Optional[Callable[..., None]] = field(default=None, repr=False)
     pause_hook: Optional[Callable[[str], bool]] = field(default=None, repr=False)
@@ -204,6 +204,8 @@ class RunParams:
         shot = str(raw.get("screenshot_from") or "").strip().lower()
         if shot in ("mso", "scope"):
             kw["screenshot_from"] = "mso"
+        elif shot in ("dmm",):
+            kw["screenshot_from"] = "dmm"
         elif shot in ("none", "off", "0"):
             kw["screenshot_from"] = "none"
         return replace(self, **kw) if kw else self
@@ -458,6 +460,26 @@ class ATECore:
             if self._instr is None or self._instr.scope is None:
                 raise
             return capture_jpeg(self._instr.scope, path)
+
+    def capture_dmm_screenshot(
+        self,
+        prefix: str = "dmm",
+        test_key: str = "IOZ",
+        dut_index: int | None = None,
+        reading: float | None = None,
+        unit: str = "A",
+    ) -> str:
+        if self._instr is None or self._instr.dmm is None:
+            raise RuntimeError("Open Session first -- need live DMM6500.")
+        ctx = get_context()
+        out = ensure_screenshot_dir(test_key, dut_index)
+        ts = datetime.now(MYT).strftime("%Y-%m-%d_%H%M%S")
+        path = out / f"{prefix}_{ts}.png"
+        self._log(f"DMM6500 screen -> {path}")
+        self._log(f"DB context: {ctx.component}/{ctx.part}/{ctx.package}/{ctx.version}")
+        from dmm_setup import capture_screen
+
+        return capture_screen(self._instr.dmm, path, reading=reading, unit=unit)
 
     def operator_respond(self, data: dict) -> None:
         self.gate.respond(data)
@@ -1211,8 +1233,21 @@ class ATECore:
                     summary = "OK"
                     data = {}
                 shot = str(getattr(params, "screenshot_from", "") or "").strip().lower()
+                need = {str(x).upper() for x in (spec.required_instruments or ())}
+                folder = str(spec.lab_sheet or spec.id or "DMM")
+                if not shot:
+                    if "MSO" in need or "SCOPE" in need:
+                        shot = "mso"
+                    elif "DMM" in need:
+                        shot = "dmm"
                 if shot in ("mso", "scope"):
-                    if getattr(self._instr, "_simulated", False):
+                    if "MSO" not in need and "SCOPE" not in need:
+                        self._log(
+                            f"{spec.id} screenshot_from=mso skipped: "
+                            "TestSpec is not MSO (IOZ/ICC = DMM); using DMM instead"
+                        )
+                        shot = "dmm"
+                    elif getattr(self._instr, "_simulated", False):
                         self._log(f"{spec.id} screenshot_from=mso skipped on SIM")
                     elif self._instr.scope is None:
                         self._log(f"{spec.id} screenshot_from=mso skipped: no MSO")
@@ -1220,7 +1255,7 @@ class ATECore:
                         try:
                             path = self.capture_screenshot(
                                 prefix=spec.id,
-                                test_key=str(spec.id or "MSO"),
+                                test_key=folder,
                                 dut_index=dut,
                             )
                             shots = list((data or {}).get("screenshots") or [])
@@ -1230,6 +1265,52 @@ class ATECore:
                             data["screenshot"] = path
                         except Exception as exc:
                             self._log(f"{spec.id} screenshot_from=mso skip: {exc}")
+                if shot in ("dmm",):
+                    inner = (
+                        (data or {}).get("data")
+                        if isinstance((data or {}).get("data"), dict)
+                        else {}
+                    )
+                    already = (data or {}).get("screenshot") or (inner or {}).get(
+                        "screenshot"
+                    )
+                    if already:
+                        data = dict(data or {})
+                        data["screenshot"] = already
+                        shots = list(
+                            data.get("screenshots")
+                            or (inner or {}).get("screenshots")
+                            or []
+                        )
+                        if already not in shots:
+                            shots.append(already)
+                        data["screenshots"] = shots
+                        self._log(f"{spec.id} DMM screen already in TestSpec")
+                    elif self._instr.dmm is None:
+                        self._log(f"{spec.id} screenshot_from=dmm skipped: no DMM")
+                    else:
+                        try:
+                            reading = None
+                            unit = "A"
+                            for m in (data or {}).get("measurements") or []:
+                                if isinstance(m, dict) and m.get("value") is not None:
+                                    reading = float(m["value"])
+                                    unit = str(m.get("unit") or "A")
+                                    break
+                            path = self.capture_dmm_screenshot(
+                                prefix=spec.id,
+                                test_key=folder,
+                                dut_index=dut,
+                                reading=reading,
+                                unit=unit,
+                            )
+                            shots = list((data or {}).get("screenshots") or [])
+                            shots.append(path)
+                            data = dict(data or {})
+                            data["screenshots"] = shots
+                            data["screenshot"] = path
+                        except Exception as exc:
+                            self._log(f"{spec.id} screenshot_from=dmm skip: {exc}")
                 self._progress(
                     spec.id,
                     "pass",

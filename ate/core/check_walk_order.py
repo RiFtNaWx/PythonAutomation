@@ -107,12 +107,41 @@ def main() -> int:
     ).overlay_for("icc")
     if getattr(shot_over, "screenshot_from", "") != "mso":
         errors.append("overlay_for must apply screenshot_from=mso")
+    dmm_clean = _clean_test_param_block({"screenshot_from": "dmm", "settle_s": 0.2})
+    if dmm_clean.get("screenshot_from") != "dmm":
+        errors.append("Write screenshot_from=dmm must persist (not stripped)")
+    dmm_over = RunParams(test_params={"ioz": {"screenshot_from": "dmm"}}).overlay_for("ioz")
+    if getattr(dmm_over, "screenshot_from", "") != "dmm":
+        errors.append("overlay_for must apply screenshot_from=dmm")
     rtxt = Path(__file__).with_name("runner.py").read_text(encoding="utf-8")
     cap = rtxt[rtxt.find("def capture_screenshot") : rtxt.find("def operator_respond")]
     if "_reopen_mso_after_visa" not in cap:
         errors.append("capture_screenshot must reopen MSO after :DISP:DATA? poison")
     if "screenshot_from=mso skipped on SIM" not in rtxt:
         errors.append("_run_one must honor screenshot_from from Parameters Write")
+    if "no Keithley dump" in rtxt:
+        errors.append("screenshot_from=dmm must dump DMM6500 HCOP, not a phone stub")
+    if "capture_dmm_screenshot" not in rtxt:
+        errors.append("runner must capture_dmm_screenshot for screenshot_from=dmm")
+    if "TestSpec is not MSO" not in rtxt:
+        errors.append("IOZ/ICC must not capture MSO when screenshot_from=mso")
+    if "using DMM instead" not in rtxt:
+        errors.append("stale screenshot_from=mso on IOZ must fall through to DMM")
+    if "spec.lab_sheet" not in rtxt:
+        errors.append("DMM/MSO screenshots must land in lab_sheet folder (IOZ not ioz)")
+    dmm_src = Path(__file__).resolve().parents[2] / "dmm_setup.py"
+    dtxt = dmm_src.read_text(encoding="utf-8")
+    if "DATA:FORM" in dtxt and "Do not send :HCOP:SDUM:DATA:FORM" not in dtxt:
+        errors.append("DMM6500 must not send HCOP DATA:FORM (1.7.16a -113)")
+    if "_reading_png" not in dtxt:
+        errors.append("DMM HCOP leftover must write a reading-card PNG, never MSO")
+    from dmm_setup import _reading_png
+
+    card = _reading_png("DMM6500 DCI", "2.8 uA")
+    if not card.startswith(b"\x89PNG"):
+        errors.append("DMM reading card must be a real PNG")
+    if "if not shot:" not in rtxt:
+        errors.append("empty screenshot_from must auto MSO/DMM from TestSpec instruments")
     from ate.core.progress import who_has_tests
 
     who_rows = who_has_tests(limit=20)

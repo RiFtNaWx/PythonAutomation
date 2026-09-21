@@ -867,12 +867,42 @@ def _write_test_sheet(
     for r, rec in enumerate(body, start=2):
         for c, name in enumerate(headers, start=1):
             ws.cell(r, c, _cell_dump(rec.get(name)))
+    _embed_latest_shot(ws, ctx, sheet, start_row=len(body) + 3)
     detected = detect_series_from_headers(headers, sheet)
     plot_ids = [sid for sid in required_series(model, test_ids) if sid in bound]
     plot_ids.extend(sid for sid in sorted(detected & bound) if sid not in plot_ids)
     if rows:
         return _add_charts(ws, headers, len(body), plot_ids)
     return 0
+
+
+def _embed_latest_shot(ws, ctx: Any, folder: str, start_row: int = 3) -> None:
+    """Paste latest DUT_1 png/jpg under the table. Folder = lab_sheet (IOZ)."""
+    shot_dir = None
+    try:
+        if hasattr(ctx, "screenshot_dir"):
+            shot_dir = Path(ctx.screenshot_dir(str(folder), 1))
+    except Exception:
+        return
+    if shot_dir is None or not shot_dir.is_dir():
+        return
+    files = [
+        p
+        for p in shot_dir.iterdir()
+        if p.is_file() and p.suffix.lower() in {".png", ".jpg", ".jpeg"}
+        and not p.name.startswith("_tmp")
+    ]
+    if not files:
+        return
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    try:
+        from openpyxl.drawing.image import Image as XLImage
+
+        pic = XLImage(str(files[0]))
+        pic.anchor = f"A{max(3, int(start_row))}"
+        ws.add_image(pic)
+    except Exception:
+        return
 
 
 def sessions_dir_for(ctx: Any) -> Path:
@@ -994,12 +1024,18 @@ def write_path_b_workbook(
     from openpyxl import Workbook, load_workbook
 
     wb = None
-    created = not dest.is_file()
+    created = not dest.is_file() or dest.stat().st_size < 64
     try:
-        if dest.is_file():
-            wb = load_workbook(dest)
-        else:
+        if dest.is_file() and dest.stat().st_size >= 64:
+            try:
+                wb = load_workbook(dest)
+                created = False
+            except Exception:
+                wb = None
+                created = True
+        if wb is None:
             wb = Workbook()
+            created = True
             active = wb.active
             if active is not None and active.title in ("Sheet", "Sheet1"):
                 active.title = "Setup"

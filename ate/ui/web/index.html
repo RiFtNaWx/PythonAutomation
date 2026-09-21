@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=20260921cloud" />
+  <link rel="stylesheet" href="styles.css?v=20260921out1" />
   <link rel="stylesheet" href="canvas/recipe-canvas.css?v=20260915a14b" />
 </head>
 <body>
@@ -83,6 +83,10 @@
         <button type="button" id="run-strip-abort" class="btn danger hidden">Abort</button>
         <button type="button" id="run-strip-details" class="btn ghost hidden">Open</button>
       </div>
+    </div>
+    <div id="run-dock" class="run-dock" aria-label="Start or continue">
+      <button type="button" id="run-dock-go" class="btn accent big">START</button>
+      <button type="button" id="run-dock-abort" class="btn danger hidden">Abort</button>
     </div>
 
     <main>
@@ -306,7 +310,7 @@
 
           <div class="glass panel wide">
             <h2>Test program</h2>
-            <p class="hint">Tick tests to run. Each row shows AWG shape (SQU / SIN / DC / PULS / off). START programs PSU + generator; Continue at board/DUT. Advanced freq/amp is only for some OpAmp tests.</p>
+            <p class="hint">Tick tests to run. Each row shows stimulus (AWG shape SQU / SIN / DC / PULS / off). IOZ is PSU DC, one body. START programs PSU + generator when needed; Continue at board/DUT. Advanced freq/amp is only for some OpAmp tests.</p>
             <div class="row test-list-actions start-row">
               <button type="button" id="btn-tests-all" class="btn ghost">Select all</button>
               <button type="button" id="btn-tests-none" class="btn ghost">Clear</button>
@@ -317,14 +321,16 @@
               <button id="btn-start" class="btn accent big" disabled>START</button>
               <button type="button" id="btn-demo" class="btn ghost big">DEMO (SIM)</button>
             </div>
-            <p class="hint">START needs Open Session (USB) or Open SIM. DEMO opens fake PyVISA and runs the same START path -- instruments trigger, Continue is auto. Writes STS PDF. Excel numbers go to *_demo.xlsx so the live lab book is untouched.</p>
+            <p class="hint" id="run-need-hint">Tick tests. START runs only those ids. IOZ = PSU+DMM. Green tiles are Open Session, not the run list.</p>
+            <p class="hint">START needs Open Session (USB) or Open SIM. The right-side START stays on screen (Continue while WAIT). DEMO opens fake PyVISA and auto-Continues. Writes STS PDF. Excel numbers go to *_demo.xlsx so the live lab book is untouched.</p>
             <div id="test-plans" class="test-plans"></div>
             <div id="test-list" class="test-list"></div>
           </div>
 
           <div class="glass panel wide hidden" id="panel-logic-dc">
-            <h2>Logic DC recipe</h2>
-            <p class="hint" id="add-test-format">STANDARD FORMAT -- Path A catalog / Path B TestSpec / Path C wrap. Logic DC: same ids, new SKU via this panel (truth table, logic_inputs, vcc_list, limits + pass_mode). Missing min/max stay unspec unless fail-open. Panel cannot promote Datasheet-signed. No xyflow.</p>
+            <details class="logic-dc-fold">
+            <summary>Logic DC recipe (product_model JSON -- not the Recipe tab)</summary>
+            <p class="hint" id="add-test-format">STANDARD FORMAT -- one TestSpec id each. This panel is SKU product_model JSON (not a second IOZ). Recipe tab xyflow is different (closed opcodes, no eval). Missing min/max stay unspec unless fail-open. Panel cannot promote Datasheet-signed. Click the summary to expand JSON.</p>
             <div id="logic-dc-body">
               <p class="hint" id="logic-dc-enabled">Enabled tests: --</p>
               <p class="hint" id="logic-dc-icc-corners">ICC corners: --</p>
@@ -385,6 +391,7 @@
               </div>
               <p class="hint" id="logic-dc-hint">Apply campaign first. ICC Connected: DMM series VCC, IO=0, CH2 OFF.</p>
             </div>
+            </details>
           </div>
         </div>
       </section>
@@ -864,6 +871,6 @@
   </div>
 
   <script src="canvas/recipe-canvas.js?v=20260915a14b"></script>
-  <script src="app.js?v=20260921cloud"></script>
+  <script src="app.js?v=20260921out1"></script>
 </body>
 </html>

@@ -20,23 +20,37 @@ let substepState = {};
 let activeSubstepTestId = "";
 
 async function rpc(method, params = {}) {
-  const res = await fetch(RPC, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: Date.now(), method, params }),
-  });
-  const text = await res.text();
-  let body;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    if (res.status === 501) {
-      throw new Error("Worker :8766 is JSON-RPC POST. Open UI at http://127.0.0.1:5174");
+  let last = null;
+  for (let i = 0; i < 2; i++) {
+    try {
+      const res = await fetch(RPC, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: Date.now(), method, params }),
+      });
+      const text = await res.text();
+      let body;
+      try {
+        body = JSON.parse(text);
+      } catch {
+        if (res.status === 501) {
+          throw new Error("Worker :8766 is JSON-RPC POST. Open UI at http://127.0.0.1:5174");
+        }
+        throw new Error(`Worker HTTP ${res.status}: ${text.slice(0, 160)}`);
+      }
+      if (body.error) throw new Error(body.error.message || JSON.stringify(body.error));
+      return body.result;
+    } catch (e) {
+      last = e;
+      const msg = String((e && e.message) || e);
+      if (i === 0 && /fetch|network|Failed/i.test(msg)) {
+        await new Promise((r) => setTimeout(r, 400));
+        continue;
+      }
+      throw e;
     }
-    throw new Error(`Worker HTTP ${res.status}: ${text.slice(0, 160)}`);
   }
-  if (body.error) throw new Error(body.error.message || JSON.stringify(body.error));
-  return body.result;
+  throw last;
 }
 
 function $(id) { return document.getElementById(id); }
@@ -603,6 +617,53 @@ function log(text) {
   el.scrollTop = el.scrollHeight;
 }
 
+function selectedInstrumentNeed() {
+  const need = new Set();
+  const ids = selectedTests();
+  for (const id of ids) {
+    const t = (allTests || []).find((x) => x.id === id);
+    for (const k of (t && t.required_instruments) || []) {
+      need.add(String(k).toUpperCase());
+    }
+  }
+  return need;
+}
+
+function paintTileNeeds() {
+  const need = selectedInstrumentNeed();
+  document.querySelectorAll(".tile").forEach((t) => {
+    const k = String(t.dataset.k || "").toUpperCase();
+    const connected = t.classList.contains("on") || t.classList.contains("sim");
+    t.classList.toggle("idle", need.size > 0 && !need.has(k) && !connected);
+  });
+  const hint = $("run-need-hint");
+  if (!hint) return;
+  if (!need.size) {
+    hint.textContent = "Tick tests. START runs only those ids. IOZ = PSU+DMM. Green = USB on the bus.";
+    return;
+  }
+  hint.textContent = "This START: " + [...need].join("+") + ". Other green tiles stay connected (unused, not off).";
+}
+
+function tileMapFromStatus(st) {
+  if (!st) return {};
+  if (st.sim) return st.mapping || {};
+  return Object.assign({}, st.pnp || {}, st.usb || {}, st.mapping || {});
+}
+
+function testNeedsAwg(t) {
+  return (t.required_instruments || []).includes("AWG");
+}
+
+function stimPrefix(t) {
+  const stim = (t.stimulus && t.stimulus.wave) ? String(t.stimulus.wave).toUpperCase() : "";
+  if (!stim) return "";
+  if (testNeedsAwg(t) || ["SQU", "SIN", "PULS", "RAMP", "NOIS"].includes(stim)) {
+    return "AWG " + stim;
+  }
+  return stim;
+}
+
 function setTiles(mapping) {
   const sim = Object.values(mapping || {}).some((v) =>
     String(v).toUpperCase().startsWith("SIM::")
@@ -614,6 +675,7 @@ function setTiles(mapping) {
     t.classList.toggle("sim", on && sim);
     t.classList.toggle("off", !on);
   });
+  paintTileNeeds();
 }
 
 async function loadMappedCoverage() {
@@ -1137,6 +1199,7 @@ function params() {
     ? (($("run-label") && $("run-label").value.trim()) || labels[profileKey] || "")
     : "";
   if ($("unit")) $("unit").value = String(duts[0] || 1);
+  const sel = currentDbSelection();
   const out = {
     ...bench,
     unit_index: duts[0],
@@ -1145,7 +1208,13 @@ function params() {
     channel: channels[0],
     walk_order: selectedWalkOrder(),
     reset_before_run: $("reset") ? $("reset").checked : false,
-    part: currentPartKey(),
+    part: sel.part || currentPartKey(),
+    part_key: currentPartKey(),
+    component: sel.component || "",
+    package: sel.package || "",
+    operator: sel.operator || "",
+    version: sel.version || "",
+    model: sel.model || "",
     year: $("db-year").value || undefined,
     run_label: runLabel,
     gain_profile: gbwOn ? profileKey : "default",
@@ -1509,9 +1578,13 @@ function paintRunStrip() {
     const el = $(id);
     if (el) el.classList.toggle("hidden", !waiting);
   });
-  if (!strip) return;
+  if (!strip) {
+    paintRunDock();
+    return;
+  }
   if (!live) {
     strip.classList.add("hidden");
+    paintRunDock();
     return;
   }
   const phase = waiting ? "wait" : (lastActivity.phase || "run");
@@ -1525,6 +1598,28 @@ function paintRunStrip() {
       phase === "done" ? "DONE" : "RUN";
   }
   if (textEl) textEl.textContent = activityLine();
+  paintRunDock();
+}
+
+function paintRunDock() {
+  const go = $("run-dock-go");
+  const abort = $("run-dock-abort");
+  if (!go) return;
+  const waiting = !!(pendingPrompt && pendingPrompt.id);
+  go.classList.add("accent");
+  go.classList.remove("ghost");
+  if (waiting) {
+    go.textContent = "Continue";
+    if (abort) abort.classList.remove("hidden");
+  } else if (runPollActive) {
+    go.textContent = lastActivity.phase === "delay" ? "DELAY" : "RUN";
+    go.classList.remove("accent");
+    go.classList.add("ghost");
+    if (abort) abort.classList.remove("hidden");
+  } else {
+    go.textContent = "START";
+    if (abort) abort.classList.add("hidden");
+  }
 }
 
 function updateGateDock(prompt) {
@@ -3954,7 +4049,9 @@ function testParamEditorHtml(t) {
   const fields = [];
   const notes = [];
   const stim = (t.stimulus && t.stimulus.wave) ? String(t.stimulus.wave).toUpperCase() : "";
-  const awgOff = !stim || stim === "OFF";
+  const awgWave = ["SQU", "SIN", "PULS", "RAMP", "NOIS"].includes(stim);
+  const showAwgParams = testNeedsAwg(t) || awgWave;
+  const awgOff = !showAwgParams;
   if (meta.kind === "freq") {
     fields.push(paramNumInput("freq_start", "Freq start (MHz)", p.freq_start ?? 1, 0.5));
     fields.push(paramNumInput("freq_stop", "Freq stop (MHz)", p.freq_stop ?? 10, 0.5));
@@ -3991,6 +4088,9 @@ function testParamEditorHtml(t) {
   }
   if (t.id === "ii") {
     notes.push("II Connected: DMM series the measured input. 2^n AWG combos at 0/5.5 (GT34=2, 1G08=4). Default named 2.0/3.3/5.5. Parameters step 0-5.6/0.1 is the golden sweep (VCC=0 is Ioff-like). No TRAC, no PSU-off between VCC. Stamp II_uA not IDD.");
+  }
+  if (t.id === "ioz") {
+    notes.push("IOZ: OE inactive. PSU+DMM. Not IOFF (VCC=0). One body in logic_dc.py.");
   }
   if (t.id === "ioff" || t.id === "ioff_leakage") {
     const startVal = String(p.ioff_start || d.ioff_start || "ports").toLowerCase();
@@ -4054,26 +4154,42 @@ function testParamEditorHtml(t) {
     </div>`;
   }).join("");
   let src = "";
-  if (t.source && t.source.file) {
+  if (t.source && t.source.kind === "wrap" && t.source.file) {
     const shortSrc = String(t.source.file).replace(/\\/g, "/").split("/").slice(-2).join("/");
-    src = `<p class="hint">imported ${escText(shortSrc)}:${t.source.lineno || "?"}</p>`;
+    src = `<p class="hint">wrap ${escText(shortSrc)}:${t.source.lineno || "?"}</p>`;
   }
   fields.push(paramNumInput("settle_s", "Settle (s)", p.settle_s ?? d.settle_s ?? "", 0.1));
   fields.push(paramNumInput("timeout_s", "Timeout (s)", p.timeout_s ?? d.timeout_s ?? "", 0.5));
   fields.push(paramNumInput("dwell_s", "Dwell (s)", p.dwell_s ?? d.dwell_s ?? "", 0.1));
-  const shot = String(p.screenshot_from || (p.include_screenshot ? "mso" : "") || "");
+  const req = (t.required_instruments || []).map((x) => String(x).toUpperCase());
+  const needsDmm = req.includes("DMM");
+  const needsMso = req.includes("MSO") || req.includes("SCOPE");
+  let shot = String(p.screenshot_from || d.screenshot_from || "").toLowerCase();
+  if (!shot && p.include_screenshot) shot = needsMso ? "mso" : (needsDmm ? "dmm" : "none");
+  if (!shot) shot = needsDmm && !needsMso ? "dmm" : "none";
+  if ((shot === "mso" || shot === "scope") && !needsMso && needsDmm) shot = "dmm";
   const shotNone = shot === "" || shot === "none" ? " selected" : "";
   const shotMso = shot === "mso" || shot === "scope" ? " selected" : "";
-  fields.push(`<label>Include screenshot<select data-param="screenshot_from"><option value="none"${shotNone}>none</option><option value="mso"${shotMso}>MSO / scope</option></select></label>`);
+  const shotDmm = shot === "dmm" ? " selected" : "";
+  let shotOpts = `<option value="none"${shotNone}>none</option>`;
+  if (needsMso) shotOpts += `<option value="mso"${shotMso}>MSO / scope</option>`;
+  if (needsDmm) shotOpts += `<option value="dmm"${shotDmm}>DMM</option>`;
+  if (!needsMso && !needsDmm) shotOpts += `<option value="mso"${shotMso}>MSO / scope</option>`;
+  fields.push(`<label>Include screenshot<select data-param="screenshot_from">${shotOpts}</select></label>`);
   notes.push("Settle/dwell override USB waits (dwell wins on DMM delta steps). ICC/ICCT ignore 0.05 s settle_s -- they use VCC dwell 2 s / VI dwell 1 s / 5 samples unless you set VCC dwell or Dwell above.");
-  notes.push("Include screenshot: MSO JPEG under {test}/DUT_n/screenshots/. ICC is DMM -- leave none unless a scope is on the bench. Timing tests should pick MSO.");
+  notes.push("Include screenshot: pick the box on the bench. IOZ/ICC = DMM (HCOP leftover = reading card), never MSO. Timing = MSO JPEG. Write to save this Version.");
+  if (String(t.id || "").toLowerCase() === "ioz") {
+    notes.unshift("IOZ RS1G126: pin1 OE / pin2 A strap GND / pin3 GND / pin4 Y / pin5 VCC. PSU CH1=VCC pin5, CH2=Y pin4 through DMM DCI, CH3=OE pin1 inactive L. AWG off. MSO unplugged. Probe CHA (Setup tick B only if you recable). Screenshot select = DMM (Write).");
+  }
   if (meta.hint) notes.unshift(meta.hint);
   const noteHtml = notes.map((n) => `<p class="hint">${escText(n)}</p>`).join("");
   const waveLine = stim
-    ? `<p class="hint">Stimulus AWG ${escText(stim)}${t.stimulus.detail ? " -- " + escText(t.stimulus.detail) : ""}</p>`
+    ? (showAwgParams
+      ? `<p class="hint">Stimulus AWG ${escText(stim)}${t.stimulus.detail ? " -- " + escText(t.stimulus.detail) : ""}</p>`
+      : `<p class="hint">Stimulus ${escText(stim)}${t.stimulus.detail ? " -- " + escText(t.stimulus.detail) : ""}</p>`)
     : `<p class="hint">Stimulus: no AWG (PSU/DMM only)</p>`;
-  return `<div class="test-spec-edit">
-    <p class="hint"><strong>Parameters</strong> (this Version)</p>
+  return `<details class="test-spec-edit">
+    <summary>Parameters (this Version) -- click to expand</summary>
     ${src}${waveLine}${noteHtml}
     <div class="param-grid">${fields.join("")}</div>
     ${specRows ? `<p class="hint">Limits / specifications (this Version)</p>${specRows}` : ""}
@@ -4081,7 +4197,7 @@ function testParamEditorHtml(t) {
       <button type="button" class="btn ghost test-param-write" data-test-id="${escText(t.id)}">Write</button>
       <button type="button" class="btn ghost test-edit-source" data-test-id="${escText(t.id)}">Edit source</button>
     </div>
-  </div>`;
+  </details>`;
 }
 
 async function loadTests() {
@@ -4147,20 +4263,21 @@ async function loadTests() {
       const info = (t.info && (t.info.description || t.info.title)) || t.notes || "";
       const specLine = specBits || "datasheet unspec -- Results: Fetch limits";
       const stim = (t.stimulus && t.stimulus.wave) ? String(t.stimulus.wave).toUpperCase() : "";
+      const stimHead = stimPrefix(t);
       const stimLine = stim
         ? `${stim}${t.stimulus.detail ? " · " + t.stimulus.detail : ""}`
         : "";
       const extra = [stimLine, info, specLine].filter(Boolean).join(" · ");
       let srcLine = "";
-      if (t.source && t.source.file) {
+      if (t.source && t.source.kind === "wrap" && t.source.file) {
         const shortSrc = String(t.source.file).replace(/\\/g, "/").split("/").slice(-2).join("/");
-        srcLine = `<br/><span class="hint">src ${shortSrc}:${t.source.lineno || "?"}</span>`;
+        srcLine = `<br/><span class="hint">wrap ${shortSrc}:${t.source.lineno || "?"}</span>`;
       }
       grid.innerHTML += `
         <div class="test-item" data-test-id="${t.id}">
           <label class="test-item-head" for="${id}" title="${extra.replace(/"/g, "&quot;")}">
             <input id="${id}" type="checkbox" value="${t.id}" ${checked} />
-            <span><strong>${tag}</strong> — ${t.label}<br/><span class="mode-tag">${stim ? ("AWG " + stim + " · ") : ""}${specLine}</span><br/><span class="mode-tag">${t.fixture_mode} · ${instr}${isResearch ? " · research" : ""}</span>${stimLine ? `<br/><span class="hint">${stimLine}</span>` : (info ? `<br/><span class="hint">${info}</span>` : "")}${srcLine}</span>
+            <span><strong>${tag}</strong> — ${t.label}<br/><span class="mode-tag">${stimHead ? (stimHead + " · ") : ""}${specLine}</span><br/><span class="mode-tag">${t.fixture_mode} · ${instr}${isResearch ? " · research" : ""}</span>${stimLine ? `<br/><span class="hint">${stimLine}</span>` : (info ? `<br/><span class="hint">${info}</span>` : "")}${srcLine}</span>
           </label>
           ${testParamEditorHtml(t)}
         </div>`;
@@ -4173,6 +4290,7 @@ async function loadTests() {
     inp.addEventListener("change", () => {
       renderRunPlans();
       applyTestDefaults(false);
+      paintTileNeeds();
     });
   });
   document.querySelectorAll("#test-list .test-param-write").forEach((btn) => {
@@ -4199,6 +4317,7 @@ async function loadTests() {
   });
   applyTestDefaults(false);
   applyTestListSearch();
+  paintTileNeeds();
   loadLogicDcPanel().catch(() => {});
 }
 
@@ -4336,8 +4455,14 @@ function renderLogicDc(payload) {
   }
   if ($("logic-dc-stimulus")) $("logic-dc-stimulus").value = ui.stimulus || "PSU_MSO";
   if ($("logic-dc-dual-ch")) $("logic-dc-dual-ch").checked = !!ui.dual_channel_continue;
-  const en = (ui.recipe && ui.recipe.coverage_order) || [];
-  if ($("logic-dc-enabled")) $("logic-dc-enabled").textContent = "Enabled tests: " + ((allTests || []).map((t) => t.id).join(", ") || "--");
+  const partEn = ui.enabled_tests || [];
+  const catEn = ui.catalog_tests || ((allTests || []).map((t) => t.id));
+  let enLine = "Enabled tests (SKU): " + (partEn.join(", ") || "--");
+  if (catEn.length) enLine += " | this Version: " + catEn.join(", ");
+  if (partEn.includes("ioz") && !catEn.includes("ioz")) {
+    enLine += " -- catalog hid ioz; Tests page tick IOZ then Save this Version";
+  }
+  if ($("logic-dc-enabled")) $("logic-dc-enabled").textContent = enLine;
   const n = ui.icc_corners;
   const pins = ui.icc_pins || [];
   if ($("logic-dc-icc-corners")) {
@@ -4357,6 +4482,9 @@ function renderLogicDc(payload) {
   const fam = familyScaleHint(ui.product_class || ui.runner || "");
   if (fam && $("logic-dc-hint")) {
     $("logic-dc-hint").textContent = ($("logic-dc-hint").textContent || "") + " " + fam;
+  }
+  if (ui.campaign_mismatch && $("logic-dc-hint")) {
+    $("logic-dc-hint").textContent = ui.campaign_mismatch;
   }
   wireLogicDcFlow($("logic-dc-flow"));
   const rows = ui.icc_corner_rows || [];
@@ -4437,6 +4565,27 @@ async function loadLogicDcPanel() {
   }
   try {
     const payload = await rpc("get_product_model", { part, part_key: part });
+    try {
+      const camp = await rpc("list_campaign_tests");
+      if (camp && camp.ok) {
+        payload.enabled_tests = camp.part_yaml || payload.enabled_tests || [];
+        payload.catalog_tests = camp.current || [];
+        payload.current_from = camp.current_from || "";
+      }
+    } catch (_) {}
+    try {
+      const st = await rpc("session_status");
+      const ctxPart = String((st && st.db && (st.db.part_key || st.db.part)) || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+      const selPart = String(part || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (ctxPart && selPart && ctxPart !== selPart) {
+        payload.campaign_mismatch =
+          "Worker campaign is " + (st.db.part || ctxPart) +
+          " -- Apply campaign for " + part +
+          " or the Run list stays the other SKU (IOZ missing is often that mix)";
+      }
+    } catch (_) {}
     renderLogicDc(payload);
   } catch (e) {
     renderLogicDc({ present: false });
@@ -4537,20 +4686,45 @@ async function saveLogicDcOverlay() {
   log("Saved Version overlay (_manifest/test_params.yaml) including ICC VCC plan\n");
 }
 
+function sessionOpenLine(st) {
+  const have = Object.keys(st.mapping || {});
+  const pnp = Object.keys(st.pnp || {});
+  const want = ["PSU", "AWG", "DMM", "MSO"];
+  const miss = want.filter((k) => !have.includes(k));
+  let line = `Session open (${st.visa_backend || "visa"}): ${have.join(", ") || "--"}`;
+  if (miss.length) {
+    const onPnp = miss.filter((k) => pnp.includes(k));
+    const gone = miss.filter((k) => !pnp.includes(k));
+    if (onPnp.length) {
+      line += ` -- USB present, not in session: ${onPnp.join(", ")} (Discover then Open Session)`;
+    }
+    if (gone.length) {
+      line += ` -- not on bus: ${gone.join(", ")}`;
+      if (gone.includes("AWG")) {
+        line += " (Windows USBTMC Unknown -- close Ultra Sigma, unplug/replug DG822, Discover)";
+      }
+    }
+  }
+  return line;
+}
+
 async function refreshSession() {
   try {
     const st = await rpc("session_status");
     sessionOpen = !!st.open;
-    setTiles(st.mapping || {});
+    setTiles(tileMapFromStatus(st));
     $("btn-start").disabled = !sessionOpen;
+    const pnpKeys = Object.keys(st.pnp || {});
     $("session-hint").textContent = sessionOpen
       ? (st.sim
         ? `SIM session (no USB): ${Object.keys(st.mapping || {}).join(", ")}` +
           (st.sim_bus
             ? ` · last AWG ${st.sim_bus.func || "?"} ${st.sim_bus.out || "OFF"} · PSU ${st.sim_bus.psu_on ? (st.sim_bus.psu_v + " V") : "OFF"}`
             : "")
-        : `Session open (${st.visa_backend || "visa"}): ${Object.keys(st.mapping || {}).join(", ")}`)
-      : "Init = Discover then Open Session (USB), or Open SIM / DEMO. + Session is JSON only.";
+        : sessionOpenLine(st))
+      : (pnpKeys.length
+        ? `USB on bus: ${pnpKeys.join(", ")}. Discover then Open Session.`
+        : "Init = Discover then Open Session (USB), or Open SIM / DEMO. + Session is JSON only.");
     if (st.db) renderDbHints(st.db);
     if (st.timeline) renderTimeline(st.timeline);
   } catch (e) {
@@ -5255,16 +5429,17 @@ $("btn-discover").onclick = async () => {
     const n = Object.keys(m || {}).length;
     if (!n) {
       log("Discover {}: no USB *IDN (PnP Unknown / timeout skipped). Close Ultra Sigma, USB+power, Discover again.\n");
-      setTiles({});
       const st = await rpc("session_status");
       if (st && st.sim) {
+        setTiles({});
         notice(
           "No USB *IDN. SIM session is still open (fake tiles were not USB). " +
             "Plug the live MSO/PSU/AWG/DMM, close Ultra Sigma, Discover, then Open Session (not DEMO)."
         );
       } else {
+        setTiles((st && st.pnp) || {});
         notice(
-          "No USB instruments. Ghost USBTMC is not detected. Close Ultra Sigma, plug live gear + power, Discover again. " +
+          "No USB instruments. PnP-OK tiles stay lit when Windows Status=OK. Close Ultra Sigma, Discover again. " +
             "No USB: DEMO (SIM)."
         );
       }
@@ -5744,7 +5919,45 @@ if ($("btn-demo")) {
   };
 }
 
-$("btn-start").onclick = async () => {
+$("btn-start").onclick = () => clickStartOrContinue();
+
+function campaignAlreadyApplied() {
+  if (!dbContext) return false;
+  const sel = currentDbSelection();
+  const same = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+  return (
+    same(dbContext.component, sel.component) &&
+    same(dbContext.part, sel.part) &&
+    same(dbContext.package, sel.package) &&
+    same(dbContext.operator, sel.operator) &&
+    same(dbContext.version, sel.version)
+  );
+}
+
+async function clickStartOrContinue() {
+  if (pendingPrompt) {
+    switchPage("run");
+    try {
+      await respondContinue();
+    } catch (e) {
+      notice(e.message);
+    }
+    return;
+  }
+  if (runPollActive) {
+    switchPage("run");
+    try {
+      const st0 = await rpc("session_status");
+      if (st0 && st0.busy) {
+        notice("Run already in progress -- Continue is on the right, or Abort. DELAY is settle, not a dead START.");
+        paintRunDock();
+        return;
+      }
+      runPollActive = false;
+    } catch (_) {
+      runPollActive = false;
+    }
+  }
   const ids = selectedTests();
   if (!ids.length) return notice("Select at least one test");
   const duts = selectedDuts();
@@ -5755,10 +5968,8 @@ $("btn-start").onclick = async () => {
   } catch (e) {
     return notice(e.message);
   }
-  try {
-    await applyDb();
-  } catch (_) {
-    /* keep previous campaign if apply fails */
+  if (!campaignAlreadyApplied()) {
+    log("START pins Setup campaign on the run (no Apply reload)\n");
   }
   try {
     const st = await rpc("session_status");
@@ -5778,7 +5989,7 @@ $("btn-start").onclick = async () => {
     return;
   }
   await startInstrumentRun(ids);
-};
+}
 
 async function startInstrumentRun(ids, opts) {
   if (!sessionOpen) return notice("Open Session or Open SIM first");
@@ -5822,14 +6033,14 @@ async function startInstrumentRun(ids, opts) {
     }
     let pdfPath = "";
     try {
-      const exp = await rpc("export_datalog");
+      const exp = await rpc("export_datalog", params());
       pdfPath = exp.pdf || exp.html || exp.markdown || "";
       log(`STS datalog: ${pdfPath}\n`);
     } catch (e) {
       log(`STS export failed: ${e.message}\n`);
     }
     try {
-      const filled = await rpc("fill_workbook");
+      const filled = await rpc("fill_workbook", params());
       log(`Excel fill: ${JSON.stringify(filled)}\n`);
     } catch (e) {
       log(`Excel fill skipped: ${e.message}\n`);
@@ -5959,12 +6170,13 @@ function bindContinueButtons() {
   ["run-continue", "run-strip-continue"].forEach((id) => {
     if ($(id)) $(id).onclick = go;
   });
-  ["run-abort", "run-strip-abort"].forEach((id) => {
+  ["run-abort", "run-strip-abort", "run-dock-abort"].forEach((id) => {
     if ($(id)) $(id).onclick = stop;
   });
   ["run-details", "run-strip-details"].forEach((id) => {
     if ($(id)) $(id).onclick = open;
   });
+  if ($("run-dock-go")) $("run-dock-go").onclick = () => clickStartOrContinue();
 }
 bindContinueButtons();
 
@@ -6981,7 +7193,7 @@ function pollLoop() {
   if ($("btn-export-datalog")) {
     $("btn-export-datalog").onclick = async () => {
       try {
-        const exp = await rpc("export_datalog");
+        const exp = await rpc("export_datalog", params());
         log(`STS datalog\n  ${exp.markdown || ""}\n  ${exp.html || ""}\n  ${exp.pdf || ""}\n`);
         await paintSessionReport(exp.pdf || "");
         if (exp.html) {
@@ -6995,7 +7207,7 @@ function pollLoop() {
   if ($("btn-fill-excel")) {
     $("btn-fill-excel").onclick = async () => {
       try {
-        const res = await rpc("fill_workbook");
+        const res = await rpc("fill_workbook", params());
         log(`Excel fill: ${res.status || ""} filled=${res.filled || 0} narrative=${res.narrative || 0} notes=${res.annotated || 0} photos=${res.photos || 0} ${res.excel || ""}\n`);
         if ($("results-db-hint")) {
           $("results-db-hint").textContent = `Excel ${res.status}: ${res.excel || ""} (${res.filled || 0} cells, ${res.narrative || 0} intro, ${res.photos || 0} photos)`;

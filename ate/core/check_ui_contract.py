@@ -78,6 +78,12 @@ def main() -> int:
         errors.append("Copy tests between parts must stay parked")
     if 'id="btn-start"' not in html or 'id="btn-demo"' not in html:
         errors.append("START / DEMO controls missing")
+    if 'id="run-dock"' not in html or 'id="run-dock-go"' not in html:
+        errors.append("sticky right START/Continue #run-dock missing")
+    if 'id="run-need-hint"' not in html:
+        errors.append("Setup must say START uses ticked TestSpec ids (not all tiles)")
+    if "logic-dc-fold" not in html:
+        errors.append("#panel-logic-dc must collapse product_model JSON behind details")
     start_at = setup_html.find('id="btn-start"')
     plans_at = setup_html.find('id="test-plans"')
     if start_at < 0 or plans_at < 0 or start_at > plans_at:
@@ -328,6 +334,8 @@ def main() -> int:
             errors.append("boot must separate ping-fail from campaign-load fail")
         if "visa_backend" not in js:
             errors.append("session hint must show visa_backend")
+        if "not on bus" not in js or "USBTMC Unknown" not in js:
+            errors.append("session hint must name missing AWG (PnP Unknown / not on bus)")
         if "No USB instruments" not in js:
             errors.append("Discover empty must notice so USB recording is not a silent {}")
         if "function notice(" not in js:
@@ -368,6 +376,15 @@ def main() -> int:
             errors.append("Discover empty must call notice, not window.alert")
         if disc and "setTiles(st.mapping" in disc:
             errors.append("empty Discover must not restore SIM tiles as USB-detected")
+        if "tileMapFromStatus" not in js or "st.pnp" not in js:
+            errors.append("header tiles must light PnP-OK USB (connected AWG)")
+        if 'source.kind === "wrap"' not in js:
+            errors.append("Test program must hide leftover wrap src on ate/tests bodies")
+        if "stimPrefix" not in js or "testNeedsAwg" not in js:
+            errors.append("IOZ must not badge AWG DC when required_instruments has no AWG")
+        refresh = js[js.find("async function refreshSession") : js.find("const familyRail")]
+        if "tileMapFromStatus" not in refresh:
+            errors.append("refreshSession must not wipe Discover/PnP tiles with empty mapping")
         if 'const need = ["MSO", "PSU", "AWG"]' in js:
             errors.append("Open Session must not require all of MSO+PSU+AWG")
         if 'rpc("bench_preflight"' not in js:
@@ -384,7 +401,7 @@ def main() -> int:
             errors.append("selectedTests must read #test-list only (Tests page duplicates START)")
         if 'part: (dbContext && dbContext.part_key) || "rs622"' in js:
             errors.append("DEMO/START must not default part to rs622")
-        if 'rpc("fill_workbook")' not in js:
+        if 'rpc("fill_workbook"' not in js:
             errors.append("run complete must auto-fill Excel numbers")
         if "res.copilot" not in js:
             errors.append("Fetch datasheet must log ingest status")
@@ -432,8 +449,19 @@ def main() -> int:
         load_tests = js[js.find("async function loadTests") : js.find("async function refreshSession")]
         if "wrap.open = true" not in load_tests:
             errors.append("Test program fixture groups must open so per-test Parameters are visible")
-        if "<details class=\"test-spec-edit\">" in load_tests or "<details class='test-spec-edit'>" in load_tests:
-            errors.append("per-test Parameters must stay visible, not collapsed details")
+        if "<details class=\"test-spec-edit\">" not in js and "<details class='test-spec-edit'>" not in js:
+            errors.append("per-test Parameters must be collapsed details (click to expand)")
+        if "<details class=\"test-spec-edit\" open" in js or "<details class='test-spec-edit' open" in js:
+            errors.append("per-test Parameters must default closed")
+        if "clickStartOrContinue" not in js or "campaignAlreadyApplied" not in js:
+            errors.append("START must Continue when WAIT and skip applyDb when campaign already applied")
+        if "no Apply reload" not in js:
+            errors.append("START must pin campaign without applyDb reload (Failed to fetch)")
+        if "/fetch|network|Failed/" not in js:
+            errors.append("rpc must retry once on Failed to fetch")
+        params_fn = js[js.find("function params()") : js.find("function currentPartKey")]
+        if "operator: sel.operator" not in params_fn or "component: sel.component" not in params_fn:
+            errors.append("START params must pin Setup component/operator folder")
         if "Stimulus AWG" not in load_tests and "Stimulus AWG" not in js:
             errors.append("each test editor must show stimulus AWG shape")
         if "Limits / specifications" not in js:
@@ -456,6 +484,10 @@ def main() -> int:
         srv = (WEB.parents[1] / "worker" / "server.py").read_text(encoding="utf-8")
         if "busy_locked" not in srv:
             errors.append("set_db_context must busy_locked so AnalogSwitch cannot steal a Logic run")
+        if "_pin_run_campaign" not in srv:
+            errors.append("run_sequence_async must pin START campaign after claim")
+        if "_session_bound_ctx" not in srv:
+            errors.append("Excel/STS export must bind the START campaign folder")
         if 'method == "cursor_prompt"' not in srv or 'method == "save_path_b_test"' not in srv:
             errors.append("worker must expose cursor_prompt and save_path_b_test")
         set_tp = srv[srv.find('if method == "set_test_params"') : srv.find('if method == "import_tags"')]
@@ -473,7 +505,13 @@ def main() -> int:
             if f'paramNumInput("{timing_key}"' not in js:
                 errors.append(f"Parameters must expose recipe timing {timing_key}")
         if 'data-param="screenshot_from"' not in js:
-            errors.append("Parameters must expose screenshot_from (none | MSO)")
+            errors.append("Parameters must expose screenshot_from (none | MSO | DMM)")
+        if 'option value="dmm"' not in js:
+            errors.append("screenshot_from must include DMM when the TestSpec needs DMM")
+        if 'needsDmm && !needsMso ? "dmm"' not in js:
+            errors.append("DMM-only tests must default screenshot_from=dmm, never MSO")
+        if "!needsMso && needsDmm" not in js:
+            errors.append("stale screenshot_from=mso on DMM-only tests must coerce to dmm")
         if "campaignTestOrderIds" not in js or "initCampaignTestReorder" not in js:
             errors.append("Path A customize must HTML5-reorder enabled_tests (not A14 xyflow)")
         if "campaign-drag-handle" not in js:

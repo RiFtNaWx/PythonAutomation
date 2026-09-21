@@ -63,14 +63,15 @@ enabled_tests:
 
 fixture_modes:
   LOGIC:
-    label: "Logic board (RS1G126 / Path B DC)"
+    label: "Logic board (RS1G126)"
     board_class: general
     checklist:
       - "Continue waits before VOH/VOL (setups differ on every logic board)"
       - "RS1G126 is small logic (bus buffer), not analog switch."
       - "OE active high. IOZ when OE inactive (data don't-care, Vout sweep)."
+      - "IOZ wires: PSU CH1=VCC pin5, CH2=Y pin4 through DMM DCI, CH3=OE pin1 inactive L. Strap A pin2 to GND. MSO not connected. Probe CHA."
       - "truth_table.status=CONFIRMED (Jian Hong 2026-09-17). Not a bench green."
-      - "ten/tdis remain AC (Path B DC does not replace them)."
+      - "ten/tdis remain AC. IOZ is OE-off leakage (not IOFF at VCC=0)."
     tests:
       - tp
       - ten
@@ -159,6 +160,7 @@ product_model:
     psu:
       CH1: {pin: VCC, number: 5, role: vcc}
       CH2: {pin: Y, number: 4, role: output, use: load}
+      CH3: {pin: OE, number: 1, role: oe, use: ioz Hi-Z}
     awg:
       CH1: {pin: A, number: 2, role: input}
       CH2: {pin: OE, number: 1, role: oe}
@@ -207,10 +209,8 @@ product_model:
         dmm: Y
         scope: {CH1: {pin: Y, number: 4, role: output, use: debug}}
       ioz:
-        psu: [CH1, CH2]
-        awg: [CH1, CH2]
+        psu: [CH1, CH2, CH3]
         dmm: Y
-        scope: {CH1: {pin: Y, number: 4, role: output, use: debug}}
       ioff:
         psu: [CH1, CH2]
         awg: [CH1, CH2]
