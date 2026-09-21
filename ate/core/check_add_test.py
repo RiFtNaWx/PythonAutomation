@@ -585,6 +585,18 @@ def _check_ariff_dc_scale() -> list[str]:
     ariff_src = _src(REPO / "ate" / "tests" / "logic" / "ariff_dc.py")
     if "yaml_explicit" not in ariff_src or "max(listed) < 4.5" not in ariff_src:
         errors.append("vih_vil must not append 4.5..5.5 when yaml list is low-only (AUP)")
+    eug_src = _src(EUGENE)
+    if "vih_vil_vcc_list" not in eug_src or "max(listed) < 4.5" not in eug_src:
+        errors.append("eugene IDD must honor yaml low-only VCC (AUP) instead of inventing 5.5")
+    from ate.core.runner import RunParams
+    from ate.tests.logic.eugene_cap import _idd_vccs
+
+    aup_idd = _idd_vccs(RunParams(part="rs74aup1g07"))
+    if not aup_idd or max(aup_idd) >= 4.5 - 1e-9:
+        errors.append(f"AUP IDD VCC must stay below 4.5, got {aup_idd}")
+    g07_idd = _idd_vccs(RunParams(part="rs1g07"))
+    if 5.5 not in g07_idd:
+        errors.append(f"RS1G07 IDD must keep 5.5 V corner, got {g07_idd}")
     settle_src = _src(REPO / "ate" / "tests" / "opa" / "settling.py")
     if "SETTLE_us" in settle_src:
         errors.append("settling must not stamp MSO delay as SETTLE_us")

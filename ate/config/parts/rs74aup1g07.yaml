@@ -17,6 +17,7 @@ timing:
   timeout_s: 4.0
   settle_s: 0.3
 vih_vil_vcc_list: [1.8, 2.5, 3.3]
+# IDD reuses that list (eugene_cap). Do not invent 5.5 V until PDF.
 enabled_tests:
   - vih_vil
   - supply_current

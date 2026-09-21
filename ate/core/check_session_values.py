@@ -11,6 +11,10 @@ from pathlib import Path
 
 def main() -> int:
     errors: list[str] = []
+    fill_src = Path(__file__).resolve().parents[1] / "reporting" / "session_values.py"
+    fill_txt = fill_src.read_text(encoding="utf-8")
+    if "mkdtemp" not in fill_txt or "ate_xlsx_" not in fill_txt:
+        errors.append("fill_workbook_from_report must fill a local temp xlsx then copy dest")
     tmp = Path(tempfile.mkdtemp(prefix="ate_a19_values_"))
     from openpyxl import Workbook, load_workbook
 

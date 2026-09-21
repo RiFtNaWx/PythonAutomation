@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import re
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -477,17 +478,6 @@ def fill_workbook_from_report(
     if not src.is_file():
         return {"filled": 0, "skipped": 0, "status": "no_workbook", "excel": str(src)}
     path = _golden_dest(src, demo=demo, copy_golden=copy_golden)
-    if path.resolve() != src.resolve():
-        try:
-            shutil.copy2(src, path)
-        except Exception as exc:
-            return {
-                "filled": 0,
-                "skipped": 0,
-                "status": "error",
-                "excel": str(src),
-                "error": str(exc),
-            }
 
     writes: list[tuple[str, str, Any]] = []
     skipped = 0
@@ -545,8 +535,22 @@ def fill_workbook_from_report(
     annotate = True
     part_key = str(getattr(c, "part_key", "") or "")
     on_copy = path.resolve() != src.resolve()
+    # OneDrive xlsx: load/save locally then copy *_filled.xlsx back (cloud lock hangs 60s+).
+    tmp_dir = Path(tempfile.mkdtemp(prefix="ate_xlsx_"))
+    work = tmp_dir / path.name
     try:
-        wb = load_workbook(path)
+        shutil.copy2(src, work)
+    except Exception as exc:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        return {
+            "filled": 0,
+            "skipped": skipped,
+            "status": "error",
+            "excel": str(src),
+            "error": str(exc),
+        }
+    try:
+        wb = load_workbook(work)
         n = 0
         for sh, cell, val in writes:
             if sh not in wb.sheetnames or not cell:
@@ -568,13 +572,7 @@ def fill_workbook_from_report(
         narrative_n = nar
         notes += nar_notes
         n += nar
-        try:
-            wb.save(path)
-        except PermissionError:
-            alt = path.with_name(path.stem + "_filled.xlsx")
-            wb.save(alt)
-            saved = alt
-            status = "locked"
+        wb.save(work)
         try:
             wb.close()
         except Exception:
@@ -584,10 +582,18 @@ def fill_workbook_from_report(
             try:
                 from ate.reporting.session_paste import paste_session_photos
 
-                pasted = paste_session_photos(workbook_path=saved, ctx=c)
+                pasted = paste_session_photos(workbook_path=work, ctx=c)
                 photos_n = int(pasted.get("pasted") or 0)
             except Exception as exc:
                 _LOG.warning("fill photos: %s", exc)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(work, path)
+        except PermissionError:
+            alt = path.with_name(path.stem + "_filled.xlsx")
+            shutil.copy2(work, alt)
+            saved = alt
+            status = "locked"
         return {
             "filled": n,
             "skipped": skipped,
@@ -609,3 +615,4 @@ def fill_workbook_from_report(
                 wb.close()
             except Exception:
                 pass
+        shutil.rmtree(tmp_dir, ignore_errors=True)

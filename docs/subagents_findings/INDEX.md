@@ -1,5 +1,6 @@
 | Date | File | Keywords |
 |------|------|----------|
+| 2026-09-21 | 2026-09-21_fill-excel-aup-idd-awg.md | fill-excel, onedrive, tempfile, aup-idd, awg-pnp, rs1gt34, leftover-honest |
 | 2026-09-21 | 2026-09-21_screenshot-from-mso.md | screenshot_from, mso, visa-poison, parameters-write, rs74aup, rs3235, leftover-honest |
 | 2026-09-21 | 2026-09-21_rs1g126-recipe-awg-unknown.md | rs1g126, ioz, recipe, awg, pnp-unknown, catalog, gt34-mix, leftover-honest |
 | 2026-09-21 | 2026-09-21_rs1g126-ioz-usb-awg.md | rs1g126, ioz, usb, awg, start, ui, test_params, csv, excel, leftover-honest |

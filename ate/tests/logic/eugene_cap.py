@@ -180,6 +180,28 @@ def run_cpd(instr, params: RunParams) -> dict[str, Any]:
     }
 
 
+def _idd_vccs(params: RunParams) -> list[float]:
+    """Overlay vcc_list, else yaml low-only list, else G-family 1.65..5.5."""
+    overlay = list(getattr(params, "vcc_list", None) or [])
+    if overlay:
+        return [float(v) for v in overlay]
+    key = str(getattr(params, "part", None) or "").strip().lower()
+    from ate.core.paths import PARTS_DIR
+    import yaml
+
+    path = PARTS_DIR / f"{key}.yaml"
+    cfg: dict[str, Any] = {}
+    if path.is_file():
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        cfg = data if isinstance(data, dict) else {}
+    raw = cfg.get("idd_vcc_list") or cfg.get("vih_vil_vcc_list")
+    if isinstance(raw, list) and raw:
+        listed = [float(v) for v in raw]
+        if listed and max(listed) < 4.5 - 1e-9:
+            return listed
+    return [1.65, 3.3, 5.0, 5.5]
+
+
 def run_idd(instr, params: RunParams) -> dict[str, Any]:
     """RS1G07 IDD: PSU CH1 VCC corners, AWG CH1 DC 0/5.5 on Input A, DMM DCI.
 
@@ -196,8 +218,9 @@ def run_idd(instr, params: RunParams) -> dict[str, Any]:
         return {"summary": "aborted", "data": {}}
     dmm_setup_current_continuous(instr.dmm)
     ilim = _ilim(params)
-    vccs = [1.65, 3.3, 5.0, 5.5]
-    inputs = [0.0, 5.5]
+    vccs = _idd_vccs(params)
+    hi = max(vccs) if vccs else 5.5
+    inputs = [0.0, hi]
     rows: list[dict[str, Any]] = []
     hook = params.progress_hook
     last_ua: float | None = None
