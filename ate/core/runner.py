@@ -98,6 +98,7 @@ class RunParams:
     timeout_s: Optional[float] = None
     dwell_s: Optional[float] = None
     vin_step: Optional[float] = None  # VIH/VIL VIN trip; None = 0.01 V
+    screenshot_from: str = ""  # Parameters Write: none | mso
     test_params: dict[str, dict[str, Any]] = field(default_factory=dict)
     progress_hook: Optional[Callable[..., None]] = field(default=None, repr=False)
     pause_hook: Optional[Callable[[str], bool]] = field(default=None, repr=False)
@@ -200,6 +201,11 @@ class RunParams:
         rails = raw.get("rails")
         if isinstance(rails, dict) and rails:
             kw["rails"] = dict(rails)
+        shot = str(raw.get("screenshot_from") or "").strip().lower()
+        if shot in ("mso", "scope"):
+            kw["screenshot_from"] = "mso"
+        elif shot in ("none", "off", "0"):
+            kw["screenshot_from"] = "none"
         return replace(self, **kw) if kw else self
 
     def resolved_lab_report(self) -> str:
@@ -426,18 +432,32 @@ class ATECore:
             self.gate.auto_continue = False
             self._log("Session closed.")
 
-    def capture_screenshot(self, prefix: str = "manual", test_key: str = "ORT") -> str:
+    def capture_screenshot(
+        self,
+        prefix: str = "manual",
+        test_key: str = "ORT",
+        dut_index: int | None = None,
+    ) -> str:
         if self._instr is None or self._instr.scope is None:
             raise RuntimeError("Open Session first — need live MSO5072.")
         ctx = get_context()
-        out = ensure_screenshot_dir(test_key, None)
+        out = ensure_screenshot_dir(test_key, dut_index)
         ts = datetime.now(MYT).strftime("%Y-%m-%d_%H%M%S")
         path = out / f"{prefix}_{ts}.jpg"
         self._log(f"MSO5072 JPEG -> {path}")
         self._log(f"DB context: {ctx.component}/{ctx.part}/{ctx.package}/{ctx.version}")
         from ate.drivers.mso5072 import capture_jpeg
 
-        return capture_jpeg(self._instr.scope, path)
+        try:
+            return capture_jpeg(self._instr.scope, path)
+        except Exception as exc:
+            if not _visa_poison(exc) and not _visa_bus_error(exc):
+                raise
+            self._log(f"MSO :DISP:DATA? poison -- reopen handle once: {exc}")
+            self._reopen_mso_after_visa()
+            if self._instr is None or self._instr.scope is None:
+                raise
+            return capture_jpeg(self._instr.scope, path)
 
     def operator_respond(self, data: dict) -> None:
         self.gate.respond(data)
@@ -1189,6 +1209,27 @@ class ATECore:
                     summary = str(data.get("summary") or data.get("message") or "OK")
                 else:
                     summary = "OK"
+                    data = {}
+                shot = str(getattr(params, "screenshot_from", "") or "").strip().lower()
+                if shot in ("mso", "scope"):
+                    if getattr(self._instr, "_simulated", False):
+                        self._log(f"{spec.id} screenshot_from=mso skipped on SIM")
+                    elif self._instr.scope is None:
+                        self._log(f"{spec.id} screenshot_from=mso skipped: no MSO")
+                    else:
+                        try:
+                            path = self.capture_screenshot(
+                                prefix=spec.id,
+                                test_key=str(spec.id or "MSO"),
+                                dut_index=dut,
+                            )
+                            shots = list((data or {}).get("screenshots") or [])
+                            shots.append(path)
+                            data = dict(data or {})
+                            data["screenshots"] = shots
+                            data["screenshot"] = path
+                        except Exception as exc:
+                            self._log(f"{spec.id} screenshot_from=mso skip: {exc}")
                 self._progress(
                     spec.id,
                     "pass",

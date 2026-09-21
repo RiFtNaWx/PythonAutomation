@@ -97,6 +97,22 @@ def main() -> int:
         errors.append(f"overlay_for timing {timing_over.settle_s} {timing_over.dwell_s}")
     if timing_over.timeout_s != 30.0:
         errors.append(f"overlay_for timeout_s {timing_over.timeout_s}")
+    shot_clean = _clean_test_param_block({"screenshot_from": "mso", "settle_s": 0.3})
+    if shot_clean.get("screenshot_from") != "mso":
+        errors.append("Write screenshot_from=mso must persist (not stripped)")
+    if shot_clean.get("settle_s") != 0.3:
+        errors.append("screenshot_from Write must keep settle_s")
+    shot_over = RunParams(
+        test_params={"icc": {"screenshot_from": "mso"}}
+    ).overlay_for("icc")
+    if getattr(shot_over, "screenshot_from", "") != "mso":
+        errors.append("overlay_for must apply screenshot_from=mso")
+    rtxt = Path(__file__).with_name("runner.py").read_text(encoding="utf-8")
+    cap = rtxt[rtxt.find("def capture_screenshot") : rtxt.find("def operator_respond")]
+    if "_reopen_mso_after_visa" not in cap:
+        errors.append("capture_screenshot must reopen MSO after :DISP:DATA? poison")
+    if "screenshot_from=mso skipped on SIM" not in rtxt:
+        errors.append("_run_one must honor screenshot_from from Parameters Write")
     from ate.core.progress import who_has_tests
 
     who_rows = who_has_tests(limit=20)

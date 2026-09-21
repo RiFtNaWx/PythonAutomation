@@ -1409,6 +1409,11 @@ def _clean_test_param_block(raw: Any) -> dict[str, Any]:
             raw = "step"
         if raw in ("named", "step", "list", "grid"):
             out[key] = raw
+    shot = str(src.get("screenshot_from") or "").strip().lower()
+    if shot in ("mso", "scope"):
+        out["screenshot_from"] = "mso"
+    elif shot in ("none", "off", "0"):
+        out["screenshot_from"] = "none"
     levels = _clean_float_list(src.get("levels"), cap=8)
     if levels:
         out["levels"] = levels

@@ -1,5 +1,9 @@
 | Date | File | Keywords |
 |------|------|----------|
+| 2026-09-21 | 2026-09-21_screenshot-from-mso.md | screenshot_from, mso, visa-poison, parameters-write, rs74aup, rs3235, leftover-honest |
+| 2026-09-21 | 2026-09-21_rs1g126-recipe-awg-unknown.md | rs1g126, ioz, recipe, awg, pnp-unknown, catalog, gt34-mix, leftover-honest |
+| 2026-09-21 | 2026-09-21_rs1g126-ioz-usb-awg.md | rs1g126, ioz, usb, awg, start, ui, test_params, csv, excel, leftover-honest |
+| 2026-09-21 | 2026-09-21_usb-icc-start-outputs.md | usb, start, icc, rs1gt34, json, csv, excel, pdf, continue, leftover-honest |
 | 2026-09-21 | 2026-09-21_ui-click-demo-proof.md | ui, click, DEMO, Apply, Open SIM, test_params, settle_s, leftover-honest |
 | 2026-09-21 | 2026-09-21_pyvisa-load-timing-sim.md | pyvisa, visa, open_timeout, LOAD INF, loopback, check_visa, check_sim_run, leftover-honest |
 | 2026-09-21 | 2026-09-21_perfect-ate-goal-wave.md | goal, perfect-ate, dmm-mso-y, loopback, pack-zip, logic-app-scale, leftover-honest |
